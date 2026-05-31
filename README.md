@@ -51,7 +51,20 @@ models/PP-DocLayoutV3-onnx/
   inference.yml
 ```
 
-If you already have an exported PP-DocLayoutV3 ONNX directory, copy it with:
+Download the verified ONNX model directly from Hugging Face:
+
+```powershell
+pip install -e .[download]
+python scripts/download_ppdoclayoutv3_onnx.py
+```
+
+Model link:
+
+```text
+https://huggingface.co/AlexTransformer/PP-DocLayoutV3-onnx
+```
+
+If you already have the verified ONNX directory locally, copy it with:
 
 ```powershell
 python scripts/download_ppdoclayoutv3_onnx.py `

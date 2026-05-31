@@ -41,7 +41,20 @@ models/PP-DocLayoutV3-onnx/
   inference.yml
 ```
 
-如果你已经有导出的 PP-DocLayoutV3 ONNX 目录，可以复制：
+直接从 Hugging Face 下载已验证的 ONNX 模型：
+
+```powershell
+pip install -e .[download]
+python scripts/download_ppdoclayoutv3_onnx.py
+```
+
+模型链接：
+
+```text
+https://huggingface.co/AlexTransformer/PP-DocLayoutV3-onnx
+```
+
+如果你本地已经有已验证的 ONNX 目录，也可以复制：
 
 ```powershell
 python scripts/download_ppdoclayoutv3_onnx.py `
