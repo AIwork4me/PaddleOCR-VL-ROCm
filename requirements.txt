@@ -1,0 +1,8 @@
+numpy>=1.26.0
+onnxruntime>=1.18.0
+opencv-python-headless>=4.9.0
+pillow>=10.0.0
+requests>=2.32.0
+rich>=13.0.0
+shapely>=2.0.0
+
