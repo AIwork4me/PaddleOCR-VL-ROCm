@@ -143,6 +143,25 @@ python -m pytest -q
 paddleocr-vl-rocm --help
 ```
 
+## 开发
+
+安装开发工具并运行完整的本地检查：
+
+```powershell
+pip install -e .[dev]
+./scripts/check.ps1   # Linux/macOS: bash scripts/check.sh
+```
+
+该检查会运行 `compileall`、`ruff check`、`ruff format --check`、`mypy src` 和 `pytest`。
+
+要建立 characterization 固定数据（需要一次 VLM 服务）：
+
+```powershell
+python scripts/record_trace.py --server-url http://127.0.0.1:8000/v1
+```
+
+这会记录 `tests/fixtures/compat_cache.json` 和 golden 输出，使 `tests/test_pipeline_characterization.py` 可以在没有服务的情况下逐字节重放推理链路。如果固定数据或 layout 模型缺失，该测试会自动跳过。
+
 ## 说明
 
 ROCm 加速发生在 VLM 服务端。本仓库负责 ONNXRuntime layout、文档区域裁剪、

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,10 @@ from rich.console import Console
 
 def get_console() -> Console:
     return Console(highlight=False)
+
+
+def get_logger(name: str = "paddleocr_vl_rocm") -> logging.Logger:
+    return logging.getLogger(name)
 
 
 def ensure_input_file(path: str | Path) -> Path:

@@ -13,3 +13,5 @@ outputs/
 .env
 .env.local
 
+tests/fixtures/_tmp_record/
+

@@ -11,6 +11,9 @@ from PIL import Image
 from ..constants import IMAGE_LABELS, PROMPTS
 from ..encoding import _data_url_from_bytes, _image_data_url, _jpeg_bytes, _png_bytes, _sha256_hex
 from ..server import normalize_server_url
+from ..utils import get_logger
+
+_logger = get_logger(__name__)
 
 
 def _vlm_cache_key(
@@ -192,12 +195,19 @@ class OpenAICompatibleVLMClient:
                     timeout=self.timeout,
                 )
                 if response.status_code in {429, 500, 502, 503, 504} and attempt < 3:
+                    _logger.warning(
+                        "VLM request %s (attempt %d), retrying in %.1fs",
+                        response.status_code,
+                        attempt + 1,
+                        1.5 * (attempt + 1),
+                    )
                     time.sleep(1.5 * (attempt + 1))
                     continue
                 response.raise_for_status()
                 break
             except requests.RequestException as exc:
                 last_error = exc
+                _logger.warning("VLM request error (attempt %d): %s", attempt + 1, exc)
                 if attempt >= 3:
                     raise
                 time.sleep(1.5 * (attempt + 1))

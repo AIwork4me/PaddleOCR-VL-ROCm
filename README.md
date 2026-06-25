@@ -154,6 +154,25 @@ python -m pytest -q
 paddleocr-vl-rocm --help
 ```
 
+## Development
+
+Install with dev tooling and run the full local check:
+
+```powershell
+pip install -e .[dev]
+./scripts/check.ps1   # Linux/macOS: bash scripts/check.sh
+```
+
+The check runs `compileall`, `ruff check`, `ruff format --check`, `mypy src`, and `pytest`.
+
+To establish the characterization fixtures (requires the VLM server once):
+
+```powershell
+python scripts/record_trace.py --server-url http://127.0.0.1:8000/v1
+```
+
+This records `tests/fixtures/compat_cache.json` and golden outputs so `tests/test_pipeline_characterization.py` can replay the pipeline byte-for-byte without a server. The test skips automatically if fixtures or the layout model are absent.
+
 ## Notes
 
 ROCm acceleration is provided by the VLM server. This Python package handles
