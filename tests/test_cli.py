@@ -24,4 +24,3 @@ def test_cli_parser_accepts_documented_smoke_command():
     assert args.input.endswith("handwrite_ch_demo.png")
     assert args.vlm_backend == "vllm-server"
     assert args.api_model_name == "PaddleOCR-VL-1.5-0.9B"
-

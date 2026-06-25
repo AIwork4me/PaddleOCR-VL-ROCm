@@ -74,7 +74,9 @@ def to_jsonable(value: Any, depth: int = 0, max_depth: int = 8) -> Any:
 def write_json(path: str | Path, value: Any) -> Path:
     resolved = Path(path)
     resolved.parent.mkdir(parents=True, exist_ok=True)
-    resolved.write_text(json.dumps(to_jsonable(value), ensure_ascii=False, indent=2), encoding="utf-8")
+    resolved.write_text(
+        json.dumps(to_jsonable(value), ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return resolved
 
 

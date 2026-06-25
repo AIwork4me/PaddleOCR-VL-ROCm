@@ -130,7 +130,9 @@ def _normalize_rgb(array: np.ndarray) -> np.ndarray:
     return cv2.merge(channels)
 
 
-def preprocess_layout_image(path: Path, target_size: int = 800) -> tuple[dict[str, np.ndarray], tuple[int, int], np.ndarray]:
+def preprocess_layout_image(
+    path: Path, target_size: int = 800
+) -> tuple[dict[str, np.ndarray], tuple[int, int], np.ndarray]:
     rgb, (width, height) = _read_layout_rgb(path)
     resized = _normalize_rgb(_resize_rgb(rgb, (target_size, target_size)))
     chw = np.transpose(resized, (2, 0, 1))[None, :, :, :]
@@ -155,12 +157,8 @@ def _iou(box_a: np.ndarray, box_b: np.ndarray) -> float:
     x2 = min(float(box_a[4]), float(box_b[4]))
     y2 = min(float(box_a[5]), float(box_b[5]))
     inter = max(0.0, x2 - x1 + 1.0) * max(0.0, y2 - y1 + 1.0)
-    area_a = max(0.0, float(box_a[4] - box_a[2] + 1.0)) * max(
-        0.0, float(box_a[5] - box_a[3] + 1.0)
-    )
-    area_b = max(0.0, float(box_b[4] - box_b[2] + 1.0)) * max(
-        0.0, float(box_b[5] - box_b[3] + 1.0)
-    )
+    area_a = max(0.0, float(box_a[4] - box_a[2] + 1.0)) * max(0.0, float(box_a[5] - box_a[3] + 1.0))
+    area_b = max(0.0, float(box_b[4] - box_b[2] + 1.0)) * max(0.0, float(box_b[5] - box_b[3] + 1.0))
     denom = area_a + area_b - inter
     return inter / denom if denom > 0 else 0.0
 
@@ -169,7 +167,9 @@ def _layout_nms(boxes: np.ndarray, iou_same: float = 0.6, iou_diff: float = 0.98
     return boxes[_layout_nms_indices(boxes, iou_same=iou_same, iou_diff=iou_diff)]
 
 
-def _layout_nms_indices(boxes: np.ndarray, iou_same: float = 0.6, iou_diff: float = 0.98) -> list[int]:
+def _layout_nms_indices(
+    boxes: np.ndarray, iou_same: float = 0.6, iou_diff: float = 0.98
+) -> list[int]:
     if boxes.size == 0:
         return []
     indices = np.argsort(boxes[:, 1])[::-1].tolist()
@@ -208,13 +208,25 @@ def _check_containment(
         for j in range(len(boxes)):
             if i == j:
                 continue
-            if formula_index is not None and boxes[i][0] == formula_index and boxes[j][0] != formula_index:
+            if (
+                formula_index is not None
+                and boxes[i][0] == formula_index
+                and boxes[j][0] != formula_index
+            ):
                 continue
             if category_index is not None and mode is not None:
-                if mode == "large" and boxes[j][0] == category_index and _is_contained(boxes[i], boxes[j]):
+                if (
+                    mode == "large"
+                    and boxes[j][0] == category_index
+                    and _is_contained(boxes[i], boxes[j])
+                ):
                     contained_by_other[i] = 1
                     contains_other[j] = 1
-                elif mode == "small" and boxes[i][0] == category_index and _is_contained(boxes[i], boxes[j]):
+                elif (
+                    mode == "small"
+                    and boxes[i][0] == category_index
+                    and _is_contained(boxes[i], boxes[j])
+                ):
                     contained_by_other[i] = 1
                     contains_other[j] = 1
             elif _is_contained(boxes[i], boxes[j]):
@@ -248,7 +260,10 @@ def _apply_layout_merge_mode(boxes: np.ndarray, merge_mode: dict[int, str] | Non
     return boxes[_layout_merge_keep_mask(boxes, merge_mode)]
 
 
-def _unclip_boxes(boxes: np.ndarray, unclip_ratio: float | tuple[float, float] | list[float] | dict[int, tuple[float, float]] | None) -> np.ndarray:
+def _unclip_boxes(
+    boxes: np.ndarray,
+    unclip_ratio: float | tuple[float, float] | list[float] | dict[int, tuple[float, float]] | None,
+) -> np.ndarray:
     if unclip_ratio is None or boxes.size == 0:
         return boxes
     if isinstance(unclip_ratio, (int, float)):
@@ -303,7 +318,9 @@ def _rect_from_box(box: np.ndarray) -> np.ndarray:
     return np.asarray([[x1, y1], [x2, y1], [x2, y2], [x1, y2]], dtype=np.float32)
 
 
-def _polygon_overlap_ratio(poly_a: np.ndarray | list[list[float]], poly_b: np.ndarray | list[list[float]], mode: str) -> float:
+def _polygon_overlap_ratio(
+    poly_a: np.ndarray | list[list[float]], poly_b: np.ndarray | list[list[float]], mode: str
+) -> float:
     try:
         from shapely.geometry import Polygon
 
@@ -616,7 +633,11 @@ def postprocess_layout(
     raw_masks: np.ndarray | None = None,
     threshold: float = 0.5,
     layout_nms: bool = False,
-    layout_unclip_ratio: float | tuple[float, float] | list[float] | dict[int, tuple[float, float]] | None = None,
+    layout_unclip_ratio: float
+    | tuple[float, float]
+    | list[float]
+    | dict[int, tuple[float, float]]
+    | None = None,
     layout_merge_bboxes_mode: dict[int, str] | None = None,
 ) -> list[LayoutBox]:
     raw_boxes = raw_boxes.copy()
@@ -730,7 +751,11 @@ class PPDocLayoutV3Onnx:
         image_path: Path,
         threshold: float = 0.5,
         layout_nms: bool = False,
-        layout_unclip_ratio: float | tuple[float, float] | list[float] | dict[int, tuple[float, float]] | None = (1.0, 1.0),
+        layout_unclip_ratio: float
+        | tuple[float, float]
+        | list[float]
+        | dict[int, tuple[float, float]]
+        | None = (1.0, 1.0),
         layout_merge_bboxes_mode: dict[int, str] | None = None,
     ) -> tuple[list[LayoutBox], np.ndarray]:
         feeds, image_size, rgb = preprocess_layout_image(image_path)

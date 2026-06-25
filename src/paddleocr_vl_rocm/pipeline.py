@@ -66,6 +66,9 @@ class PaddleOCRVLROCm:
             import json
 
             payload = json.loads(json_path.read_text(encoding="utf-8"))
-            markdown = (tmp_dir / "result.md").read_text(encoding="utf-8") if (tmp_dir / "result.md").exists() else ""
+            markdown = (
+                (tmp_dir / "result.md").read_text(encoding="utf-8")
+                if (tmp_dir / "result.md").exists()
+                else ""
+            )
         return PaddleOCRVLROCmResult(payload, markdown)
-

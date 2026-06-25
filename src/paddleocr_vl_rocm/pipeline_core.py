@@ -331,7 +331,9 @@ class OpenAICompatibleVLMClient:
 LlamaCppClient = OpenAICompatibleVLMClient
 
 
-def _prompt_for_label(label: str, use_chart_recognition: bool, use_seal_recognition: bool) -> str | None:
+def _prompt_for_label(
+    label: str, use_chart_recognition: bool, use_seal_recognition: bool
+) -> str | None:
     if label in IMAGE_LABELS:
         return None
     if label == "chart" and not use_chart_recognition:
@@ -457,7 +459,9 @@ def _gather_imgs_for_table_tokens(boxes: list[LayoutBox]) -> list[dict[str, Any]
 def _paint_token(image: Any, box: list[int], token_str: str) -> Any:
     import cv2
 
-    def get_optimal_font_scale(text: str, font_face: int, square_size: int, fill_ratio: float = 0.9) -> tuple[float, int, int]:
+    def get_optimal_font_scale(
+        text: str, font_face: int, square_size: int, fill_ratio: float = 0.9
+    ) -> tuple[float, int, int]:
         left, right = 0.2, 10
         optimal_scale = left
         while right - left > 1e-2:
@@ -476,7 +480,9 @@ def _paint_token(image: Any, box: list[int], token_str: str) -> Any:
     img = image.copy()
     cv2.rectangle(img, (x1, y1), (x2, y2), color=(255, 255, 255), thickness=-1)
     font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale, text_w, text_h = get_optimal_font_scale(token_str, font, min(box_w, box_h), fill_ratio=0.9)
+    font_scale, text_w, text_h = get_optimal_font_scale(
+        token_str, font, min(box_w, box_h), fill_ratio=0.9
+    )
     font_thickness = max(1, math.floor(font_scale * 4))
     text_x = x1 + (box_w - text_w) // 2
     text_y = y1 + (box_h + text_h) // 2
@@ -548,7 +554,9 @@ def _untokenize_figure_of_table(table_res_str: str, figure_token_map: dict[str, 
         img_path = figure_token_map.get(token)
         if img_path is None:
             return match.group(0)
-        return '<img src="{}" alt="Image"" />'.format(img_path.replace("-\n", "").replace("\n", " "))
+        return '<img src="{}" alt="Image"" />'.format(
+            img_path.replace("-\n", "").replace("\n", " ")
+        )
 
     return re.sub(r"\[F(\d+)\]", repl, table_res_str)
 
@@ -574,7 +582,9 @@ def _overlap_ratio(bbox_a: list[int], bbox_b: list[int], mode: str = "union") ->
     return inter / denom if denom > 0 else 0.0
 
 
-def _projection_overlap_ratio(bbox_a: list[int], bbox_b: list[int], direction: str, mode: str = "union") -> float:
+def _projection_overlap_ratio(
+    bbox_a: list[int], bbox_b: list[int], direction: str, mode: str = "union"
+) -> float:
     start_idx, end_idx = (0, 2) if direction == "horizontal" else (1, 3)
     overlap = min(bbox_a[end_idx], bbox_b[end_idx]) - max(bbox_a[start_idx], bbox_b[start_idx])
     if overlap <= 0:
@@ -685,7 +695,9 @@ def _merge_images(images: list[Image.Image], aligns: list[str]) -> Image.Image:
     return merged
 
 
-def _make_blocks(full_image: Image.Image, boxes: list[LayoutBox], bgr_image: Any | None = None) -> list[LightBlock]:
+def _make_blocks(
+    full_image: Image.Image, boxes: list[LayoutBox], bgr_image: Any | None = None
+) -> list[LightBlock]:
     def crop_box(box: LayoutBox) -> Image.Image:
         if bgr_image is not None:
             return _crop_from_bgr(bgr_image, box)
@@ -758,14 +770,16 @@ def _merge_blocks(blocks: list[LightBlock], non_merge_labels: set[str]) -> list[
             and block.label == prev_block.label
             and block_bbox[0] > prev_bbox[2]
             and block_bbox[1] < prev_bbox[3]
-            and block_bbox[0] - prev_bbox[2] < max(prev_bbox[2] - prev_bbox[0], block_bbox[2] - block_bbox[0]) * 0.3
+            and block_bbox[0] - prev_bbox[2]
+            < max(prev_bbox[2] - prev_bbox[0], block_bbox[2] - block_bbox[0]) * 0.3
         )
         is_updown_align = (
             iou_h > 0
             and block.label == "text"
             and block.label == prev_block.label
             and block_bbox[3] >= prev_bbox[1]
-            and abs(block_bbox[1] - prev_bbox[3]) < max(prev_bbox[3] - prev_bbox[1], block_bbox[3] - block_bbox[1]) * 0.5
+            and abs(block_bbox[1] - prev_bbox[3])
+            < max(prev_bbox[3] - prev_bbox[1], block_bbox[3] - block_bbox[1]) * 0.5
             and (is_aligned(block_bbox[0], prev_bbox[0]) ^ is_aligned(block_bbox[2], prev_bbox[2]))
             and overlaps_non_merge(idx, prev_idx)
         )
@@ -780,8 +794,7 @@ def _merge_blocks(blocks: list[LightBlock], non_merge_labels: set[str]) -> list[
         merged_groups.append((current_indices, current_aligns))
 
     group_ranges = [
-        (min(indices), max(indices), indices, aligns)
-        for indices, aligns in merged_groups
+        (min(indices), max(indices), indices, aligns) for indices, aligns in merged_groups
     ]
     result: list[LightBlock] = []
     used: set[int] = set()
@@ -792,7 +805,11 @@ def _merge_blocks(blocks: list[LightBlock], non_merge_labels: set[str]) -> list[
             if idx != start or any(group_idx in used for group_idx in group_indices):
                 continue
             group_found = True
-            images = [blocks[group_idx].image for group_idx in group_indices if blocks[group_idx].image is not None]
+            images = [
+                blocks[group_idx].image
+                for group_idx in group_indices
+                if blocks[group_idx].image is not None
+            ]
             width = max((image.width for image in images), default=0)
             height = sum(image.height for image in images)
             aspect_ratio = height / width if width else float("inf")
@@ -855,7 +872,9 @@ def _normalize_markdown_newlines(text: str) -> str:
 
 def _format_title_text(content: str) -> str:
     title = content.rstrip(".")
-    match = re.match(r"^\s*((?:\d+(?:\.\d+)*\.?|[一二三四五六七八九十百千万零]+[、.．]?))\s*(.*)$", title)
+    match = re.match(
+        r"^\s*((?:\d+(?:\.\d+)*\.?|[一二三四五六七八九十百千万零]+[、.．]?))\s*(.*)$", title
+    )
     if match and match.group(2):
         title = f"{match.group(1).strip()} {match.group(2).lstrip()}"
     level = title.count(".") + 1 if "." in title else 1
@@ -876,7 +895,9 @@ def _markdown_content_for_block(block: LightBlock, page_width: int) -> str | Non
     if label in {"formula", "display_formula", "inline_formula"}:
         return content
     if label == "table":
-        return "\n\n" + content.replace("<html>", "").replace("</html>", "").replace("<body>", "").replace("</body>", "")
+        return "\n\n" + content.replace("<html>", "").replace("</html>", "").replace(
+            "<body>", ""
+        ).replace("</body>", "")
     if label in {"image", "chart", "seal"} and block.image is not None:
         x1, y1, x2, y2 = block.bbox
         return f"![](imgs/img_in_{label}_box_{x1}_{y1}_{x2}_{y2}.jpg)"
@@ -931,7 +952,9 @@ def _otsl_pad_to_square(text: str) -> str:
     return OTSL_NL.join(repaired) + OTSL_NL
 
 
-def _otsl_parse_texts(texts: list[str], tokens: list[str]) -> tuple[list[TableCell], list[list[str]]]:
+def _otsl_parse_texts(
+    texts: list[str], tokens: list[str]
+) -> tuple[list[TableCell], list[list[str]]]:
     split_row_tokens = [
         list(group)
         for is_newline, group in itertools.groupby(tokens, lambda token: token == OTSL_NL)
@@ -959,14 +982,22 @@ def _otsl_parse_texts(texts: list[str], tokens: list[str]) -> tuple[list[TableCe
 
     def count_right(col: int, row: int, which: set[str]) -> int:
         span = 0
-        while row < len(split_row_tokens) and col < len(split_row_tokens[row]) and split_row_tokens[row][col] in which:
+        while (
+            row < len(split_row_tokens)
+            and col < len(split_row_tokens[row])
+            and split_row_tokens[row][col] in which
+        ):
             span += 1
             col += 1
         return span
 
     def count_down(col: int, row: int, which: set[str]) -> int:
         span = 0
-        while row < len(split_row_tokens) and col < len(split_row_tokens[row]) and split_row_tokens[row][col] in which:
+        while (
+            row < len(split_row_tokens)
+            and col < len(split_row_tokens[row])
+            and split_row_tokens[row][col] in which
+        ):
             span += 1
             row += 1
         return span
@@ -1019,10 +1050,7 @@ def _convert_otsl_to_html(text: str) -> str:
     num_rows = len(split_row_tokens)
     num_cols = max((len(row) for row in split_row_tokens), default=0)
     grid = [
-        [
-            TableCell("", 1, 1, row, row + 1, col, col + 1)
-            for col in range(num_cols)
-        ]
+        [TableCell("", 1, 1, row, row + 1, col, col + 1) for col in range(num_cols)]
         for row in range(num_rows)
     ]
     for cell in cells:
@@ -1051,11 +1079,23 @@ def _has_cjk(text: str) -> bool:
 
 
 def _should_keep_text_newlines(label: str, text: str, merged: bool) -> bool:
-    if label in {"table", "chart", "seal", "spotting", "vertical_text", "header", "vision_footnote"}:
+    if label in {
+        "table",
+        "chart",
+        "seal",
+        "spotting",
+        "vertical_text",
+        "header",
+        "vision_footnote",
+    }:
         return True
     if merged:
         return True
-    lines = [line.strip() for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n") if line.strip()]
+    lines = [
+        line.strip()
+        for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        if line.strip()
+    ]
     if len(lines) < 2:
         return False
     if _has_cjk(text):
@@ -1100,7 +1140,9 @@ def _find_shortest_repeating_substring(text: str) -> str | None:
     return None
 
 
-def _find_repeating_suffix(text: str, min_len: int = 8, min_repeats: int = 5) -> tuple[str, str, int] | None:
+def _find_repeating_suffix(
+    text: str, min_len: int = 8, min_repeats: int = 5
+) -> tuple[str, str, int] | None:
     for length in range(len(text) // min_repeats, min_len - 1, -1):
         unit = text[-length:]
         if text.endswith(unit * min_repeats):
@@ -1325,7 +1367,11 @@ def run_light_parser(
                 image_for_vlm = _crop_margin(image_for_vlm)
             trace_event: dict[str, Any] | None = None
             if vlm_trace_events is not None:
-                image_bytes = _jpeg_bytes(image_for_vlm) if vlm_backend == "vllm-server" else _png_bytes(image_for_vlm)
+                image_bytes = (
+                    _jpeg_bytes(image_for_vlm)
+                    if vlm_backend == "vllm-server"
+                    else _png_bytes(image_for_vlm)
+                )
                 trace_event = {
                     "backend": vlm_backend,
                     "model": api_model_name,
@@ -1344,7 +1390,9 @@ def run_light_parser(
                 vlm_trace_events.append(trace_event)
             vlm_tasks.append((block, prompt, image_for_vlm, trace_event))
 
-    def _run_vlm_task(task: tuple[LightBlock, str, Image.Image, dict[str, Any] | None]) -> tuple[LightBlock, str, dict[str, Any] | None]:
+    def _run_vlm_task(
+        task: tuple[LightBlock, str, Image.Image, dict[str, Any] | None],
+    ) -> tuple[LightBlock, str, dict[str, Any] | None]:
         block, prompt, image_for_vlm, trace_event = task
         if vlm_repeats <= 1:
             content = client.complete_image(

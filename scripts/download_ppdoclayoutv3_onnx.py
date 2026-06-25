@@ -19,7 +19,9 @@ def copy_model(source: Path, target: Path) -> None:
     print(f"PP-DocLayoutV3 ONNX model ready: {target}")
 
 
-def download_model(repo_id: str, target: Path, revision: str | None = None, cache_dir: Path | None = None) -> None:
+def download_model(
+    repo_id: str, target: Path, revision: str | None = None, cache_dir: Path | None = None
+) -> None:
     try:
         from huggingface_hub import snapshot_download
     except ImportError as exc:
@@ -38,15 +40,23 @@ def download_model(repo_id: str, target: Path, revision: str | None = None, cach
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Prepare the PP-DocLayoutV3 ONNX layout model directory.")
+    parser = argparse.ArgumentParser(
+        description="Prepare the PP-DocLayoutV3 ONNX layout model directory."
+    )
     parser.add_argument(
         "--repo-id",
         default=DEFAULT_REPO_ID,
         help=f"Hugging Face model repo id. Default: {DEFAULT_REPO_ID}",
     )
-    parser.add_argument("--revision", default=None, help="Optional Hugging Face revision, tag, or commit id.")
+    parser.add_argument(
+        "--revision", default=None, help="Optional Hugging Face revision, tag, or commit id."
+    )
     parser.add_argument("--cache-dir", default=None, help="Optional Hugging Face cache directory.")
-    parser.add_argument("--source-dir", default=None, help="Optional local directory containing inference.onnx and inference.yml.")
+    parser.add_argument(
+        "--source-dir",
+        default=None,
+        help="Optional local directory containing inference.onnx and inference.yml.",
+    )
     parser.add_argument("--target-dir", default="models/PP-DocLayoutV3-onnx")
     args = parser.parse_args()
     target = Path(args.target_dir).expanduser().resolve()

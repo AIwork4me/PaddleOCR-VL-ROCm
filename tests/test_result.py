@@ -20,6 +20,8 @@ def test_result_saves_paddleocr_vl_style_files(tmp_path):
 
     assert json_path.name == "handwrite_ch_demo_res.json"
     assert md_path.name == "handwrite_ch_demo.md"
-    assert json.loads(json_path.read_text(encoding="utf-8"))["parsing_res_list"][0]["block_content"] == "hello"
+    assert (
+        json.loads(json_path.read_text(encoding="utf-8"))["parsing_res_list"][0]["block_content"]
+        == "hello"
+    )
     assert md_path.read_text(encoding="utf-8") == "hello\n"
-

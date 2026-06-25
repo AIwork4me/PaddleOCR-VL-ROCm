@@ -18,4 +18,3 @@ def test_download_script_defaults_to_public_hf_repo():
 
     assert module.DEFAULT_REPO_ID == "AlexTransformer/PP-DocLayoutV3-onnx"
     assert module.REQUIRED_FILES == ["inference.onnx", "inference.yml"]
-
