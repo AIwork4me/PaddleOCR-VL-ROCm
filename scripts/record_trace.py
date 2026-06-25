@@ -14,9 +14,9 @@ import argparse
 import json
 from pathlib import Path
 
-import paddleocr_vl_rocm.pipeline_core as core
 from paddleocr_vl_rocm.encoding import _jpeg_bytes, _png_bytes, _sha256_hex
 from paddleocr_vl_rocm.pipeline_core import run_light_parser
+from paddleocr_vl_rocm.vlm import client
 from paddleocr_vl_rocm.vlm.client import _vlm_cache_key
 
 REPO = Path(__file__).resolve().parent.parent
@@ -36,7 +36,7 @@ def main() -> None:
     GOLDEN.mkdir(parents=True, exist_ok=True)
 
     recorded: dict[str, str] = {}
-    original = core.OpenAICompatibleVLMClient.complete_image
+    original = client.OpenAICompatibleVLMClient.complete_image
 
     def recording(
         self,
@@ -72,7 +72,7 @@ def main() -> None:
         recorded[key] = text
         return text
 
-    core.OpenAICompatibleVLMClient.complete_image = recording  # type: ignore[assignment]
+    client.OpenAICompatibleVLMClient.complete_image = recording  # type: ignore[assignment]
     try:
         for img in IMAGES:
             out_dir = FIXTURES / "_tmp_record"
@@ -103,7 +103,7 @@ def main() -> None:
             if md.exists():
                 (GOLDEN / f"{stem}.md").write_text(md.read_text(encoding="utf-8"), encoding="utf-8")
     finally:
-        core.OpenAICompatibleVLMClient.complete_image = original  # type: ignore[assignment]
+        client.OpenAICompatibleVLMClient.complete_image = original  # type: ignore[assignment]
         (FIXTURES / "_tmp_record").mkdir(parents=True, exist_ok=True)
 
     (FIXTURES / "compat_cache.json").write_text(
