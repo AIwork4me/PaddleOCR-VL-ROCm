@@ -43,6 +43,8 @@ def process_folder(
 
     Returns a summary dict with ``count``, ``ok``, and per-image ``stats``.
     """
+    if not img_dir.is_dir():
+        raise SystemExit(f"Image directory not found: {img_dir}")
     pipeline = PaddleOCRVLROCm(
         layout_model_dir=layout_model,
         vlm_server_url=server_url,

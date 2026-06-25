@@ -146,9 +146,16 @@ def _ensure_omnidocbench_checkout() -> Path:
     )
 
 
-def _resolve_report_path(config_path: Path, predictions_dir: Path, match_method: str) -> Path:
+def _resolve_report_path(checkout: Path, predictions_dir: Path, match_method: str) -> Path:
+    """Resolve the OmniDocBench metric report path under the checkout.
+
+    ``pdf_validation.py`` runs with ``cwd=checkout`` and writes its ``result/``
+    directory there, so the report lives at
+    ``<checkout>/result/<save>_metric_result.json`` where
+    ``<save> = basename(prediction.data_path) + "_" + match_method``.
+    """
     save = f"{predictions_dir.name}_{match_method}"
-    return RESULT_DIR / f"{save}_metric_result.json"
+    return checkout / RESULT_DIR / f"{save}_metric_result.json"
 
 
 def stage_eval(args: argparse.Namespace) -> None:
@@ -166,14 +173,13 @@ def stage_eval(args: argparse.Namespace) -> None:
     # pdf_validation.py is run from the checkout cwd (it writes ./result/ there).
     cmd = [sys.executable, PDF_VALIDATION, "--config", str(config.resolve())]
     print(f"[eval] Running in {checkout}: {' '.join(cmd)}")
-    # NOTE: not actually executed during this structural task. When run for real:
     result = subprocess.run(cmd, cwd=str(checkout), check=False)
     if result.returncode != 0:
         raise SystemExit(f"pdf_validation.py exited {result.returncode}")
 
     # Match the report path. match_method defaults to quick_match per config templates.
     match_method = args.match_method
-    report = _resolve_report_path(config, predictions_dir, match_method)
+    report = _resolve_report_path(checkout, predictions_dir, match_method)
     if report.exists():
         print(f"[eval] Report ready: {report}")
     else:
