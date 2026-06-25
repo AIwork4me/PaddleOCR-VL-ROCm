@@ -43,7 +43,7 @@ Modifies: `README.md`, `README.zh-CN.md` (cross-link to `eval/README.md`), `pypr
 
 ---
 
-## Task B1: Adapter + config templates
+## Task 1: Adapter + config templates (B1)
 
 **Files:**
 - Create: `eval/__init__.py`, `eval/PaddleOCRVLROCm_img2md.py`, `eval/configs/omnidocbench_v16.yaml`, `eval/configs/omnidocbench_v15.yaml`
@@ -204,7 +204,7 @@ git commit -m "feat(eval): add OmniDocBench adapter + v1.5/v1.6 config templates
 
 ---
 
-## Task B2: Dataset downloader + runner
+## Task 2: Dataset downloader + runner (B2)
 
 **Files:**
 - Create: `eval/download_omnidocbench.py`, `eval/run_eval.py`
@@ -271,7 +271,7 @@ git commit -m "feat(eval): add OmniDocBench dataset downloader + staged runner"
 
 ---
 
-## Task B3: Eval docs + pyproject note
+## Task 3: Eval docs + pyproject note (B3)
 
 **Files:**
 - Create: `eval/README.md`
