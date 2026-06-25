@@ -15,13 +15,9 @@ import json
 from pathlib import Path
 
 import paddleocr_vl_rocm.pipeline_core as core
-from paddleocr_vl_rocm.pipeline_core import (
-    _jpeg_bytes,
-    _png_bytes,
-    _sha256_hex,
-    _vlm_cache_key,
-    run_light_parser,
-)
+from paddleocr_vl_rocm.encoding import _jpeg_bytes, _png_bytes, _sha256_hex
+from paddleocr_vl_rocm.pipeline_core import run_light_parser
+from paddleocr_vl_rocm.vlm.client import _vlm_cache_key
 
 REPO = Path(__file__).resolve().parent.parent
 IMAGES = sorted((REPO / "examples" / "input").glob("*.png"))

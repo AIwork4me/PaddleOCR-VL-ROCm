@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from paddleocr_vl_rocm.pipeline_core import _completion_payload
+from paddleocr_vl_rocm.vlm.client import _completion_payload
 
 
 def test_vllm_payload_matches_openai_compatible_shape():
