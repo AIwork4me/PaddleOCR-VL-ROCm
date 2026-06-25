@@ -29,6 +29,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-url", default="http://127.0.0.1:8000/v1")
     parser.add_argument("--api-model-name", default="PaddleOCR-VL-1.5-0.9B")
+    parser.add_argument(
+        "--vlm-backend", default="vllm-server", choices=["vllm-server", "llama-cpp-server"]
+    )
     parser.add_argument("--layout-model", default="models/PP-DocLayoutV3-onnx")
     args = parser.parse_args()
 
@@ -82,7 +85,7 @@ def main() -> None:
                 output_dir=out_dir,
                 model_dir=Path(args.layout_model),
                 server_url=args.server_url,
-                vlm_backend="vllm-server",
+                vlm_backend=args.vlm_backend,
                 api_model_name=args.api_model_name,
                 max_new_tokens=4096,
                 timeout=300.0,
@@ -108,6 +111,21 @@ def main() -> None:
 
     (FIXTURES / "compat_cache.json").write_text(
         json.dumps({"entries": recorded}, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    # Self-describing metadata so the replay test uses the SAME backend / model / layout path
+    # used to record (the cache key's image-sha depends on backend-specific image encoding).
+    (FIXTURES / "record_meta.json").write_text(
+        json.dumps(
+            {
+                "vlm_backend": args.vlm_backend,
+                "api_model_name": args.api_model_name,
+                "layout_model": str(Path(args.layout_model)),
+                "server_url": args.server_url,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
     )
     print(
         f"Recorded {len(recorded)} VLM responses and {len(IMAGES)} golden outputs into {FIXTURES}"

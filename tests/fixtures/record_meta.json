@@ -1,0 +1,6 @@
+{
+  "vlm_backend": "llama-cpp-server",
+  "api_model_name": "PaddleOCR-VL-1.6-GGUF.gguf",
+  "layout_model": "models/PP-DocLayoutV3-onnx",
+  "server_url": "http://127.0.0.1:8111/v1"
+}

@@ -1,0 +1,363 @@
+{
+  "input_path": "C:\\Users\\rocm\\Desktop\\PaddleOCR-VL-ROCm\\examples\\input\\ancient_demo.png",
+  "page_index": null,
+  "page_count": null,
+  "width": 467,
+  "height": 668,
+  "model_settings": {
+    "use_doc_preprocessor": false,
+    "use_layout_detection": true,
+    "use_chart_recognition": false,
+    "use_seal_recognition": false,
+    "use_ocr_for_image_block": false,
+    "format_block_content": false,
+    "merge_layout_blocks": true,
+    "markdown_ignore_labels": [
+      "number",
+      "footnote",
+      "header",
+      "header_image",
+      "footer",
+      "footer_image",
+      "aside_text"
+    ],
+    "return_layout_polygon_points": true
+  },
+  "parsing_res_list": [
+    {
+      "block_label": "vertical_text",
+      "block_content": "之佐殷周無貴伊呂之輔矣今奏考功者陳周漢之法\n為終京房之本旨可謂明考課之要矣於以崇揖讓之\n風興濟濟之治臣以為未盡善也其欲使州郡考士必\n由四科皆有事故然後察舉試辟公府為親民長吏轉\n以功次補郡守者或就增秩賜爵此最考課之急務也\n臣以為便當顯其身用其言使具為課州郡之法法具\n施行立必信之賞施必行之罰至於公卿及內職大臣\n亦當俱以其職考課之也",
+      "block_bbox": [
+        147,
+        26,
+        456,
+        649
+      ],
+      "block_id": 0,
+      "block_order": 1,
+      "group_id": 0,
+      "block_polygon_points": [
+        [
+          147.0,
+          26.0
+        ],
+        [
+          456.0,
+          26.0
+        ],
+        [
+          456.0,
+          649.0
+        ],
+        [
+          147.0,
+          649.0
+        ]
+      ]
+    },
+    {
+      "block_label": "vertical_text",
+      "block_content": "古之三公。坐而論道。內職大臣。納言補闕。無善不紀。無\n過不舉。且天下至大。萬機至衆。誠非一明所能徧照。故\n君為元首。臣作股肱。明其一體相須而成也。是以古人",
+      "block_bbox": [
+        19,
+        29,
+        142,
+        646
+      ],
+      "block_id": 1,
+      "block_order": 2,
+      "group_id": 1,
+      "block_polygon_points": [
+        [
+          19.0,
+          29.0
+        ],
+        [
+          142.0,
+          29.0
+        ],
+        [
+          142.0,
+          646.0
+        ],
+        [
+          19.0,
+          646.0
+        ]
+      ]
+    },
+    {
+      "block_label": "footer_image",
+      "block_content": "",
+      "block_bbox": [
+        0,
+        105,
+        26,
+        137
+      ],
+      "block_id": 2,
+      "block_order": null,
+      "group_id": 2,
+      "block_polygon_points": [
+        [
+          0.0,
+          109.0
+        ],
+        [
+          0.0,
+          133.0
+        ],
+        [
+          7.0,
+          133.0
+        ],
+        [
+          8.0,
+          134.0
+        ],
+        [
+          8.0,
+          136.0
+        ],
+        [
+          25.0,
+          136.0
+        ],
+        [
+          25.0,
+          109.0
+        ]
+      ]
+    },
+    {
+      "block_label": "number",
+      "block_content": "六六七",
+      "block_bbox": [
+        3,
+        408,
+        18,
+        447
+      ],
+      "block_id": 3,
+      "block_order": null,
+      "group_id": 3,
+      "block_polygon_points": [
+        [
+          3.0,
+          408.0
+        ],
+        [
+          17.0,
+          408.0
+        ],
+        [
+          17.0,
+          446.0
+        ],
+        [
+          3.0,
+          446.0
+        ]
+      ]
+    },
+    {
+      "block_label": "footer_image",
+      "block_content": "",
+      "block_bbox": [
+        0,
+        497,
+        25,
+        528
+      ],
+      "block_id": 4,
+      "block_order": null,
+      "group_id": 4,
+      "block_polygon_points": [
+        [
+          0.0,
+          497.0
+        ],
+        [
+          24.0,
+          497.0
+        ],
+        [
+          24.0,
+          527.0
+        ],
+        [
+          -9.184851526737657e-16,
+          527.0
+        ]
+      ]
+    }
+  ],
+  "layout_det_res": {
+    "input_path": null,
+    "page_index": null,
+    "boxes": [
+      {
+        "cls_id": 23,
+        "label": "vertical_text",
+        "score": 0.9761227369308472,
+        "coordinate": [
+          147,
+          26,
+          456,
+          649
+        ],
+        "order": 1,
+        "polygon_points": [
+          [
+            147.0,
+            26.0
+          ],
+          [
+            456.0,
+            26.0
+          ],
+          [
+            456.0,
+            649.0
+          ],
+          [
+            147.0,
+            649.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 23,
+        "label": "vertical_text",
+        "score": 0.8324723243713379,
+        "coordinate": [
+          19,
+          29,
+          142,
+          646
+        ],
+        "order": 2,
+        "polygon_points": [
+          [
+            19.0,
+            29.0
+          ],
+          [
+            142.0,
+            29.0
+          ],
+          [
+            142.0,
+            646.0
+          ],
+          [
+            19.0,
+            646.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 9,
+        "label": "footer_image",
+        "score": 0.592120349407196,
+        "coordinate": [
+          0,
+          105,
+          26,
+          137
+        ],
+        "order": null,
+        "polygon_points": [
+          [
+            0.0,
+            109.0
+          ],
+          [
+            0.0,
+            133.0
+          ],
+          [
+            7.0,
+            133.0
+          ],
+          [
+            8.0,
+            134.0
+          ],
+          [
+            8.0,
+            136.0
+          ],
+          [
+            25.0,
+            136.0
+          ],
+          [
+            25.0,
+            109.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 16,
+        "label": "number",
+        "score": 0.48758822679519653,
+        "coordinate": [
+          3,
+          408,
+          18,
+          447
+        ],
+        "order": 3,
+        "polygon_points": [
+          [
+            3.0,
+            408.0
+          ],
+          [
+            17.0,
+            408.0
+          ],
+          [
+            17.0,
+            446.0
+          ],
+          [
+            3.0,
+            446.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 9,
+        "label": "footer_image",
+        "score": 0.6421334743499756,
+        "coordinate": [
+          0,
+          497,
+          25,
+          528
+        ],
+        "order": null,
+        "polygon_points": [
+          [
+            0.0,
+            497.0
+          ],
+          [
+            24.0,
+            497.0
+          ],
+          [
+            24.0,
+            527.0
+          ],
+          [
+            -9.184851526737657e-16,
+            527.0
+          ]
+        ]
+      }
+    ]
+  }
+}

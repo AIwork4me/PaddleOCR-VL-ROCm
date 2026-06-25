@@ -11,25 +11,36 @@ REPO = Path(__file__).resolve().parents[1]
 FIXTURES = REPO / "tests" / "fixtures"
 GOLDEN = FIXTURES / "golden"
 COMPAT = FIXTURES / "compat_cache.json"
-LAYOUT_MODEL = REPO / "models" / "PP-DocLayoutV3-onnx"
+META = FIXTURES / "record_meta.json"
 IMAGES = sorted((REPO / "examples" / "input").glob("*.png"))
+
+
+def _load_meta() -> dict | None:
+    if not META.exists():
+        return None
+    return json.loads(META.read_text(encoding="utf-8"))
 
 
 @pytest.fixture(autouse=True)
 def _require_fixtures():
-    if not COMPAT.exists() or not LAYOUT_MODEL.exists():
-        pytest.skip("compat cache or layout model not present; run scripts/record_trace.py")
+    meta = _load_meta()
+    if not COMPAT.exists() or meta is None:
+        pytest.skip("characterization fixtures not recorded; run scripts/record_trace.py")
+    layout = Path(meta["layout_model"])
+    if not layout.exists():
+        pytest.skip(f"recorded layout model not found: {layout}")
 
 
 @pytest.mark.parametrize("image", IMAGES, ids=[p.stem for p in IMAGES])
 def test_pipeline_matches_golden(tmp_path, image):
+    meta = _load_meta()
     json_path = run_light_parser(
         input_path=image,
         output_dir=tmp_path,
-        model_dir=LAYOUT_MODEL,
-        server_url="http://127.0.0.1:8000/v1",
-        vlm_backend="vllm-server",
-        api_model_name="PaddleOCR-VL-1.5-0.9B",
+        model_dir=Path(meta["layout_model"]),
+        server_url=meta["server_url"],
+        vlm_backend=meta["vlm_backend"],
+        api_model_name=meta["api_model_name"],
         max_new_tokens=4096,
         timeout=300.0,
         prompt_label=None,
