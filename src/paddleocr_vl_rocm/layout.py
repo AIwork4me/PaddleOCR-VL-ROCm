@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 
-
 LABEL_LIST = [
     "abstract",
     "algorithm",
@@ -126,7 +125,7 @@ def _normalize_rgb(array: np.ndarray) -> np.ndarray:
     channels = list(cv2.split(array))
     for idx, channel in enumerate(channels):
         channels[idx] = channel.astype(np.float32)
-        channels[idx] *= 1.0 / 255.0
+        channels[idx] = channels[idx] * (1.0 / 255.0)
     return cv2.merge(channels)
 
 
@@ -543,7 +542,7 @@ def _extract_polygon_points_by_masks(
     scale_h = masks.shape[1] / float(height)
     max_box_w = max(boxes[:, 4] - boxes[:, 3])
     polygons: list[np.ndarray] = []
-    output: list[list[list[float]]] = []
+    output: list[list[list[float]] | None] = []
     for idx, box in enumerate(boxes):
         rounded_box = np.asarray(box[2:6], dtype=np.float32)
         x1, y1, x2, y2 = rounded_box.astype(np.int32)

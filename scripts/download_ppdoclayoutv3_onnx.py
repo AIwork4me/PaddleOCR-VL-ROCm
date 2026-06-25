@@ -4,7 +4,6 @@ import argparse
 import shutil
 from pathlib import Path
 
-
 DEFAULT_REPO_ID = "AlexTransformer/PP-DocLayoutV3-onnx"
 REQUIRED_FILES = ["inference.onnx", "inference.yml"]
 

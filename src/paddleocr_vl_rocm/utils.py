@@ -30,7 +30,7 @@ def ensure_output_dir(path: str | Path) -> Path:
 def json_default(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
-    if dataclasses.is_dataclass(value):
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
         return dataclasses.asdict(value)
     if hasattr(value, "model_dump"):
         return value.model_dump()

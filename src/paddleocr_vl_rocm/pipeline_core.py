@@ -11,8 +11,8 @@ import random
 import re
 import time
 from collections import Counter
-from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -20,10 +20,9 @@ from typing import Any
 import requests
 from PIL import Image
 
-from .layout import LayoutBox, PADDLEOCR_VL_LAYOUT_MERGE_MODE, PPDocLayoutV3Onnx
+from .layout import PADDLEOCR_VL_LAYOUT_MERGE_MODE, LayoutBox, PPDocLayoutV3Onnx
 from .server import check_openai_compatible_server, normalize_server_url
 from .utils import write_json
-
 
 IMAGE_LABELS = {"image", "header_image", "footer_image"}
 NON_RECOGNIZED_IMAGE_LABELS = {"image", "header_image", "footer_image", "chart", "seal"}
@@ -346,7 +345,7 @@ def _prompt_for_label(
 
 
 def _crop(rgb_image: Image.Image, box: LayoutBox) -> Image.Image:
-    cropped = rgb_image.crop(tuple(box.coordinate))
+    cropped = rgb_image.crop(tuple(float(v) for v in box.coordinate))
     polygon_points = box.polygon_points
     if not polygon_points:
         return cropped
@@ -369,8 +368,8 @@ def _crop_from_bgr(bgr_image: Any, box: LayoutBox) -> Image.Image:
     try:
         import cv2
         import numpy as np
-    except Exception:
-        raise RuntimeError("OpenCV and NumPy are required for polygon-masked crop.")
+    except Exception as exc:
+        raise RuntimeError("OpenCV and NumPy are required for polygon-masked crop.") from exc
     xmin, ymin, xmax, ymax = [int(i) for i in box.coordinate]
     img_crop = bgr_image[ymin:ymax, xmin:xmax].copy()
     polygon_points = box.polygon_points
@@ -462,7 +461,7 @@ def _paint_token(image: Any, box: list[int], token_str: str) -> Any:
     def get_optimal_font_scale(
         text: str, font_face: int, square_size: int, fill_ratio: float = 0.9
     ) -> tuple[float, int, int]:
-        left, right = 0.2, 10
+        left, right = 0.2, 10.0
         optimal_scale = left
         while right - left > 1e-2:
             mid = (left + right) / 2
@@ -506,7 +505,7 @@ def _tokenize_figure_of_table(
 ) -> tuple[Image.Image, dict[str, str], list[str]]:
     def gen_random_map(num: int) -> list[int]:
         exclude_digits = {"0", "1", "9"}
-        seq = []
+        seq: list[int] = []
         idx = 0
         while len(seq) < num:
             if not (set(str(idx)) & exclude_digits):
@@ -806,9 +805,7 @@ def _merge_blocks(blocks: list[LightBlock], non_merge_labels: set[str]) -> list[
                 continue
             group_found = True
             images = [
-                blocks[group_idx].image
-                for group_idx in group_indices
-                if blocks[group_idx].image is not None
+                img for group_idx in group_indices if (img := blocks[group_idx].image) is not None
             ]
             width = max((image.width for image in images), default=0)
             height = sum(image.height for image in images)
@@ -849,7 +846,7 @@ def _merge_blocks(blocks: list[LightBlock], non_merge_labels: set[str]) -> list[
 
 def _markdown_from_blocks(blocks: list[LightBlock], page_width: int) -> str:
     markdown = ""
-    for idx, block in enumerate(blocks):
+    for _idx, block in enumerate(blocks):
         if block.label in MARKDOWN_IGNORE_LABEL_SET:
             continue
         content = _markdown_content_for_block(block, page_width)
@@ -1174,11 +1171,11 @@ def _truncate_repetitive_content(
             if len(unit) * count > len(stripped) * 0.5:
                 return prefix
     if "\n" not in stripped and len(stripped) > min_len:
-        unit = _find_shortest_repeating_substring(stripped)
-        if unit:
-            count = len(stripped) // len(unit)
+        substring = _find_shortest_repeating_substring(stripped)
+        if substring:
+            count = len(stripped) // len(substring)
             if count >= char_threshold:
-                return unit
+                return substring
     lines = [line.strip() for line in content.split("\n") if line.strip()]
     if not lines:
         return content
