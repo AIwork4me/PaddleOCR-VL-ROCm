@@ -143,6 +143,19 @@ python -m pytest -q
 paddleocr-vl-rocm --help
 ```
 
+## 评测（OmniDocBench）
+
+针对 OmniDocBench（v1.5 与 v1.6）的端到端基准打分位于
+[`eval/`](eval/README.md) 目录。它分三个带前置检查的阶段运行 ——
+`download` → `infer` → `eval` —— VLM 服务与 OmniDocBench 环境会在各自阶段被检查：
+
+```powershell
+python eval/run_eval.py --stage all --version v16
+```
+
+前置条件、三个阶段、CDM/Docker 说明、v1.5 与 v1.6 的差异，以及分数落地位置，
+请参见 [`eval/README.md`](eval/README.md)。
+
 ## 开发
 
 安装开发工具并运行完整的本地检查：

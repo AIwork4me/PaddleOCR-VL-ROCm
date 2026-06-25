@@ -15,3 +15,9 @@ outputs/
 
 tests/fixtures/_tmp_record/
 
+# OmniDocBench evaluation artifacts (generated; keep out of git by default).
+# Commit a score as a release artifact separately when needed.
+eval/.omnidocbench/          # cloned OmniDocBench checkout + its deps
+predictions/                 # per-page .md predictions (infer stage output)
+results/omnidocbench/        # copied/symlinked score tables
+

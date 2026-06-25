@@ -17,6 +17,13 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0", "ruff>=0.6.0", "mypy>=1.11.0"]
 download = ["huggingface_hub>=0.25.0"]
+# Note: OmniDocBench's own dependencies (including CDM's Node.js, ImageMagick 7,
+# and TeX Live toolchain) are NOT vendored here. They live in the OmniDocBench
+# checkout pinned at eval/.omnidocbench/ (gitignored) and installed via its own
+# `pip install -e .`; the eval stage runs `pdf_validation.py` from that checkout.
+# No `eval` extra is needed on our side: the only extra dep the eval/ scripts
+# import is `huggingface_hub`, already provided by the `download` extra above.
+# See eval/README.md for the Docker image and the "drop CDM" fallback.
 
 [tool.ruff]
 line-length = 100

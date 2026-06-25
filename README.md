@@ -154,6 +154,20 @@ python -m pytest -q
 paddleocr-vl-rocm --help
 ```
 
+## Evaluation (OmniDocBench)
+
+End-to-end benchmark scoring against OmniDocBench (v1.5 and v1.6) lives under
+[`eval/`](eval/README.md). It runs in three gated stages — `download` → `infer`
+→ `eval` — with the VLM server and the OmniDocBench environment each checked at
+the stage that needs them:
+
+```powershell
+python eval/run_eval.py --stage all --version v16
+```
+
+See [`eval/README.md`](eval/README.md) for prerequisites, the three stages, the
+CDM/Docker note, v1.5 vs v1.6 differences, and where scores land.
+
 ## Development
 
 Install with dev tooling and run the full local check:
