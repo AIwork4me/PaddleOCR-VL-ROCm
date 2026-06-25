@@ -1,63 +1,44 @@
 from __future__ import annotations
 
-import base64
-import hashlib
 import html
 import itertools
 import json
 import math
-import mimetypes
 import random
 import re
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
-from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 import requests
 from PIL import Image
 
+from .constants import (
+    DEFAULT_MAX_PIXELS,
+    DEFAULT_MIN_PIXELS,
+    IMAGE_LABELS,
+    MARKDOWN_IGNORE_LABEL_SET,
+    MARKDOWN_IGNORE_LABELS,
+    NON_MERGE_LABELS,
+    PROMPTS,
+    SKIP_ORDER_LABELS,
+)
+from .content import _normalize_vlm_result, _truncate_repetitive_content
+from .encoding import (
+    _data_url_from_bytes,
+    _image_data_url,
+    _jpeg_bytes,
+    _png_bytes,
+    _sha256_hex,
+)
+from .geometry import _filter_overlap_boxes, _overlap_ratio, _projection_overlap_ratio
 from .layout import PADDLEOCR_VL_LAYOUT_MERGE_MODE, LayoutBox, PPDocLayoutV3Onnx
+from .models import LightBlock, TableCell
 from .server import check_openai_compatible_server, normalize_server_url
 from .utils import write_json
 
-IMAGE_LABELS = {"image", "header_image", "footer_image"}
-NON_RECOGNIZED_IMAGE_LABELS = {"image", "header_image", "footer_image", "chart", "seal"}
-NON_MERGE_LABELS = NON_RECOGNIZED_IMAGE_LABELS | {"table"}
-SKIP_ORDER_LABELS = {
-    "figure_title",
-    "vision_footnote",
-    "image",
-    "chart",
-    "table",
-    "header",
-    "header_image",
-    "footer",
-    "footer_image",
-    "footnote",
-    "aside_text",
-}
-MARKDOWN_IGNORE_LABELS = [
-    "number",
-    "footnote",
-    "header",
-    "header_image",
-    "footer",
-    "footer_image",
-    "aside_text",
-]
-MARKDOWN_IGNORE_LABEL_SET = set(MARKDOWN_IGNORE_LABELS)
-DEFAULT_MIN_PIXELS = 112896
-DEFAULT_MAX_PIXELS = 1003520
-PROMPTS = {
-    "table": "Table Recognition:",
-    "chart": "Chart Recognition:",
-    "seal": "Seal Recognition:",
-    "spotting": "Spotting:",
-}
 OTSL_NL = "<nl>"
 OTSL_FCEL = "<fcel>"
 OTSL_ECEL = "<ecel>"
@@ -69,64 +50,6 @@ OTSL_FIND_PATTERN = re.compile(
     r"(?:<fcel>|<ecel>|<nl>|<lcel>|<ucel>|<xcel>).*?(?=(?:<fcel>|<ecel>|<nl>|<lcel>|<ucel>|<xcel>)|$)",
     flags=re.DOTALL,
 )
-
-
-@dataclass
-class LightBlock:
-    label: str
-    content: str
-    bbox: list[int]
-    score: float
-    cls_id: int
-    image: Image.Image | None = None
-    group_id: int | None = None
-    merged: bool = False
-    polygon_points: list[list[float]] | None = None
-    figure_token_map: dict[str, str] = field(default_factory=dict)
-
-
-@dataclass
-class TableCell:
-    text: str
-    row_span: int
-    col_span: int
-    start_row: int
-    end_row: int
-    start_col: int
-    end_col: int
-
-
-def _png_bytes(image: Image.Image) -> bytes:
-    buffer = BytesIO()
-    image.save(buffer, format="PNG")
-    return buffer.getvalue()
-
-
-def _jpeg_bytes(image: Image.Image) -> bytes:
-    buffer = BytesIO()
-    image.convert("RGB").save(buffer, format="JPEG")
-    return buffer.getvalue()
-
-
-def _data_url_from_bytes(data: bytes, mime_type: str) -> str:
-    encoded = base64.b64encode(data).decode("ascii")
-    return f"data:{mime_type};base64,{encoded}"
-
-
-def _encode_png_data_url(image: Image.Image) -> str:
-    encoded = base64.b64encode(_png_bytes(image)).decode("ascii")
-    return f"data:image/png;base64,{encoded}"
-
-
-def _image_data_url(path: Path) -> str:
-    mime_type, _ = mimetypes.guess_type(path.name)
-    if not mime_type:
-        mime_type = "image/png"
-    return _data_url_from_bytes(path.read_bytes(), mime_type)
-
-
-def _sha256_hex(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
 
 
 def _vlm_cache_key(
@@ -560,117 +483,6 @@ def _untokenize_figure_of_table(table_res_str: str, figure_token_map: dict[str, 
     return re.sub(r"\[F(\d+)\]", repl, table_res_str)
 
 
-def _area(bbox: list[int]) -> float:
-    return float(max(0, bbox[2] - bbox[0]) * max(0, bbox[3] - bbox[1]))
-
-
-def _overlap_ratio(bbox_a: list[int], bbox_b: list[int], mode: str = "union") -> float:
-    x1 = max(bbox_a[0], bbox_b[0])
-    y1 = max(bbox_a[1], bbox_b[1])
-    x2 = min(bbox_a[2], bbox_b[2])
-    y2 = min(bbox_a[3], bbox_b[3])
-    inter = float(max(0, x2 - x1) * max(0, y2 - y1))
-    area_a = _area(bbox_a)
-    area_b = _area(bbox_b)
-    if mode == "small":
-        denom = min(area_a, area_b)
-    elif mode == "large":
-        denom = max(area_a, area_b)
-    else:
-        denom = area_a + area_b - inter
-    return inter / denom if denom > 0 else 0.0
-
-
-def _projection_overlap_ratio(
-    bbox_a: list[int], bbox_b: list[int], direction: str, mode: str = "union"
-) -> float:
-    start_idx, end_idx = (0, 2) if direction == "horizontal" else (1, 3)
-    overlap = min(bbox_a[end_idx], bbox_b[end_idx]) - max(bbox_a[start_idx], bbox_b[start_idx])
-    if overlap <= 0:
-        return 0.0
-    if mode == "small":
-        denom = min(
-            bbox_a[end_idx] - bbox_a[start_idx],
-            bbox_b[end_idx] - bbox_b[start_idx],
-        )
-    elif mode == "large":
-        denom = max(
-            bbox_a[end_idx] - bbox_a[start_idx],
-            bbox_b[end_idx] - bbox_b[start_idx],
-        )
-    else:
-        denom = max(bbox_a[end_idx], bbox_b[end_idx]) - min(bbox_a[start_idx], bbox_b[start_idx])
-    return overlap / float(denom) if denom > 0 else 0.0
-
-
-def _filter_overlap_boxes(boxes: list[LayoutBox]) -> list[LayoutBox]:
-    boxes = [box for box in boxes if box.label != "reference"]
-    dropped: set[int] = set()
-    for i, box_i in enumerate(boxes):
-        x1, y1, x2, y2 = box_i.coordinate
-        if x2 - x1 < 6 or y2 - y1 < 6:
-            dropped.add(i)
-        for j in range(i + 1, len(boxes)):
-            if i in dropped or j in dropped:
-                continue
-            box_j = boxes[j]
-            overlap = _overlap_ratio(box_i.coordinate, box_j.coordinate, mode="small")
-            if box_i.label == "inline_formula" or box_j.label == "inline_formula":
-                if overlap > 0.5:
-                    if box_i.label == "inline_formula":
-                        dropped.add(i)
-                    if box_j.label == "inline_formula":
-                        dropped.add(j)
-                    continue
-            if overlap > 0.7:
-                if box_i.polygon_points and box_j.polygon_points:
-                    polygon_overlap = _polygon_overlap_ratio(
-                        box_i.polygon_points,
-                        box_j.polygon_points,
-                        mode="small",
-                    )
-                    if polygon_overlap < 0.7:
-                        continue
-                area_i = _area(box_i.coordinate)
-                area_j = _area(box_j.coordinate)
-                labels = {box_i.label, box_j.label}
-                if labels & {"image", "table", "seal", "chart"} and len(labels) > 1:
-                    if "table" not in labels or labels <= {"table", "image", "seal", "chart"}:
-                        continue
-                dropped.add(j if area_i >= area_j else i)
-    return [box for idx, box in enumerate(boxes) if idx not in dropped]
-
-
-def _polygon_overlap_ratio(
-    polygon_a: list[list[float]],
-    polygon_b: list[list[float]],
-    mode: str = "union",
-) -> float:
-    try:
-        from shapely.geometry import Polygon
-    except Exception:
-        return 0.0
-
-    poly_a = Polygon(polygon_a)
-    poly_b = Polygon(polygon_b)
-    if not poly_a.is_valid:
-        poly_a = poly_a.buffer(0)
-    if not poly_b.is_valid:
-        poly_b = poly_b.buffer(0)
-    area_a = float(poly_a.area)
-    area_b = float(poly_b.area)
-    if area_a <= 0 or area_b <= 0:
-        return 0.0
-    inter_area = float(poly_a.intersection(poly_b).area)
-    if mode == "small":
-        return inter_area / min(area_a, area_b)
-    if mode == "large":
-        return inter_area / max(area_a, area_b)
-    if mode == "union":
-        return inter_area / float(poly_a.union(poly_b).area)
-    raise ValueError(f"Unknown mode: {mode}")
-
-
 def _merge_images(images: list[Image.Image], aligns: list[str]) -> Image.Image:
     if len(images) == 1:
         return images[0]
@@ -1069,122 +881,6 @@ def _convert_otsl_to_html(text: str) -> str:
             body += f"<{opening}>{html.escape(cell.text.strip())}</td>"
         body += "</tr>"
     return f"<table>{body}</table>"
-
-
-def _has_cjk(text: str) -> bool:
-    return any("\u4e00" <= char <= "\u9fff" for char in text)
-
-
-def _should_keep_text_newlines(label: str, text: str, merged: bool) -> bool:
-    if label in {
-        "table",
-        "chart",
-        "seal",
-        "spotting",
-        "vertical_text",
-        "header",
-        "vision_footnote",
-    }:
-        return True
-    if merged:
-        return True
-    lines = [
-        line.strip()
-        for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-        if line.strip()
-    ]
-    if len(lines) < 2:
-        return False
-    if _has_cjk(text):
-        cjk_line_endings = set("，。！？；：、,.!?:;")
-        return all(line[-1] in cjk_line_endings for line in lines[:-1])
-    return all(len(line) <= 32 for line in lines)
-
-
-def _format_block_content(label: str, content: str, merged: bool) -> str:
-    text = content.strip()
-    if label in {"header", "vision_footnote"}:
-        text = text.replace("黄沛聲專精", "黄沛聲\n專精")
-        text = text.replace("輔導現為", "輔導\n現為")
-    if not _should_keep_text_newlines(label, text, merged):
-        text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "")
-    return text
-
-
-def _normalize_vlm_result(label: str, content: str) -> str:
-    result = content
-    if ("\\(" in result and "\\)" in result) or ("\\[" in result and "\\]" in result):
-        result = result.replace("$", "")
-        result = (
-            result.replace("\\(", " $ ")
-            .replace("\\)", " $")
-            .replace("\\[\\[", "\\[")
-            .replace("\\]\\]", "\\]")
-            .replace("\\[", " $$ ")
-            .replace("\\]", " $$ ")
-        )
-        if label == "formula_number":
-            result = result.replace("$", "")
-    return result
-
-
-def _find_shortest_repeating_substring(text: str) -> str | None:
-    for length in range(1, len(text) // 2 + 1):
-        if len(text) % length == 0:
-            unit = text[:length]
-            if unit * (len(text) // length) == text:
-                return unit
-    return None
-
-
-def _find_repeating_suffix(
-    text: str, min_len: int = 8, min_repeats: int = 5
-) -> tuple[str, str, int] | None:
-    for length in range(len(text) // min_repeats, min_len - 1, -1):
-        unit = text[-length:]
-        if text.endswith(unit * min_repeats):
-            count = 0
-            rest = text
-            while rest.endswith(unit):
-                rest = rest[:-length]
-                count += 1
-            return text[: len(text) - count * length], unit, count
-    return None
-
-
-def _truncate_repetitive_content(
-    content: str,
-    line_threshold: int = 10,
-    char_threshold: int = 10,
-    min_len: int = 10,
-    min_count: int = 3000,
-) -> str:
-    if len(content) < min_count:
-        return content
-    stripped = content.strip()
-    if not stripped:
-        return content
-    if "\n" not in stripped and len(stripped) > 100:
-        suffix_match = _find_repeating_suffix(stripped, min_len=8, min_repeats=5)
-        if suffix_match:
-            prefix, unit, count = suffix_match
-            if len(unit) * count > len(stripped) * 0.5:
-                return prefix
-    if "\n" not in stripped and len(stripped) > min_len:
-        substring = _find_shortest_repeating_substring(stripped)
-        if substring:
-            count = len(stripped) // len(substring)
-            if count >= char_threshold:
-                return substring
-    lines = [line.strip() for line in content.split("\n") if line.strip()]
-    if not lines:
-        return content
-    if len(lines) < line_threshold:
-        return content
-    most_common_line, count = Counter(lines).most_common(1)[0]
-    if count >= line_threshold and count / len(lines) >= 0.8:
-        return most_common_line
-    return content
 
 
 def _result_payload(
