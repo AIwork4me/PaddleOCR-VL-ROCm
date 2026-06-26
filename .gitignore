@@ -21,3 +21,12 @@ eval/.omnidocbench/          # cloned OmniDocBench checkout + its deps
 predictions/                 # per-page .md predictions (infer stage output)
 results/omnidocbench/        # copied/symlinked score tables
 
+
+# OmniDocBench eval data (large; via modelscope)
+OmniDocBench_data/
+
+# local (machine-specific) eval configs
+eval/configs/run_*_local.yaml
+
+predictions/
+result/
