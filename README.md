@@ -167,7 +167,7 @@ serving path, compared to the official PaddleOCR-VL-1.6 published numbers
 | Reading-order Edit-dist ↓ | **0.129** (87.1%) | 0.127 (87.3%) | 0.25pt gap |
 | Table TEDS ↑ | **0.940** | 0.948 | 0.76pt gap |
 | Formula Edit-dist ↓ | **0.094** (90.6%) | — | Valid metric |
-| Formula CDM ↑ | pending | 0.975 | Needs OmniDocBench Docker env |
+| Formula CDM ↑ | **0.944** | 0.975 | 3.1pt gap |
 
 **Hard subset (296 pages):** Text 0.058 · Formula 0.143 · Table TEDS 0.912 ·
 Reading-order 0.182.
