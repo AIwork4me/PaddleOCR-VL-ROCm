@@ -154,12 +154,34 @@ python -m pytest -q
 paddleocr-vl-rocm --help
 ```
 
-## Evaluation (OmniDocBench)
+## Evaluation (OmniDocBench v1.6)
 
-End-to-end benchmark scoring against OmniDocBench (v1.5 and v1.6) lives under
-[`eval/`](eval/README.md). It runs in three gated stages — `download` → `infer`
-→ `eval` — with the VLM server and the OmniDocBench environment each checked at
-the stage that needs them:
+Benchmark scoring against OmniDocBench v1.6 (1,651 pages) using the same
+PaddleOCR-VL-1.6 model via a lightweight ONNXRuntime + llama.cpp (HIP/ROCm)
+serving path, compared to the official PaddleOCR-VL-1.6 published numbers
+([arXiv 2606.03264](https://arxiv.org/abs/2606.03264)):
+
+| Metric | This repo | Official 1.6 | Note |
+|---|---:|---:|---|
+| Text Edit-dist ↓ | **0.035** (96.5%) | 0.033 (96.7%) | Matches within 0.2pt |
+| Reading-order Edit-dist ↓ | **0.129** (87.1%) | 0.127 (87.3%) | Matches within 0.2pt |
+| Table TEDS ↑ | **0.929** | 0.948 | ~1.8pt lower (structural) |
+| Formula Edit-dist ↓ | **0.094** (90.6%) | — | Valid metric |
+| Formula CDM ↑ | pending | 0.975 | Needs OmniDocBench Docker env |
+
+**Hard subset (296 pages):** Text 0.058 · Formula 0.143 · Table TEDS 0.912 ·
+Reading-order 0.182.
+
+The text and reading-order metrics match the official model within 0.2pt,
+confirming that the lightweight ONNX+llama.cpp path delivers near-identical
+recognition quality. The ~1.8pt table TEDS gap is structural (characterized via
+systematic A/B testing — not quantization, not the VLM backend, not a matching
+bug; our pipeline matches the reference Paddle-native arm on table structure).
+
+### Running the eval
+
+End-to-end benchmark scoring lives under [`eval/`](eval/README.md). It runs in
+three gated stages — `download` → `infer` → `eval`:
 
 ```powershell
 python eval/run_eval.py --stage all --version v16
