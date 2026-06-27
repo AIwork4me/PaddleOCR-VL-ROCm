@@ -143,6 +143,59 @@ python -m pytest -q
 paddleocr-vl-rocm --help
 ```
 
+## 评测（OmniDocBench v1.6）
+
+基于 OmniDocBench v1.6（1,651 页）的基准打分。使用同一个 PaddleOCR-VL-1.6
+模型，通过轻量 ONNXRuntime + llama.cpp（HIP/ROCm）推理路径，与官方
+PaddleOCR-VL-1.6 发表数据（[arXiv 2606.03264](https://arxiv.org/abs/2606.03264)）对比：
+
+| 指标 | 本仓库 | 官方 1.6 | 说明 |
+|---|---:|---:|---|
+| 文本 Edit-dist ↓ | **0.035**（96.5%） | 0.033（96.7%） | 差 0.2pt，基本对齐 |
+| 阅读顺序 Edit-dist ↓ | **0.129**（87.1%） | 0.127（87.3%） | 差 0.2pt，基本对齐 |
+| 表格 TEDS ↑ | **0.929** | 0.948 | 低 ~1.8pt（结构性） |
+| 公式 Edit-dist ↓ | **0.094**（90.6%） | — | 有效指标 |
+| 公式 CDM ↑ | 待补 | 0.975 | 需 OmniDocBench Docker 环境 |
+
+**Hard 子集（296 页）：** 文本 0.058 · 公式 0.143 · 表格 TEDS 0.912 · 阅读顺序 0.182。
+
+文本与阅读顺序两项与官方模型差 0.2pt 以内，验证了轻量 ONNX+llama.cpp 路线能
+达到接近原生的识别质量。表格 TEDS 低 ~1.8pt 为结构性差异（经系统性 A/B 排查——
+非量化、非 VLM 后端、非匹配 bug；我们的管线与参考项目的 Paddle 原生臂在表格结构上
+一致）。
+
+### 运行评测
+
+针对 OmniDocBench（v1.5 与 v1.6）的端到端基准打分位于
+[`eval/`](eval/README.md) 目录。它分三个带前置检查的阶段运行 ——
+`download` → `infer` → `eval`：
+
+```powershell
+python eval/run_eval.py --stage all --version v16
+```
+
+前置条件、三个阶段、CDM/Docker 说明、v1.5 与 v1.6 的差异，以及分数落地位置，
+请参见 [`eval/README.md`](eval/README.md)。
+
+## 开发
+
+安装开发工具并运行完整的本地检查：
+
+```powershell
+pip install -e .[dev]
+./scripts/check.ps1   # Linux/macOS: bash scripts/check.sh
+```
+
+该检查会运行 `compileall`、`ruff check`、`ruff format --check`、`mypy src` 和 `pytest`。
+
+要建立 characterization 固定数据（需要一次 VLM 服务）：
+
+```powershell
+python scripts/record_trace.py --server-url http://127.0.0.1:8000/v1
+```
+
+这会记录 `tests/fixtures/compat_cache.json` 和 golden 输出，使 `tests/test_pipeline_characterization.py` 可以在没有服务的情况下逐字节重放推理链路。如果固定数据或 layout 模型缺失，该测试会自动跳过。
+
 ## 说明
 
 ROCm 加速发生在 VLM 服务端。本仓库负责 ONNXRuntime layout、文档区域裁剪、

@@ -14,4 +14,3 @@ def test_layout_preprocess_uses_expected_onnx_inputs():
     assert feeds["im_shape"].shape == (1, 2)
     assert feeds["scale_factor"].shape == (1, 2)
     assert image_size[0] > 0 and image_size[1] > 0
-

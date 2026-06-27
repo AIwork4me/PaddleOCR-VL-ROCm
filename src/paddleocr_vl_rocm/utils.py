@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,10 @@ from rich.console import Console
 
 def get_console() -> Console:
     return Console(highlight=False)
+
+
+def get_logger(name: str = "paddleocr_vl_rocm") -> logging.Logger:
+    return logging.getLogger(name)
 
 
 def ensure_input_file(path: str | Path) -> Path:
@@ -30,7 +35,7 @@ def ensure_output_dir(path: str | Path) -> Path:
 def json_default(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
-    if dataclasses.is_dataclass(value):
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
         return dataclasses.asdict(value)
     if hasattr(value, "model_dump"):
         return value.model_dump()
@@ -74,7 +79,9 @@ def to_jsonable(value: Any, depth: int = 0, max_depth: int = 8) -> Any:
 def write_json(path: str | Path, value: Any) -> Path:
     resolved = Path(path)
     resolved.parent.mkdir(parents=True, exist_ok=True)
-    resolved.write_text(json.dumps(to_jsonable(value), ensure_ascii=False, indent=2), encoding="utf-8")
+    resolved.write_text(
+        json.dumps(to_jsonable(value), ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return resolved
 
 

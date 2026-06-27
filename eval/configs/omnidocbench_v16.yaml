@@ -1,0 +1,12 @@
+end2end_eval:
+  metrics:
+    text_block: { metric: [Edit_dist] }
+    display_formula: { metric: [Edit_dist, CDM], cdm_workers: 13 }   # drop CDM if no TeX/ImageMagick
+    table: { metric: [TEDS, Edit_dist], teds_workers: 13 }
+    reading_order: { metric: [Edit_dist] }
+  dataset:
+    dataset_name: end2end_dataset
+    ground_truth: { data_path: ./data/omnidocbench/v16/OmniDocBench.json }
+    prediction: { data_path: ./predictions/paddleocrvl_rocm }
+    match_method: quick_match
+    match_workers: 13

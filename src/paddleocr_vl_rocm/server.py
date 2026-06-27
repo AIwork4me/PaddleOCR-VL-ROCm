@@ -19,16 +19,22 @@ def check_openai_compatible_server(server_url: str, timeout: float = 10.0) -> di
     try:
         response = requests.get(models_url, timeout=timeout)
     except requests.RequestException as exc:
-        raise RuntimeError(f"Failed to connect to OpenAI-compatible server at {models_url}: {exc}") from exc
+        raise RuntimeError(
+            f"Failed to connect to OpenAI-compatible server at {models_url}: {exc}"
+        ) from exc
 
     if response.status_code >= 400:
         body = response.text[:2000]
-        raise RuntimeError(f"Server health check failed: GET {models_url} -> HTTP {response.status_code}\n{body}")
+        raise RuntimeError(
+            f"Server health check failed: GET {models_url} -> HTTP {response.status_code}\n{body}"
+        )
 
     try:
         payload = response.json()
     except ValueError as exc:
-        raise RuntimeError(f"Server returned non-JSON response from {models_url}: {response.text[:1000]}") from exc
+        raise RuntimeError(
+            f"Server returned non-JSON response from {models_url}: {response.text[:1000]}"
+        ) from exc
 
     models = payload.get("data") if isinstance(payload, dict) else None
     if isinstance(models, list):

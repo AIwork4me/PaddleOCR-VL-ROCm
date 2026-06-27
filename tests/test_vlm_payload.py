@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from paddleocr_vl_rocm.pipeline_core import _completion_payload
+from paddleocr_vl_rocm.vlm.client import _completion_payload
 
 
 def test_vllm_payload_matches_openai_compatible_shape():
@@ -22,4 +22,3 @@ def test_vllm_payload_matches_openai_compatible_shape():
     assert payload["mm_processor_kwargs"] == {"min_pixels": 112896, "max_pixels": 1003520}
     assert payload["messages"][0]["content"][0]["type"] == "image_url"
     assert payload["messages"][0]["content"][1] == {"type": "text", "text": "OCR:"}
-

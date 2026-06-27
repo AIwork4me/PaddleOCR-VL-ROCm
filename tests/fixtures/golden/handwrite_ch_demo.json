@@ -1,0 +1,518 @@
+{
+  "input_path": "C:\\Users\\rocm\\Desktop\\PaddleOCR-VL-ROCm\\examples\\input\\handwrite_ch_demo.png",
+  "page_index": null,
+  "page_count": null,
+  "width": 527,
+  "height": 667,
+  "model_settings": {
+    "use_doc_preprocessor": false,
+    "use_layout_detection": true,
+    "use_chart_recognition": false,
+    "use_seal_recognition": false,
+    "use_ocr_for_image_block": false,
+    "format_block_content": false,
+    "merge_layout_blocks": true,
+    "markdown_ignore_labels": [
+      "number",
+      "footnote",
+      "header",
+      "header_image",
+      "footer",
+      "footer_image",
+      "aside_text"
+    ],
+    "return_layout_polygon_points": true
+  },
+  "parsing_res_list": [
+    {
+      "block_label": "doc_title",
+      "block_content": "初到黄州",
+      "block_bbox": [
+        129,
+        10,
+        308,
+        55
+      ],
+      "block_id": 0,
+      "block_order": 1,
+      "group_id": 0,
+      "block_polygon_points": [
+        [
+          129.0,
+          10.0
+        ],
+        [
+          308.0,
+          10.0
+        ],
+        [
+          308.0,
+          55.0
+        ],
+        [
+          129.0,
+          55.0
+        ]
+      ]
+    },
+    {
+      "block_label": "text",
+      "block_content": "宋苏轼",
+      "block_bbox": [
+        366,
+        57,
+        465,
+        101
+      ],
+      "block_id": 1,
+      "block_order": 2,
+      "group_id": 1,
+      "block_polygon_points": [
+        [
+          366.0,
+          57.0
+        ],
+        [
+          465.0,
+          57.0
+        ],
+        [
+          465.0,
+          101.0
+        ],
+        [
+          366.0,
+          101.0
+        ]
+      ]
+    },
+    {
+      "block_label": "text",
+      "block_content": "自笑平生为口忙，\n老来事业转荒唐。\n长江绕郭知鱼美，\n好竹连山知笋香。",
+      "block_bbox": [
+        84,
+        148,
+        344,
+        336
+      ],
+      "block_id": 2,
+      "block_order": 3,
+      "group_id": 2,
+      "block_polygon_points": [
+        [
+          84.0,
+          148.0
+        ],
+        [
+          344.0,
+          148.0
+        ],
+        [
+          344.0,
+          336.0
+        ],
+        [
+          84.0,
+          336.0
+        ]
+      ]
+    },
+    {
+      "block_label": "text",
+      "block_content": "逐客不妨员外置，\n诗人例作水曹郎。\n只惭无补丝毫事，\n尚费官家压酒囊。",
+      "block_bbox": [
+        82,
+        383,
+        359,
+        572
+      ],
+      "block_id": 3,
+      "block_order": 4,
+      "group_id": 3,
+      "block_polygon_points": [
+        [
+          82.0,
+          383.0
+        ],
+        [
+          359.0,
+          383.0
+        ],
+        [
+          359.0,
+          572.0
+        ],
+        [
+          82.0,
+          572.0
+        ]
+      ]
+    }
+  ],
+  "layout_det_res": {
+    "input_path": null,
+    "page_index": null,
+    "boxes": [
+      {
+        "cls_id": 6,
+        "label": "doc_title",
+        "score": 0.6374202370643616,
+        "coordinate": [
+          129,
+          10,
+          308,
+          55
+        ],
+        "order": 1,
+        "polygon_points": [
+          [
+            129.0,
+            10.0
+          ],
+          [
+            308.0,
+            10.0
+          ],
+          [
+            308.0,
+            55.0
+          ],
+          [
+            129.0,
+            55.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 22,
+        "label": "text",
+        "score": 0.3852338194847107,
+        "coordinate": [
+          88,
+          148,
+          329,
+          193
+        ],
+        "order": 2,
+        "polygon_points": [
+          [
+            87.34822845458984,
+            152.01150512695312
+          ],
+          [
+            327.9255065917969,
+            147.77224731445312
+          ],
+          [
+            328.6974792480469,
+            191.58242797851562
+          ],
+          [
+            88.12020111083984,
+            195.82168579101562
+          ]
+        ]
+      },
+      {
+        "cls_id": 22,
+        "label": "text",
+        "score": 0.4452376663684845,
+        "coordinate": [
+          366,
+          57,
+          465,
+          101
+        ],
+        "order": 3,
+        "polygon_points": [
+          [
+            366.0,
+            57.0
+          ],
+          [
+            465.0,
+            57.0
+          ],
+          [
+            465.0,
+            101.0
+          ],
+          [
+            366.0,
+            101.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 22,
+        "label": "text",
+        "score": 0.5002646446228027,
+        "coordinate": [
+          84,
+          148,
+          344,
+          336
+        ],
+        "order": 4,
+        "polygon_points": [
+          [
+            84.0,
+            148.0
+          ],
+          [
+            344.0,
+            148.0
+          ],
+          [
+            344.0,
+            336.0
+          ],
+          [
+            84.0,
+            336.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 22,
+        "label": "text",
+        "score": 0.38427072763442993,
+        "coordinate": [
+          85,
+          196,
+          342,
+          241
+        ],
+        "order": 5,
+        "polygon_points": [
+          [
+            85.0,
+            196.0
+          ],
+          [
+            342.0,
+            196.0
+          ],
+          [
+            342.0,
+            241.0
+          ],
+          [
+            85.0,
+            241.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 22,
+        "label": "text",
+        "score": 0.3850780129432678,
+        "coordinate": [
+          86,
+          243,
+          341,
+          289
+        ],
+        "order": 6,
+        "polygon_points": [
+          [
+            86.0,
+            243.0
+          ],
+          [
+            341.0,
+            243.0
+          ],
+          [
+            341.0,
+            289.0
+          ],
+          [
+            86.0,
+            289.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 22,
+        "label": "text",
+        "score": 0.4251885414123535,
+        "coordinate": [
+          80,
+          291,
+          345,
+          335
+        ],
+        "order": 7,
+        "polygon_points": [
+          [
+            80.0,
+            291.0
+          ],
+          [
+            345.0,
+            291.0
+          ],
+          [
+            345.0,
+            335.0
+          ],
+          [
+            80.0,
+            335.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 22,
+        "label": "text",
+        "score": 0.430364191532135,
+        "coordinate": [
+          85,
+          383,
+          353,
+          429
+        ],
+        "order": 8,
+        "polygon_points": [
+          [
+            85.0,
+            383.0
+          ],
+          [
+            353.0,
+            383.0
+          ],
+          [
+            353.0,
+            429.0
+          ],
+          [
+            85.0,
+            429.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 22,
+        "label": "text",
+        "score": 0.4245770573616028,
+        "coordinate": [
+          82,
+          383,
+          359,
+          572
+        ],
+        "order": 9,
+        "polygon_points": [
+          [
+            82.0,
+            383.0
+          ],
+          [
+            359.0,
+            383.0
+          ],
+          [
+            359.0,
+            572.0
+          ],
+          [
+            82.0,
+            572.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 22,
+        "label": "text",
+        "score": 0.4090881943702698,
+        "coordinate": [
+          84,
+          434,
+          356,
+          477
+        ],
+        "order": 10,
+        "polygon_points": [
+          [
+            84.0,
+            434.0
+          ],
+          [
+            356.0,
+            434.0
+          ],
+          [
+            356.0,
+            477.0
+          ],
+          [
+            84.0,
+            477.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 22,
+        "label": "text",
+        "score": 0.43520623445510864,
+        "coordinate": [
+          83,
+          478,
+          355,
+          524
+        ],
+        "order": 11,
+        "polygon_points": [
+          [
+            83.0,
+            478.0
+          ],
+          [
+            355.0,
+            478.0
+          ],
+          [
+            355.0,
+            524.0
+          ],
+          [
+            83.0,
+            524.0
+          ]
+        ]
+      },
+      {
+        "cls_id": 22,
+        "label": "text",
+        "score": 0.47769513726234436,
+        "coordinate": [
+          83,
+          526,
+          361,
+          571
+        ],
+        "order": 12,
+        "polygon_points": [
+          [
+            83.0,
+            526.0
+          ],
+          [
+            361.0,
+            526.0
+          ],
+          [
+            361.0,
+            571.0
+          ],
+          [
+            83.0,
+            571.0
+          ]
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,215 @@
+{
+    "save_name": "paddleocrvl_rocm_quick_match",
+    "runtime_environment": {
+        "system": {
+            "platform": "Windows-10-10.0.26200-SP0",
+            "python_version": "3.11.15 (main, May 10 2026, 19:31:25) [MSC v.1944 64 bit (AMD64)]",
+            "python_executable": "C:\\Users\\rocm\\Desktop\\OmniDocBench\\.venv\\Scripts\\python.exe",
+            "python_prefix": "C:\\Users\\rocm\\Desktop\\OmniDocBench\\.venv",
+            "conda_env": "",
+            "conda_prefix": "",
+            "libc": "",
+            "uname": "Windows DESKTOP-IF0424E 10 10.0.26200 AMD64 AMD64 Family 26 Model 112 Stepping 0, AuthenticAMD",
+            "os_release": {}
+        },
+        "system_packages": {
+            "package_manager": "unavailable",
+            "tracked_packages": {
+                "ghostscript": "unavailable (no supported package manager found)",
+                "imagemagick": "unavailable (no supported package manager found)",
+                "fontconfig": "unavailable (no supported package manager found)",
+                "python3": "unavailable (no supported package manager found)",
+                "python3-pip": "unavailable (no supported package manager found)",
+                "python3-setuptools": "unavailable (no supported package manager found)",
+                "python3-wheel": "unavailable (no supported package manager found)",
+                "texlive-base": "unavailable (no supported package manager found)",
+                "texlive-binaries": "unavailable (no supported package manager found)",
+                "texlive-lang-chinese": "unavailable (no supported package manager found)",
+                "texlive-lang-cjk": "unavailable (no supported package manager found)",
+                "texlive-latex-base": "unavailable (no supported package manager found)",
+                "texlive-latex-extra": "unavailable (no supported package manager found)",
+                "texlive-fonts-recommended": "unavailable (no supported package manager found)",
+                "texlive-plain-generic": "unavailable (no supported package manager found)",
+                "latexml": "unavailable (no supported package manager found)"
+            }
+        },
+        "python_packages": {
+            "apted": "1.0.3",
+            "beautifulsoup4": "4.15.0",
+            "evaluate": "0.4.6",
+            "func-timeout": "4.3.5",
+            "Levenshtein": "0.27.3",
+            "loguru": "0.7.3",
+            "lxml": "6.1.1",
+            "matplotlib": "3.11.0",
+            "nltk": "3.9.4",
+            "numpy": "2.4.6",
+            "pandas": "3.0.3",
+            "Pillow": "12.2.0",
+            "pylatexenc": "2.10",
+            "PyYAML": "6.0.3",
+            "scipy": "1.17.1",
+            "tabulate": "0.10.0",
+            "tqdm": "4.68.3",
+            "pip": "unavailable",
+            "setuptools": "unavailable",
+            "wheel": "unavailable"
+        },
+        "external_tools": {
+            "pdflatex": {
+                "path": "/share/texlive\\pdflatex",
+                "returncode": null,
+                "output": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)"
+            },
+            "kpsewhich": {
+                "path": "/share/texlive\\kpsewhich",
+                "returncode": null,
+                "output": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)"
+            },
+            "tlmgr": {
+                "path": "tlmgr",
+                "returncode": null,
+                "output": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)"
+            },
+            "ghostscript": {
+                "path": "gs",
+                "returncode": null,
+                "output": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)"
+            },
+            "magick": {
+                "path": "magick",
+                "returncode": null,
+                "output": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)"
+            },
+            "convert": {
+                "path": "C:\\Windows\\system32\\convert.EXE",
+                "returncode": 4,
+                "output": ""
+            },
+            "identify": {
+                "path": "identify",
+                "returncode": null,
+                "output": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)"
+            },
+            "latexmlc": {
+                "path": "latexmlc",
+                "returncode": null,
+                "output": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)"
+            }
+        },
+        "texlive": {
+            "cjk_font_family": "gkai",
+            "cjk_sty": {
+                "path": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)",
+                "version": "unavailable",
+                "date": "",
+                "header": "",
+                "status": "not_found"
+            },
+            "cjk_font_fd": {
+                "path": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)",
+                "version": "unavailable",
+                "date": "",
+                "header": "",
+                "status": "not_found"
+            }
+        }
+    },
+    "stage_execution": {
+        "page_match": {
+            "workers": 24,
+            "page_count": 1651,
+            "quick_match_truncated_timeout_sec": 300,
+            "match_timeout_sec": 420,
+            "fallbacks": {
+                "quick_match_timeout": {
+                    "count": 2,
+                    "cases": [
+                        "docstructbench_enbook-zlib-o.O-17208435.pdf_57.jpg",
+                        "newspaper_0b1bb8d03b4287eb95f67b68c2cf9f92_1.jpg"
+                    ]
+                },
+                "page_timeout": {
+                    "count": 1,
+                    "cases": [
+                        "jiaocaineedrop_jiaocai_needrop_en_349.jpg"
+                    ]
+                }
+            }
+        },
+        "metrics": {
+            "table": {
+                "TEDS": {
+                    "workers": 16,
+                    "timeout_sec": 120.0,
+                    "sample_count": 665,
+                    "timeout_case_count": 0,
+                    "timeout_cases": [],
+                    "error_case_count": 0,
+                    "error_cases": [],
+                    "exception_case_count": 0,
+                    "exception_cases": []
+                }
+            }
+        }
+    },
+    "page_denominators": {
+        "text_block": {
+            "Edit_dist": {
+                "ALL": 1557
+            }
+        },
+        "display_formula": {
+            "Edit_dist": {
+                "ALL": 313
+            }
+        },
+        "table": {
+            "TEDS": {
+                "ALL": 458
+            },
+            "Edit_dist": {
+                "ALL": 458
+            },
+            "TEDS_structure_only": {
+                "ALL": 458
+            }
+        },
+        "reading_order": {
+            "Edit_dist": {
+                "ALL": 1638
+            }
+        }
+    },
+    "notebook_metric_summary": {
+        "source": "tools/generate_result_tables.ipynb#cell-2",
+        "metrics": {
+            "text_block_Edit_dist": {
+                "raw": 0.03540384970738171,
+                "page_denominator": 1557,
+                "notebook_value": 0.03540384970738171
+            },
+            "display_formula_CDM": {
+                "raw": null,
+                "page_denominator": null,
+                "notebook_value": null
+            },
+            "table_TEDS": {
+                "raw": 0.9400260930576706,
+                "page_denominator": 458,
+                "notebook_value": 94.00260930576707
+            },
+            "table_TEDS_structure_only": {
+                "raw": 0.9634808528632705,
+                "page_denominator": 458,
+                "notebook_value": 96.34808528632705
+            },
+            "reading_order_Edit_dist": {
+                "raw": 0.12949903523231754,
+                "page_denominator": 1638,
+                "notebook_value": 0.12949903523231754
+            }
+        },
+        "overall_notebook": null
+    }
+}

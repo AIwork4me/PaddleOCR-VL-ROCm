@@ -15,8 +15,60 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0.0"]
+dev = ["pytest>=8.0.0", "ruff>=0.6.0", "mypy>=1.11.0"]
 download = ["huggingface_hub>=0.25.0"]
+# Note: OmniDocBench's own dependencies (including CDM's Node.js, ImageMagick 7,
+# and TeX Live toolchain) are NOT vendored here. They live in the OmniDocBench
+# checkout pinned at eval/.omnidocbench/ (gitignored) and installed via its own
+# `pip install -e .`; the eval stage runs `pdf_validation.py` from that checkout.
+# No `eval` extra is needed on our side: the only extra dep the eval/ scripts
+# import is `huggingface_hub`, already provided by the `download` extra above.
+# See eval/README.md for the Docker image and the "drop CDM" fallback.
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["models", "outputs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+check_untyped_defs = false
+warn_unused_ignores = false
+files = ["src/paddleocr_vl_rocm"]
+
+# Task 1 baseline: pre-existing untyped OTSL table-parsing logic uses
+# heterogeneous dicts whose values mypy widens to ``object``, producing
+# cascading arg-type/operator/call-overload errors in the ``_otsl_to_table``
+# region. This is legacy logic that will be hardened in a later task; it is
+# suppressed here only to establish a clean baseline.
+# Task 5 moved the OTSL table-parsing code (constants + four functions)
+# verbatim from pipeline_core into table, carrying the same pre-existing
+# findings; that module is covered here. pipeline_core itself is now clean
+# and no longer needs the override.
+# Task 4 moved image-I/O helpers (e.g. ``_crop``'s ``tuple(float(v) for v in ...)``)
+# from pipeline_core verbatim into imageio, carrying the same pre-existing
+# arg-type finding; that module is covered here too.
+[[tool.mypy.overrides]]
+module = ["paddleocr_vl_rocm.table", "paddleocr_vl_rocm.imageio"]
+disable_error_code = [
+    "arg-type",
+    "assignment",
+    "call-overload",
+    "index",
+    "operator",
+    "type-var",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
 
 [project.scripts]
 paddleocr-vl-rocm = "paddleocr_vl_rocm.cli:main"

@@ -8,13 +8,23 @@ from .server import check_openai_compatible_server
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="PaddleOCR-VL-ROCm lightweight ONNXRuntime + ROCm VLM inference.")
+    parser = argparse.ArgumentParser(
+        description="PaddleOCR-VL-ROCm lightweight ONNXRuntime + ROCm VLM inference."
+    )
     parser.add_argument("--input", required=True, help="Input image path.")
     parser.add_argument("--output", default="outputs", help="Output directory.")
-    parser.add_argument("--layout-model", default="models/PP-DocLayoutV3-onnx", help="PP-DocLayoutV3 ONNX model directory.")
-    parser.add_argument("--server-url", default="http://127.0.0.1:8000/v1", help="OpenAI-compatible VLM server URL.")
+    parser.add_argument(
+        "--layout-model",
+        default="models/PP-DocLayoutV3-onnx",
+        help="PP-DocLayoutV3 ONNX model directory.",
+    )
+    parser.add_argument(
+        "--server-url", default="http://127.0.0.1:8000/v1", help="OpenAI-compatible VLM server URL."
+    )
     parser.add_argument("--api-model-name", default="PaddleOCR-VL-1.5-0.9B", help="VLM model id.")
-    parser.add_argument("--vlm-backend", choices=["vllm-server", "llama-cpp-server"], default="vllm-server")
+    parser.add_argument(
+        "--vlm-backend", choices=["vllm-server", "llama-cpp-server"], default="vllm-server"
+    )
     parser.add_argument("--max-new-tokens", type=int, default=4096)
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--threshold", type=float, default=0.3)
@@ -48,4 +58,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
