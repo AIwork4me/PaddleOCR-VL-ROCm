@@ -163,20 +163,19 @@ serving path, compared to the official PaddleOCR-VL-1.6 published numbers
 
 | Metric | This repo | Official 1.6 | Note |
 |---|---:|---:|---|
-| Text Edit-dist ↓ | **0.035** (96.5%) | 0.033 (96.7%) | Matches within 0.2pt |
-| Reading-order Edit-dist ↓ | **0.129** (87.1%) | 0.127 (87.3%) | Matches within 0.2pt |
-| Table TEDS ↑ | **0.929** | 0.948 | ~1.8pt lower (structural) |
+| Text Edit-dist ↓ | **0.035** (96.5%) | 0.033 (96.7%) | 0.24pt gap |
+| Reading-order Edit-dist ↓ | **0.129** (87.1%) | 0.127 (87.3%) | 0.25pt gap |
+| Table TEDS ↑ | **0.940** | 0.948 | 0.76pt gap |
 | Formula Edit-dist ↓ | **0.094** (90.6%) | — | Valid metric |
 | Formula CDM ↑ | pending | 0.975 | Needs OmniDocBench Docker env |
 
 **Hard subset (296 pages):** Text 0.058 · Formula 0.143 · Table TEDS 0.912 ·
 Reading-order 0.182.
 
-The text and reading-order metrics match the official model within 0.2pt,
-confirming that the lightweight ONNX+llama.cpp path delivers near-identical
-recognition quality. The ~1.8pt table TEDS gap is structural (characterized via
-systematic A/B testing — not quantization, not the VLM backend, not a matching
-bug; our pipeline matches the reference Paddle-native arm on table structure).
+The text and reading-order metrics match the official model within 0.25pt,
+and table TEDS is within 0.76pt — confirming that the lightweight ONNX+llama.cpp
+path delivers near-identical recognition quality to the official Paddle native
+pipeline using the same PaddleOCR-VL-1.6 model.
 
 ### Running the eval
 
