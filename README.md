@@ -189,6 +189,11 @@ python eval/run_eval.py --stage all --version v16
 See [`eval/README.md`](eval/README.md) for prerequisites, the three stages, the
 CDM/Docker note, v1.5 vs v1.6 differences, and where scores land.
 
+> **Setting up OmniDocBench on a fresh machine?** See our companion repo
+> [`omnidocbench-amd-windows`](https://github.com/AIwork4me/omnidocbench-amd-windows) —
+> a one-command automated setup guide with CLAUDE.md for AI-agent orchestration,
+> covering VLM server, CDM environment, and the full pitfalls knowledge base.
+
 ## Development
 
 Install with dev tooling and run the full local check:
