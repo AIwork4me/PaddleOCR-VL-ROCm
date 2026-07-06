@@ -36,7 +36,13 @@ class PaddleOCRVLROCm:
 
     def _layout(self) -> PPDocLayoutV3Onnx:
         if self._layout_model is None:
-            self._layout_model = PPDocLayoutV3Onnx(self.layout_model_dir)
+            import onnxruntime
+            available = onnxruntime.get_available_providers()
+            gpu_first = ["DmlExecutionProvider", "CUDAExecutionProvider"]
+            providers = [p for p in gpu_first if p in available]
+            if not providers:
+                providers = ["CPUExecutionProvider"]
+            self._layout_model = PPDocLayoutV3Onnx(self.layout_model_dir, providers=providers)
         return self._layout_model
 
     def predict(self, image_path: str | Path) -> PaddleOCRVLROCmResult:
