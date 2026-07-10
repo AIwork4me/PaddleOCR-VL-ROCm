@@ -10,7 +10,7 @@ Each stage checks its prerequisites and fails with a clear message rather than
 crashing:
 
   * ``download`` -> ``eval.download_omnidocbench.main`` for the chosen version.
-  * ``infer``    -> the PaddleOCR-VL-ROCm adapter's ``process_folder`` against
+  * ``infer``    -> the PaddleOCR-VL-ROCm adapter's ``run_adapter`` against
     the dataset images dir. Requires the VLM server to be reachable.
   * ``eval``     -> ``python pdf_validation.py --config <yaml>`` inside the
     OmniDocBench checkout at ``eval/.omnidocbench/``. The checkout is NOT
@@ -52,9 +52,10 @@ VERSION_DATASET_DIRS = {
     "v16": Path("data/omnidocbench/v16"),
 }
 DEFAULT_PREDICTIONS_DIR = Path("predictions/paddleocrvl_rocm")
-DEFAULT_SERVER_URL = "http://127.0.0.1:8000/v1"
+DEFAULT_SERVER_URL = "http://127.0.0.1:8111/v1"
 DEFAULT_LAYOUT_MODEL = "models/PP-DocLayoutV3-onnx"
-DEFAULT_API_MODEL_NAME = "PaddleOCR-VL-1.5-0.9B"
+DEFAULT_API_MODEL_NAME = "PaddleOCR-VL-1.6-GGUF.gguf"
+DEFAULT_VLM_BACKEND = "llama-cpp-server"
 
 
 def _load_script_module(name: str, path: Path):
@@ -115,13 +116,16 @@ def stage_infer(args: argparse.Namespace) -> None:
             f"Dataset images dir not found: {images_dir}. Run the 'download' stage first."
         )
     out_dir = Path(args.predictions_dir)
-    summary = adapter.process_folder(
+    summary = adapter.run_adapter(
         images_dir,
         out_dir,
+        server_url,
+        engine=args.engine,
         layout_model=args.layout_model,
-        server_url=server_url,
         api_model_name=args.api_model_name,
-        vlm_backend="vllm-server",
+        vlm_backend=args.vlm_backend,
+        page_retries=args.page_retries,
+        fallback_pred_dir=args.fallback_pred_dir,
     )
     print(f"[infer] {summary['ok']}/{summary['count']} pages succeeded -> {out_dir}")
 
@@ -236,6 +240,10 @@ def main() -> None:
     )
     parser.add_argument("--layout-model", default=DEFAULT_LAYOUT_MODEL)
     parser.add_argument("--api-model-name", default=DEFAULT_API_MODEL_NAME)
+    parser.add_argument("--engine", choices=["lightweight", "official"], default="lightweight")
+    parser.add_argument("--vlm-backend", default=DEFAULT_VLM_BACKEND)
+    parser.add_argument("--page-retries", type=int, default=1)
+    parser.add_argument("--fallback-pred-dir", default=None)
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")

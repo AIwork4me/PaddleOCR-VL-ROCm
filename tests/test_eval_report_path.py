@@ -41,3 +41,52 @@ def test_report_path_distinct_checkouts(tmp_path):
     assert out_a == checkout_a / "result" / "paddleocrvl_rocm_quick_match_metric_result.json"
     assert out_b == checkout_b / "result" / "paddleocrvl_rocm_quick_match_metric_result.json"
     assert out_a != out_b
+
+
+def test_stage_infer_dispatches_to_run_adapter(tmp_path, monkeypatch, capsys):
+    mod = _load_run_eval()
+    dataset = tmp_path / "data"
+    images = dataset / "images"
+    images.mkdir(parents=True)
+    predictions = tmp_path / "predictions"
+    captured = {}
+
+    class FakeAdapter:
+        @staticmethod
+        def run_adapter(*args, **kwargs):
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+            return {"count": 1, "ok": 1, "fail": 0, "engine": kwargs["engine"], "stats": []}
+
+    monkeypatch.setattr(mod, "_server_reachable", lambda server_url: True)
+    monkeypatch.setattr(mod, "_load_script_module", lambda name, path: FakeAdapter)
+
+    args = type(
+        "Args",
+        (),
+        {
+            "server_url": "http://127.0.0.1:8111/v1",
+            "dataset_dir": str(dataset),
+            "version": "v16",
+            "predictions_dir": str(predictions),
+            "layout_model": "layout",
+            "api_model_name": "PaddleOCR-VL-1.6-GGUF.gguf",
+            "vlm_backend": "llama-cpp-server",
+            "engine": "official",
+            "page_retries": 2,
+            "fallback_pred_dir": str(tmp_path / "fallback"),
+        },
+    )()
+
+    mod.stage_infer(args)
+
+    assert captured["args"] == (images, predictions, "http://127.0.0.1:8111/v1")
+    assert captured["kwargs"] == {
+        "engine": "official",
+        "layout_model": "layout",
+        "api_model_name": "PaddleOCR-VL-1.6-GGUF.gguf",
+        "vlm_backend": "llama-cpp-server",
+        "page_retries": 2,
+        "fallback_pred_dir": str(tmp_path / "fallback"),
+    }
+    assert "[infer] 1/1 pages succeeded" in capsys.readouterr().out
