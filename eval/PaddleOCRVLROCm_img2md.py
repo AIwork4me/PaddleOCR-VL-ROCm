@@ -10,6 +10,7 @@ import re
 import shutil
 import time
 import traceback
+from collections.abc import Iterable
 from pathlib import Path
 
 ADAPTER_DIR = Path(__file__).resolve().parent
@@ -136,9 +137,11 @@ def run_lightweight_folder(
     images = sorted(p for p in img_dir.iterdir() if p.suffix.lower() in IMAGE_EXTENSIONS)
     for img in images:
         start = time.time()
+        destination = out_dir / expected_md_name(img.name)
+        destination.unlink(missing_ok=True)
         try:
             result = pipeline.predict(img)
-            (out_dir / expected_md_name(img.name)).write_text(result.markdown_text, encoding="utf-8")
+            destination.write_text(result.markdown_text, encoding="utf-8")
             stats.append(
                 {"image": img.name, "status": "ok", "seconds": round(time.time() - start, 2)}
             )
@@ -304,6 +307,8 @@ def run_official_folder(
 
     for img in images:
         start = time.time()
+        destination = out_dir / expected_md_name(img.name)
+        destination.unlink(missing_ok=True)
         last_exc: Exception | None = None
         last_tb = ""
         attempts = 0
@@ -311,12 +316,14 @@ def run_official_folder(
             attempts = attempt + 1
             try:
                 result = pipeline.predict(str(img))
+                if isinstance(result, Iterable) and not isinstance(result, (str, bytes, dict)):
+                    result = list(result)
                 if isinstance(result, list):
                     markdown = "\n\n".join(_official_result_to_markdown(item) for item in result)
                 else:
                     markdown = _official_result_to_markdown(result)
                 markdown = _normalize_official_markdown_for_omnidocbench(markdown)
-                (out_dir / expected_md_name(img.name)).write_text(markdown, encoding="utf-8")
+                destination.write_text(markdown, encoding="utf-8")
                 stats.append(
                     {
                         "image": img.name,
@@ -339,7 +346,7 @@ def run_official_folder(
                 else None
             )
             if fallback_path is not None and fallback_path.is_file():
-                shutil.copyfile(fallback_path, out_dir / expected_md_name(img.name))
+                shutil.copyfile(fallback_path, destination)
                 status = f"fallback: {last_exc}"
             else:
                 status = f"failed: {last_exc}"

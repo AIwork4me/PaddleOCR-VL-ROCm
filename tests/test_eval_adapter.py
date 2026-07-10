@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
+import types
 from pathlib import Path
 
 
@@ -123,6 +125,8 @@ def test_lightweight_folder_writes_run_stats_and_error_log(tmp_path, monkeypatch
     img_dir.mkdir()
     (img_dir / "ok.png").write_bytes(b"fake image")
     (img_dir / "bad.png").write_bytes(b"fake image")
+    out_dir.mkdir()
+    (out_dir / "bad.md").write_text("stale output", encoding="utf-8")
 
     class FakeResult:
         markdown_text = "recognized"
@@ -151,5 +155,37 @@ def test_lightweight_folder_writes_run_stats_and_error_log(tmp_path, monkeypatch
     assert summary["ok"] == 1
     assert summary["fail"] == 1
     assert (out_dir / "ok.md").read_text(encoding="utf-8") == "recognized"
+    assert not (out_dir / "bad.md").exists()
     assert "controlled failure" in (out_dir / "_errors.log").read_text(encoding="utf-8")
     assert '"engine": "lightweight"' in (out_dir / "_run_stats.json").read_text(encoding="utf-8")
+
+
+def test_official_folder_materializes_generator_results(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    out_dir = tmp_path / "predictions"
+    img_dir.mkdir()
+    (img_dir / "page.png").write_bytes(b"fake image")
+
+    class FakeOfficialResult:
+        def __init__(self, markdown):
+            self.markdown = markdown
+
+    class FakeOfficialPipeline:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def predict(self, image_path):
+            return (FakeOfficialResult(markdown) for markdown in ("first page", "second page"))
+
+    monkeypatch.setitem(sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FakeOfficialPipeline))
+
+    summary = mod.run_official_folder(
+        img_dir=img_dir,
+        out_dir=out_dir,
+        server_url="http://127.0.0.1:8111/v1",
+        api_model_name="PaddleOCR-VL-1.6-GGUF.gguf",
+    )
+
+    assert summary["ok"] == 1
+    assert (out_dir / "page.md").read_text(encoding="utf-8") == "first page\n\nsecond page"
