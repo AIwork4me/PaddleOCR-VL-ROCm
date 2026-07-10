@@ -91,6 +91,7 @@ def test_run_adapter_resolves_defaults_from_env_local(tmp_path, monkeypatch):
     assert captured["layout_model"] == "C:/models/layout"
     assert captured["server_url"] == "http://127.0.0.1:8111/v1"
     assert captured["api_model_name"] == "PaddleOCR-VL-1.6-GGUF.gguf"
+    assert captured["vlm_backend"] == "llama-cpp-server"
 
 
 def test_run_adapter_dispatches_official_engine(tmp_path, monkeypatch):
@@ -154,10 +155,13 @@ def test_lightweight_folder_writes_run_stats_and_error_log(tmp_path, monkeypatch
     assert summary["count"] == 2
     assert summary["ok"] == 1
     assert summary["fail"] == 1
+    assert summary["fallback"] == 0
     assert (out_dir / "ok.md").read_text(encoding="utf-8") == "recognized"
     assert not (out_dir / "bad.md").exists()
     assert "controlled failure" in (out_dir / "_errors.log").read_text(encoding="utf-8")
-    assert '"engine": "lightweight"' in (out_dir / "_run_stats.json").read_text(encoding="utf-8")
+    stats = (out_dir / "_run_stats.json").read_text(encoding="utf-8")
+    assert '"engine": "lightweight"' in stats
+    assert '"fallback": 0' in stats
 
 
 def test_official_folder_materializes_generator_results(tmp_path, monkeypatch):
@@ -224,3 +228,76 @@ def test_official_folder_preserves_same_directory_fallback_after_failure(tmp_pat
     assert summary["fail"] == 0
     assert summary["fallback"] == 1
     assert summary["stats"][0]["status"].startswith("fallback:")
+
+
+def test_official_folder_empty_generator_uses_same_directory_fallback(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    out_dir = tmp_path / "predictions"
+    img_dir.mkdir()
+    out_dir.mkdir()
+    (img_dir / "page.png").write_bytes(b"fake image")
+    fallback_markdown = "existing fallback prediction"
+    (out_dir / "page.md").write_text(fallback_markdown, encoding="utf-8")
+
+    class EmptyGeneratorOfficialPipeline:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def predict(self, image_path):
+            return (result for result in ())
+
+    monkeypatch.setitem(
+        sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=EmptyGeneratorOfficialPipeline)
+    )
+
+    summary = mod.run_official_folder(
+        img_dir=img_dir,
+        out_dir=out_dir,
+        server_url="http://127.0.0.1:8111/v1",
+        api_model_name="PaddleOCR-VL-1.6-GGUF.gguf",
+        page_retries=0,
+        fallback_pred_dir=out_dir,
+    )
+
+    assert (out_dir / "page.md").read_text(encoding="utf-8") == fallback_markdown
+    assert summary["ok"] == 1
+    assert summary["fallback"] == 1
+    assert summary["stats"][0]["status"].startswith("fallback:")
+
+
+def test_official_folder_empty_generator_without_fallback_fails_page(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    out_dir = tmp_path / "predictions"
+    img_dir.mkdir()
+    (img_dir / "page.png").write_bytes(b"fake image")
+
+    class EmptyGeneratorOfficialPipeline:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def predict(self, image_path):
+            return (result for result in ())
+
+    monkeypatch.setitem(
+        sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=EmptyGeneratorOfficialPipeline)
+    )
+
+    try:
+        mod.run_official_folder(
+            img_dir=img_dir,
+            out_dir=out_dir,
+            server_url="http://127.0.0.1:8111/v1",
+            api_model_name="PaddleOCR-VL-1.6-GGUF.gguf",
+            page_retries=0,
+        )
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:
+        raise AssertionError("Expected empty official iterable to fail the page")
+
+    assert not (out_dir / "page.md").exists()
+    stats = (out_dir / "_run_stats.json").read_text(encoding="utf-8")
+    assert '"fail": 1' in stats
+    assert "Official PaddleOCRVL predict() returned no page results." in stats

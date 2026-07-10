@@ -18,8 +18,8 @@ crashing:
     instructions and exit non-zero. After eval, locate and print the
     ``result/<save>_metric_result.json`` report path.
 
-Live end-to-end runs are PENDING: there is no VLM server and no OmniDocBench env
-in this task's environment. This orchestrator is verified structurally only.
+Live runs require a reachable VLM server and a prepared OmniDocBench checkout;
+each stage validates those prerequisites before it runs.
 """
 
 from __future__ import annotations
@@ -241,7 +241,14 @@ def main() -> None:
     parser.add_argument("--layout-model", default=DEFAULT_LAYOUT_MODEL)
     parser.add_argument("--api-model-name", default=DEFAULT_API_MODEL_NAME)
     parser.add_argument("--engine", choices=["lightweight", "official"], default="lightweight")
-    parser.add_argument("--vlm-backend", default=DEFAULT_VLM_BACKEND)
+    parser.add_argument(
+        "--vlm-backend",
+        default=DEFAULT_VLM_BACKEND,
+        help=(
+            "VLM backend for the lightweight engine only; ignored by the official engine. "
+            f"Default: {DEFAULT_VLM_BACKEND}."
+        ),
+    )
     parser.add_argument("--page-retries", type=int, default=1)
     parser.add_argument("--fallback-pred-dir", default=None)
     args = parser.parse_args()

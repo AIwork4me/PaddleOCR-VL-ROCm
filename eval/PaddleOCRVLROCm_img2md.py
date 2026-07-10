@@ -17,6 +17,7 @@ ADAPTER_DIR = Path(__file__).resolve().parent
 REPO_ROOT = ADAPTER_DIR.parent
 DEFAULT_ENGINE = "lightweight"
 DEFAULT_LOCAL_API_MODEL_NAME = "PaddleOCR-VL-1.6-GGUF.gguf"
+DEFAULT_VLM_BACKEND = "llama-cpp-server"
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".gif")
 
@@ -61,7 +62,7 @@ def run_adapter(
     engine: str = DEFAULT_ENGINE,
     layout_model: str | None = None,
     api_model_name: str | None = None,
-    vlm_backend: str = "vllm-server",
+    vlm_backend: str = DEFAULT_VLM_BACKEND,
     page_retries: int = 1,
     fallback_pred_dir: str | Path | None = None,
 ) -> dict:
@@ -115,7 +116,7 @@ def run_lightweight_folder(
     layout_model: str = "models/PP-DocLayoutV3-onnx",
     server_url: str = "http://127.0.0.1:8000/v1",
     api_model_name: str = DEFAULT_LOCAL_API_MODEL_NAME,
-    vlm_backend: str = "vllm-server",
+    vlm_backend: str = DEFAULT_VLM_BACKEND,
 ) -> dict:
     """Run the local lightweight pipeline over every image in ``img_dir``."""
     if not img_dir.is_dir():
@@ -163,6 +164,7 @@ def run_lightweight_folder(
         "count": len(images),
         "ok": ok_count,
         "fail": len(images) - ok_count,
+        "fallback": 0,
         "engine": "lightweight",
         "stats": stats,
     }
@@ -182,7 +184,7 @@ def process_folder(
     layout_model: str = "models/PP-DocLayoutV3-onnx",
     server_url: str = "http://127.0.0.1:8000/v1",
     api_model_name: str = DEFAULT_LOCAL_API_MODEL_NAME,
-    vlm_backend: str = "vllm-server",
+    vlm_backend: str = DEFAULT_VLM_BACKEND,
 ) -> dict:
     return run_lightweight_folder(
         img_dir=img_dir,
@@ -328,6 +330,8 @@ def run_official_folder(
                 if isinstance(result, Iterable) and not isinstance(result, (str, bytes, dict)):
                     result = list(result)
                 if isinstance(result, list):
+                    if not result:
+                        raise RuntimeError("Official PaddleOCRVL predict() returned no page results.")
                     markdown = "\n\n".join(_official_result_to_markdown(item) for item in result)
                 else:
                     markdown = _official_result_to_markdown(result)
@@ -400,7 +404,14 @@ def main() -> None:
     parser.add_argument("--layout-model", default="models/PP-DocLayoutV3-onnx")
     parser.add_argument("--server-url", default="")
     parser.add_argument("--api-model-name", default=None)
-    parser.add_argument("--vlm-backend", default="vllm-server")
+    parser.add_argument(
+        "--vlm-backend",
+        default=DEFAULT_VLM_BACKEND,
+        help=(
+            "VLM backend for the lightweight engine only; ignored by the official engine. "
+            f"Default: {DEFAULT_VLM_BACKEND}."
+        ),
+    )
     parser.add_argument("--engine", choices=["lightweight", "official"], default=DEFAULT_ENGINE)
     parser.add_argument(
         "--page-retries", type=int, default=int(os.environ.get("PADDLEOCR_VL_PAGE_RETRIES", "1"))
