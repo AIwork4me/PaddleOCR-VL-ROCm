@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import logging
+import os
 import subprocess
 import sys
 import tempfile
@@ -255,7 +256,8 @@ def stage_eval(args: argparse.Namespace) -> None:
             str(rendered_config.resolve()),
         ]
         print(f"[eval] Running in {checkout}: {' '.join(cmd)}")
-        result = subprocess.run(cmd, cwd=str(checkout), check=False)
+        eval_env = {**os.environ, "PYTHONUTF8": "1"}
+        result = subprocess.run(cmd, cwd=str(checkout), check=False, env=eval_env)
     if result.returncode != 0:
         raise SystemExit(f"pdf_validation.py exited {result.returncode}")
 

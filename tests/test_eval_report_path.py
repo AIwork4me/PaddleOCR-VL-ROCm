@@ -228,6 +228,42 @@ def test_stage_eval_uses_checkout_venv_python_when_available(tmp_path, monkeypat
     assert captured["cmd"][0] == str(venv_python)
 
 
+def test_stage_eval_sets_pythonutf8_for_windows_omnidocbench_subprocess(tmp_path, monkeypatch):
+    mod = _load_run_eval()
+    checkout = tmp_path / "checkout"
+    predictions = tmp_path / "predictions" / "paddleocr_official_local_llamacpp_gguf_v16"
+    report = checkout / "result" / f"{predictions.name}_quick_match_metric_result.json"
+    predictions.mkdir(parents=True)
+    report.parent.mkdir(parents=True)
+    report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["env"] = kwargs.get("env", {})
+        return type("R", (), {"returncode": 0})()
+
+    monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    args = type(
+        "Args",
+        (),
+        {
+            "config": "eval/configs/omnidocbench_v16.yaml",
+            "version": "v16",
+            "predictions_dir": str(predictions),
+            "match_method": "quick_match",
+            "copy_report": None,
+            "run_summary": None,
+            "cdm": False,
+        },
+    )()
+
+    mod.stage_eval(args)
+
+    assert captured["env"]["PYTHONUTF8"] == "1"
+
+
 def test_stage_infer_dispatches_to_run_adapter(tmp_path, monkeypatch, capsys):
     mod = _load_run_eval()
     dataset = tmp_path / "data"
