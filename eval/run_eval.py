@@ -29,6 +29,7 @@ import importlib.util
 import logging
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 log = logging.getLogger("run_eval")
@@ -180,6 +181,37 @@ def _resolve_report_path(checkout: Path, predictions_dir: Path, match_method: st
     return checkout / RESULT_DIR / f"{save}_metric_result.json"
 
 
+def _render_eval_config(
+    base_config: Path, predictions_dir: Path, *, cdm: bool, destination_dir: Path
+) -> Path:
+    try:
+        import yaml
+    except ImportError as exc:
+        raise SystemExit("PyYAML is required to render the OmniDocBench eval config.") from exc
+
+    config_data = yaml.safe_load(base_config.read_text(encoding="utf-8"))
+    eval_config = config_data["end2end_eval"]
+    eval_config["dataset"]["prediction"]["data_path"] = str(
+        predictions_dir.expanduser().resolve()
+    )
+
+    formula_metrics = list(eval_config["metrics"]["display_formula"].get("metric", []))
+    if cdm:
+        if "CDM" not in formula_metrics:
+            formula_metrics.append("CDM")
+    else:
+        formula_metrics = [metric for metric in formula_metrics if metric != "CDM"]
+    eval_config["metrics"]["display_formula"]["metric"] = formula_metrics
+
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    rendered = destination_dir / base_config.name
+    rendered.write_text(
+        yaml.safe_dump(config_data, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    return rendered
+
+
 def stage_eval(args: argparse.Namespace) -> None:
     checkout = _ensure_omnidocbench_checkout()
     config = Path(args.config or VERSION_CONFIGS[args.version])
@@ -193,9 +225,18 @@ def stage_eval(args: argparse.Namespace) -> None:
         )
 
     # pdf_validation.py is run from the checkout cwd (it writes ./result/ there).
-    cmd = [sys.executable, PDF_VALIDATION, "--config", str(config.resolve())]
-    print(f"[eval] Running in {checkout}: {' '.join(cmd)}")
-    result = subprocess.run(cmd, cwd=str(checkout), check=False)
+    # Render a runtime config so the subprocess sees the selected prediction
+    # directory and explicit CDM/non-CDM formula metrics.
+    with tempfile.TemporaryDirectory(prefix="paddleocr_eval_config_") as config_dir:
+        rendered_config = _render_eval_config(
+            config,
+            predictions_dir,
+            cdm=bool(getattr(args, "cdm", False)),
+            destination_dir=Path(config_dir),
+        )
+        cmd = [sys.executable, PDF_VALIDATION, "--config", str(rendered_config.resolve())]
+        print(f"[eval] Running in {checkout}: {' '.join(cmd)}")
+        result = subprocess.run(cmd, cwd=str(checkout), check=False)
     if result.returncode != 0:
         raise SystemExit(f"pdf_validation.py exited {result.returncode}")
 

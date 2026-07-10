@@ -8,6 +8,8 @@ not against the orchestrator's own CWD.
 import importlib.util
 from pathlib import Path
 
+import yaml
+
 
 def _load_run_eval():
     spec = importlib.util.spec_from_file_location("run_eval", Path("eval/run_eval.py"))
@@ -99,6 +101,89 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
 
     assert copied.read_text(encoding="utf-8").startswith('{"text_block"')
     assert summary.is_file()
+
+
+def test_stage_eval_passes_rendered_config_for_selected_predictions_without_cdm(
+    tmp_path, monkeypatch
+):
+    mod = _load_run_eval()
+    checkout = tmp_path / "checkout"
+    predictions = tmp_path / "predictions" / "paddleocr_official_local_llamacpp_gguf_v16"
+    report = checkout / "result" / f"{predictions.name}_quick_match_metric_result.json"
+    predictions.mkdir(parents=True)
+    report.parent.mkdir(parents=True)
+    report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        config_path = Path(cmd[cmd.index("--config") + 1])
+        captured["config_path"] = config_path
+        captured["config"] = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        return type("R", (), {"returncode": 0})()
+
+    monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    args = type(
+        "Args",
+        (),
+        {
+            "config": "eval/configs/omnidocbench_v16.yaml",
+            "version": "v16",
+            "predictions_dir": str(predictions),
+            "match_method": "quick_match",
+            "copy_report": None,
+            "run_summary": None,
+            "cdm": False,
+        },
+    )()
+
+    mod.stage_eval(args)
+
+    eval_config = captured["config"]["end2end_eval"]
+    assert captured["config_path"] != Path(args.config).resolve()
+    assert eval_config["dataset"]["prediction"]["data_path"] == str(predictions.resolve())
+    assert eval_config["metrics"]["display_formula"]["metric"] == ["Edit_dist"]
+
+
+def test_stage_eval_passes_rendered_config_with_cdm_when_requested(tmp_path, monkeypatch):
+    mod = _load_run_eval()
+    checkout = tmp_path / "checkout"
+    predictions = tmp_path / "predictions" / "paddleocr_official_local_llamacpp_gguf_v16"
+    report = checkout / "result" / f"{predictions.name}_quick_match_metric_result.json"
+    predictions.mkdir(parents=True)
+    report.parent.mkdir(parents=True)
+    report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        config_path = Path(cmd[cmd.index("--config") + 1])
+        captured["config"] = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        return type("R", (), {"returncode": 0})()
+
+    monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    args = type(
+        "Args",
+        (),
+        {
+            "config": "eval/configs/omnidocbench_v16.yaml",
+            "version": "v16",
+            "predictions_dir": str(predictions),
+            "match_method": "quick_match",
+            "copy_report": None,
+            "run_summary": None,
+            "cdm": True,
+        },
+    )()
+
+    mod.stage_eval(args)
+
+    assert captured["config"]["end2end_eval"]["metrics"]["display_formula"]["metric"] == [
+        "Edit_dist",
+        "CDM",
+    ]
 
 
 def test_stage_infer_dispatches_to_run_adapter(tmp_path, monkeypatch, capsys):
