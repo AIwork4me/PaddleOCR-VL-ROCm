@@ -39,3 +39,16 @@ lightweight and official evaluation examples use `PaddleOCR-VL-1.6-GGUF.gguf`.
   top-level legacy `8000` instructions.
 - Added the local `paddleocr` prerequisite next to the official-engine command
   in `README.zh-CN.md`, matching the English evaluation documentation.
+
+## Final Review Follow-up
+
+- Marked the official local-engine score row as pending local reproduction from
+  tracked repository artifacts in both top-level READMEs. Companion setup
+  evidence is identified as non-tracked context and is not presented as a
+  repo-backed score.
+- Restored the arXiv provenance link for the public PaddleOCR-VL-1.6 target row
+  in both top-level READMEs.
+- Re-ran the Task 5 grep check. Remaining matches are the intentional legacy
+  CLI/API examples and the intentional Linux vLLM/BF16 reference-path
+  disclaimer.
+- `git diff --check` passed.

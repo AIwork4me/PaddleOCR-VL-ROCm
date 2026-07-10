@@ -163,8 +163,8 @@ Linux vLLM/BF16 reference path.
 | Engine | Text Edit-dist ↓ | Reading-order Edit-dist ↓ | Table TEDS ↑ | Formula CDM ↑ | Notes |
 |---|---:|---:|---:|---:|---|
 | Lightweight local engine | 0.035 | 0.129 | 94.00 | 94.40 | Existing recorded local CDM artifact |
-| Official local engine | 0.034 | 0.129 | 94.22 | 96.81 | Reproduced in the companion local setup; rerun here with `--engine official` |
-| Public PaddleOCR-VL-1.6 target | 0.035 | 0.129 | 94.64 | 97.49 | External reference, shown for context only |
+| Official local engine | pending | pending | pending | pending | Pending reproduction from tracked local artifacts; companion setup evidence is non-tracked context |
+| [Public PaddleOCR-VL-1.6 target](https://arxiv.org/abs/2606.03264) | 0.035 | 0.129 | 94.64 | 97.49 | External reference, shown for context only |
 
 The project goal is to align inputs, outputs, parameters, and local evaluation
 evidence. Remaining gaps are reported by engine instead of hidden.
