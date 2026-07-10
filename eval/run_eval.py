@@ -212,6 +212,16 @@ def _render_eval_config(
     return rendered
 
 
+def _resolve_eval_python(checkout: Path) -> str:
+    for candidate in (
+        checkout / ".venv" / "Scripts" / "python.exe",
+        checkout / ".venv" / "bin" / "python",
+    ):
+        if candidate.is_file():
+            return str(candidate)
+    return sys.executable
+
+
 def stage_eval(args: argparse.Namespace) -> None:
     checkout = _ensure_omnidocbench_checkout()
     config = Path(args.config or VERSION_CONFIGS[args.version])
@@ -234,7 +244,12 @@ def stage_eval(args: argparse.Namespace) -> None:
             cdm=bool(getattr(args, "cdm", False)),
             destination_dir=Path(config_dir),
         )
-        cmd = [sys.executable, PDF_VALIDATION, "--config", str(rendered_config.resolve())]
+        cmd = [
+            _resolve_eval_python(checkout),
+            PDF_VALIDATION,
+            "--config",
+            str(rendered_config.resolve()),
+        ]
         print(f"[eval] Running in {checkout}: {' '.join(cmd)}")
         result = subprocess.run(cmd, cwd=str(checkout), check=False)
     if result.returncode != 0:
