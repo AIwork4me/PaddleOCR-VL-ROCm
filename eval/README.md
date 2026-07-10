@@ -23,9 +23,21 @@ rather than crashing the whole run.
 
 Before running any stage, you need all of the following:
 
-1. **The PaddleOCR-VL-ROCm VLM server up.** The `infer` stage drives the adapter
-   against an OpenAI-compatible server. Start it per the top-level
-   [README](../README.md), then confirm:
+1. **A local llama.cpp/GGUF VLM server is running.** The `infer` stage drives the
+   adapter against an OpenAI-compatible server on the local evaluation port.
+   Start `llama-server.exe` with the PaddleOCR-VL-1.6 GGUF model and its
+   multimodal projector, for example:
+
+   ```powershell
+   .\llama-server.exe `
+     --host 127.0.0.1 `
+     --port 8111 `
+     -m C:\path\to\PaddleOCR-VL-1.6-GGUF.gguf `
+     --mmproj C:\path\to\PaddleOCR-VL-1.6-GGUF-mmproj.gguf
+   ```
+
+   The model and projector paths depend on your local llama.cpp/GGUF setup.
+   Then confirm:
 
    ```powershell
    paddleocr-vl-rocm-check-server --server-url http://127.0.0.1:8111/v1

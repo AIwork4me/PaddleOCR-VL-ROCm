@@ -30,3 +30,12 @@ lightweight and official evaluation examples use `PaddleOCR-VL-1.6-GGUF.gguf`.
 
 - Documented the local `paddleocr` dependency prerequisite for `--engine official`.
 - Updated the direct inference example to use the local llama.cpp port `8111`.
+
+## Second Re-review Follow-up
+
+- Made `eval/README.md` self-contained for the local llama.cpp/GGUF server path,
+  including a `llama-server.exe` example with the GGUF model, multimodal
+  projector, and port `8111`; it no longer delegates the prerequisite to the
+  top-level legacy `8000` instructions.
+- Added the local `paddleocr` prerequisite next to the official-engine command
+  in `README.zh-CN.md`, matching the English evaluation documentation.

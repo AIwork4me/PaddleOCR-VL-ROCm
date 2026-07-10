@@ -186,6 +186,8 @@ python eval/run_eval.py --stage infer --version v16 `
   --page-retries 1
 ```
 
+官方引擎需要先在当前环境安装本地 `paddleocr` 依赖。
+
 前置条件、三个阶段、CDM/Docker 说明、v1.5 与 v1.6 的差异，以及分数落地位置，
 请参见 [`eval/README.md`](eval/README.md)。
 
