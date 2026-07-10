@@ -88,7 +88,7 @@ python eval/PaddleOCRVLROCm_img2md.py `
   --img-dir data/omnidocbench/v16/images `
   --out-dir predictions/paddleocrvl_rocm `
   --layout-model models/PP-DocLayoutV3-onnx `
-  --server-url http://127.0.0.1:8000/v1
+  --server-url http://127.0.0.1:8111/v1
 ```
 
 ### Local lightweight engine
@@ -102,6 +102,9 @@ python eval/run_eval.py --stage infer --version v16 `
 ```
 
 ### Local official engine
+
+The official engine requires the local `paddleocr` dependency to be installed
+in the environment before running this command.
 
 ```powershell
 python eval/run_eval.py --stage infer --version v16 `
