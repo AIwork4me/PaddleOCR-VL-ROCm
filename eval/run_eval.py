@@ -69,6 +69,23 @@ def _load_script_module(name: str, path: Path):
     return module
 
 
+def _load_artifact_utils():
+    return _load_script_module("eval_artifact_utils", Path("eval/artifact_utils.py"))
+
+
+def apply_artifact_profile_defaults(args: argparse.Namespace) -> None:
+    if getattr(args, "artifact_profile", "default") != "official-local":
+        return
+    artifacts = _load_artifact_utils()
+    paths = artifacts.official_local_paths(args.version, cdm=getattr(args, "cdm", False))
+    if args.predictions_dir == str(DEFAULT_PREDICTIONS_DIR):
+        args.predictions_dir = paths.predictions_dir.as_posix()
+    if getattr(args, "copy_report", None) is None:
+        args.copy_report = paths.metric_result.as_posix()
+    if getattr(args, "run_summary", None) is None:
+        args.run_summary = paths.run_summary.as_posix()
+
+
 # --- stages --------------------------------------------------------------------
 
 
@@ -126,6 +143,7 @@ def stage_infer(args: argparse.Namespace) -> None:
         vlm_backend=args.vlm_backend,
         page_retries=args.page_retries,
         fallback_pred_dir=args.fallback_pred_dir,
+        limit_pages=args.limit_pages,
     )
     print(f"[infer] {summary['ok']}/{summary['count']} pages succeeded -> {out_dir}")
 
@@ -186,6 +204,20 @@ def stage_eval(args: argparse.Namespace) -> None:
     report = _resolve_report_path(checkout, predictions_dir, match_method)
     if report.exists():
         print(f"[eval] Report ready: {report}")
+        if getattr(args, "copy_report", None):
+            artifacts = _load_artifact_utils()
+            copied = artifacts.copy_metric_report(report, Path(args.copy_report))
+            print(f"[eval] Copied report: {copied}")
+            if getattr(args, "run_summary", None):
+                save_name = f"{predictions_dir.name}_{match_method}"
+                summary = artifacts.write_run_summary(
+                    save_name=save_name,
+                    run_stats_path=predictions_dir / "_run_stats.json",
+                    metric_result_path=copied,
+                    destination=Path(args.run_summary),
+                    cdm=bool(getattr(args, "cdm", False)),
+                )
+                print(f"[eval] Run summary ready: {summary}")
     else:
         print(
             f"[eval] pdf_validation completed but expected report not found at {report}; "
@@ -251,7 +283,13 @@ def main() -> None:
     )
     parser.add_argument("--page-retries", type=int, default=1)
     parser.add_argument("--fallback-pred-dir", default=None)
+    parser.add_argument("--artifact-profile", choices=["default", "official-local"], default="default")
+    parser.add_argument("--limit-pages", type=int, default=None)
+    parser.add_argument("--copy-report", default=None)
+    parser.add_argument("--run-summary", default=None)
+    parser.add_argument("--cdm", action="store_true")
     args = parser.parse_args()
+    apply_artifact_profile_defaults(args)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
