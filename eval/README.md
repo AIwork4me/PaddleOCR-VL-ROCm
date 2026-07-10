@@ -126,6 +126,25 @@ python eval/run_eval.py --stage infer --version v16 `
   --page-retries 1
 ```
 
+### Official local artifact route
+
+The official-local route is Windows + AMD + llama.cpp/GGUF only. It does not set
+up Linux vLLM/BF16, SGLang, FastDeploy, or Docker.
+
+```powershell
+python scripts/check_official_paddleocr.py --construct `
+  --server-url http://127.0.0.1:8111/v1 `
+  --api-model-name PaddleOCR-VL-1.6-GGUF.gguf
+
+.\scripts\run_official_local_v16.ps1
+.\scripts\run_official_local_v16.ps1 -Full
+.\scripts\run_official_local_v16.ps1 -Cdm
+```
+
+The generated prediction Markdown remains under
+`predictions/paddleocr_official_local_llamacpp_gguf_v16`. Tracked evidence is
+copied under `results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_*`.
+
 This stage is **server-gated**: it first pings the VLM server and exits with a
 clear message if it is unreachable. Per-page failures are caught and recorded so
 a single bad page does not abort the run (a missing page scores zero in the
