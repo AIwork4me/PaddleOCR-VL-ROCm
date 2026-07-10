@@ -1,0 +1,24 @@
+{
+  "created_at_utc": "2026-07-10T21:10:11.794184+00:00",
+  "git_commit": "128db270603bc92a55c4ad11c73537439cc90511",
+  "engine": "official",
+  "vlm_server_url": "http://127.0.0.1:8111/v1",
+  "api_model_name": "PaddleOCR-VL-1.6-GGUF.gguf",
+  "adapter_command": "python eval/run_eval.py --stage infer --version v16 --engine official --artifact-profile official-local --server-url http://127.0.0.1:8111/v1 --api-model-name PaddleOCR-VL-1.6-GGUF.gguf",
+  "scoring_config_path": "eval\\configs\\omnidocbench_v16.yaml",
+  "dataset_manifest_path": "data\\omnidocbench\\v16\\OmniDocBench.json",
+  "prediction_dir": "predictions\\paddleocr_official_local_llamacpp_gguf_v16",
+  "page_count": 1651,
+  "ok_pages": 1650,
+  "failed_pages": 1,
+  "fallback_pages": 0,
+  "metric_result_paths": [
+    "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_quick_match_metric_result.json",
+    "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_quick_match_metric_result_cdm.json"
+  ],
+  "run_summary_paths": [
+    "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_quick_match_run_summary.json",
+    "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_quick_match_run_summary_cdm.json"
+  ],
+  "run_stats_path": "predictions\\paddleocr_official_local_llamacpp_gguf_v16\\_run_stats.json"
+}

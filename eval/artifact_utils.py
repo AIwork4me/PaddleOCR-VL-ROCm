@@ -39,28 +39,67 @@ def copy_metric_report(source: Path, destination: Path) -> Path:
     return destination
 
 
+def _nested(metric: dict[str, Any], *keys: str) -> Any:
+    value: Any = metric
+    for key in keys:
+        if not isinstance(value, dict) or key not in value:
+            return None
+        value = value[key]
+    return value
+
+
+def _nested_number(metric: dict[str, Any], *keys: str) -> float | None:
+    value = _nested(metric, *keys)
+    return value if isinstance(value, (int, float)) else None
+
+
+def analyze_metric_quality(metric: dict[str, Any]) -> dict[str, Any]:
+    cdm_debug = _nested(metric, "display_formula", "metric_debug", "CDM") or {}
+    sample_count = cdm_debug.get("sample_count") if isinstance(cdm_debug, dict) else None
+    exception_count = (
+        cdm_debug.get("exception_case_count") if isinstance(cdm_debug, dict) else None
+    )
+    formula_cdm = {
+        "valid": True,
+        "reason": "",
+        "sample_count": sample_count,
+        "exception_case_count": exception_count,
+    }
+    if (
+        isinstance(sample_count, int)
+        and sample_count > 0
+        and isinstance(exception_count, int)
+        and exception_count >= sample_count
+    ):
+        first_reason = ""
+        exception_cases = cdm_debug.get("exception_cases", [])
+        if exception_cases and isinstance(exception_cases[0], dict):
+            first_reason = str(exception_cases[0].get("reason", ""))
+        formula_cdm["valid"] = False
+        formula_cdm["reason"] = (
+            f"all CDM samples raised exceptions ({exception_count}/{sample_count}); "
+            f"first_reason={first_reason}"
+        )
+    return {"formula_cdm": formula_cdm}
+
+
 def extract_readme_metrics(metric: dict[str, Any]) -> dict[str, float | None]:
-    def nested(*keys: str) -> float | None:
-        value: Any = metric
-        for key in keys:
-            if not isinstance(value, dict) or key not in value:
-                return None
-            value = value[key]
-        return value if isinstance(value, (int, float)) else None
+    quality = analyze_metric_quality(metric)
+    cdm_value = _nested_number(metric, "display_formula", "page", "CDM", "ALL")
+    if not quality["formula_cdm"]["valid"]:
+        cdm_value = None
 
     return {
-        "text_edit_dist": nested("text_block", "page", "Edit_dist", "ALL"),
-        "reading_order_edit_dist": nested("reading_order", "page", "Edit_dist", "ALL"),
+        "text_edit_dist": _nested_number(metric, "text_block", "page", "Edit_dist", "ALL"),
+        "reading_order_edit_dist": _nested_number(
+            metric, "reading_order", "page", "Edit_dist", "ALL"
+        ),
         "table_teds_percent": (
-            nested("table", "page", "TEDS", "ALL") * 100
-            if nested("table", "page", "TEDS", "ALL") is not None
+            _nested_number(metric, "table", "page", "TEDS", "ALL") * 100
+            if _nested_number(metric, "table", "page", "TEDS", "ALL") is not None
             else None
         ),
-        "formula_cdm_percent": (
-            nested("display_formula", "page", "CDM", "ALL") * 100
-            if nested("display_formula", "page", "CDM", "ALL") is not None
-            else None
-        ),
+        "formula_cdm_percent": cdm_value * 100 if cdm_value is not None else None,
     }
 
 
@@ -86,6 +125,7 @@ def write_run_summary(
         "metric_result_path": str(metric_result_path),
         "run_stats_path": str(run_stats_path),
         "readme_metrics": extract_readme_metrics(metric_result),
+        "metric_quality": analyze_metric_quality(metric_result),
         "run_stats": run_stats,
     }
     destination.parent.mkdir(parents=True, exist_ok=True)

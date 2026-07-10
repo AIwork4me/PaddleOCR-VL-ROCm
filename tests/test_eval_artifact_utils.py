@@ -75,3 +75,54 @@ def test_write_run_summary_and_provenance(tmp_path):
     assert provenance["git_commit"] == "abc123"
     assert provenance["ok_pages"] == 2
     assert provenance["fallback_pages"] == 1
+
+
+def test_cdm_all_exception_metric_is_marked_invalid(tmp_path):
+    mod = _load_artifacts()
+    predictions = tmp_path / "predictions"
+    results_dir = tmp_path / "results"
+    predictions.mkdir()
+    stats_path = predictions / "_run_stats.json"
+    metric_path = results_dir / "metric_cdm.json"
+    stats_path.write_text(
+        json.dumps({"count": 2, "ok": 2, "fail": 0, "fallback": 0, "engine": "official", "stats": []}),
+        encoding="utf-8",
+    )
+    metric_path.parent.mkdir(parents=True)
+    metric_path.write_text(
+        json.dumps(
+            {
+                "display_formula": {
+                    "page": {"CDM": {"ALL": 0.0}},
+                    "metric_debug": {
+                        "CDM": {
+                            "sample_count": 2,
+                            "exception_case_count": 2,
+                            "exception_cases": [
+                                {
+                                    "reason": (
+                                        "FileNotFoundError: [Errno 2] No such file or directory: "
+                                        "'result/.../temp_gt/.../gt_sample_0.tex'"
+                                    )
+                                }
+                            ],
+                        }
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    summary_path = mod.write_run_summary(
+        save_name="paddleocr_official_local_llamacpp_gguf_v16_quick_match",
+        run_stats_path=stats_path,
+        metric_result_path=metric_path,
+        destination=results_dir / "summary_cdm.json",
+        cdm=True,
+    )
+
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["readme_metrics"]["formula_cdm_percent"] is None
+    assert summary["metric_quality"]["formula_cdm"]["valid"] is False
+    assert "all CDM samples raised exceptions" in summary["metric_quality"]["formula_cdm"]["reason"]

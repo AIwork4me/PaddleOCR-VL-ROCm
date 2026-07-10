@@ -144,6 +144,9 @@ python scripts/check_official_paddleocr.py --construct `
 The generated prediction Markdown remains under
 `predictions/paddleocr_official_local_llamacpp_gguf_v16`. Tracked evidence is
 copied under `results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_*`.
+When `-Cdm` is used, inspect `metric_quality.formula_cdm` in the generated run
+summary before publishing the Formula CDM value. A CDM run where every sample
+raises an exception is treated as invalid and should be reported as pending.
 
 This stage is **server-gated**: it first pings the VLM server and exits with a
 clear message if it is unreachable. Per-page failures are caught and recorded so
