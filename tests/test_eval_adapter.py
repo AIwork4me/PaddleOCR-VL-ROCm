@@ -24,3 +24,132 @@ def test_image_extensions_lowercase():
     mod = _load_adapter()
     exts = {e.lower() for e in mod.IMAGE_EXTENSIONS}
     assert {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".gif"} <= exts
+
+
+def test_official_result_prefers_plain_markdown_export():
+    mod = _load_adapter()
+
+    class FakeOfficialResult:
+        def __init__(self):
+            self.calls = []
+            self.markdown = "<div>pretty markdown</div>"
+
+        def _to_markdown(self, pretty=True):
+            self.calls.append(pretty)
+            return {"markdown_texts": "plain markdown"}
+
+    result = FakeOfficialResult()
+
+    assert mod._official_result_to_markdown(result) == "plain markdown"
+    assert result.calls == [False]
+
+
+def test_official_markdown_html_wrappers_become_scorer_friendly_markdown():
+    mod = _load_adapter()
+    markdown = (
+        '<div style="text-align: center;"><img src="imgs/table_1.jpg"></div>\n\n'
+        '<div style="text-align: center;"><b>Figure 1 &amp; caption</b></div>'
+    )
+
+    assert mod._normalize_official_markdown_for_omnidocbench(markdown) == (
+        "![](imgs/table_1.jpg)\n\nFigure 1 & caption"
+    )
+
+
+def test_run_adapter_resolves_defaults_from_env_local(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    adapter_dir = tmp_path / "adapter"
+    repo_root = tmp_path / "repo"
+    adapter_dir.mkdir()
+    repo_root.mkdir()
+    (adapter_dir / ".env.local").write_text(
+        "\n".join(
+            [
+                "PP_DOCLAYOUTV3_ONNX_DIR='C:/models/layout'",
+                "LLAMA_HOST='127.0.0.1'",
+                "LLAMA_PORT='8111'",
+                "VL_REC_API_MODEL_NAME='PaddleOCR-VL-1.6-GGUF.gguf'",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    captured = {}
+
+    def fake_lightweight_folder(**kwargs):
+        captured.update(kwargs)
+        return {"count": 0, "ok": 0, "fail": 0, "engine": "lightweight", "stats": []}
+
+    monkeypatch.setattr(mod, "ADAPTER_DIR", adapter_dir, raising=False)
+    monkeypatch.setattr(mod, "REPO_ROOT", repo_root, raising=False)
+    monkeypatch.setattr(mod, "run_lightweight_folder", fake_lightweight_folder, raising=False)
+
+    summary = mod.run_adapter(tmp_path / "images", tmp_path / "predictions", "")
+
+    assert summary["engine"] == "lightweight"
+    assert captured["layout_model"] == "C:/models/layout"
+    assert captured["server_url"] == "http://127.0.0.1:8111/v1"
+    assert captured["api_model_name"] == "PaddleOCR-VL-1.6-GGUF.gguf"
+
+
+def test_run_adapter_dispatches_official_engine(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    captured = {}
+
+    def fake_official_folder(**kwargs):
+        captured.update(kwargs)
+        return {"count": 1, "ok": 1, "fail": 0, "fallback": 0, "engine": "official", "stats": []}
+
+    monkeypatch.setattr(mod, "run_official_folder", fake_official_folder, raising=False)
+
+    summary = mod.run_adapter(
+        tmp_path / "images",
+        tmp_path / "predictions",
+        "http://127.0.0.1:8111/v1",
+        engine="official",
+        page_retries=2,
+        fallback_pred_dir=tmp_path / "fallback",
+    )
+
+    assert summary["engine"] == "official"
+    assert captured["server_url"] == "http://127.0.0.1:8111/v1"
+    assert captured["page_retries"] == 2
+    assert captured["fallback_pred_dir"] == tmp_path / "fallback"
+
+
+def test_lightweight_folder_writes_run_stats_and_error_log(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    out_dir = tmp_path / "predictions"
+    img_dir.mkdir()
+    (img_dir / "ok.png").write_bytes(b"fake image")
+    (img_dir / "bad.png").write_bytes(b"fake image")
+
+    class FakeResult:
+        markdown_text = "recognized"
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def predict(self, image_path):
+            if image_path.name == "bad.png":
+                raise RuntimeError("controlled failure")
+            return FakeResult()
+
+    monkeypatch.setattr(mod, "PaddleOCRVLROCm", FakePipeline, raising=False)
+
+    summary = mod.run_lightweight_folder(
+        img_dir=img_dir,
+        out_dir=out_dir,
+        layout_model="layout",
+        server_url="http://127.0.0.1:8111/v1",
+        api_model_name="PaddleOCR-VL-1.6-GGUF.gguf",
+        vlm_backend="llama-cpp-server",
+    )
+
+    assert summary["count"] == 2
+    assert summary["ok"] == 1
+    assert summary["fail"] == 1
+    assert (out_dir / "ok.md").read_text(encoding="utf-8") == "recognized"
+    assert "controlled failure" in (out_dir / "_errors.log").read_text(encoding="utf-8")
+    assert '"engine": "lightweight"' in (out_dir / "_run_stats.json").read_text(encoding="utf-8")
