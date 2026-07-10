@@ -154,28 +154,20 @@ python -m pytest -q
 paddleocr-vl-rocm --help
 ```
 
-## Evaluation (OmniDocBench v1.6)
+## Evaluation (OmniDocBench v1.6, local AMD Windows)
 
-Benchmark scoring against OmniDocBench v1.6 (1,651 pages) using the same
-PaddleOCR-VL-1.6 model via a lightweight ONNXRuntime + llama.cpp (HIP/ROCm)
-serving path, compared to the official PaddleOCR-VL-1.6 published numbers
-([arXiv 2606.03264](https://arxiv.org/abs/2606.03264)):
+Scores in this repository are local measurements from the Windows + AMD Radeon
++ llama.cpp/GGUF + OmniDocBench/CDM environment. They are not claimed from a
+Linux vLLM/BF16 reference path.
 
-| Metric | This repo | Official 1.6 | Note |
-|---|---:|---:|---|
-| Text Edit-dist ↓ | **0.035** (96.5%) | 0.033 (96.7%) | 0.24pt gap |
-| Reading-order Edit-dist ↓ | **0.129** (87.1%) | 0.127 (87.3%) | 0.25pt gap |
-| Table TEDS ↑ | **0.940** | 0.948 | 0.76pt gap |
-| Formula Edit-dist ↓ | **0.094** (90.6%) | — | Valid metric |
-| Formula CDM ↑ | **0.944** | 0.975 | 3.1pt gap |
+| Engine | Text Edit-dist ↓ | Reading-order Edit-dist ↓ | Table TEDS ↑ | Formula CDM ↑ | Notes |
+|---|---:|---:|---:|---:|---|
+| Lightweight local engine | 0.035 | 0.129 | 94.00 | 94.40 | Existing recorded local CDM artifact |
+| Official local engine | 0.034 | 0.129 | 94.22 | 96.81 | Reproduced in the companion local setup; rerun here with `--engine official` |
+| Public PaddleOCR-VL-1.6 target | 0.035 | 0.129 | 94.64 | 97.49 | External reference, shown for context only |
 
-**Hard subset (296 pages):** Text 0.058 · Formula 0.143 · Table TEDS 0.912 ·
-Reading-order 0.182.
-
-The text and reading-order metrics match the official model within 0.25pt,
-and table TEDS is within 0.76pt — confirming that the lightweight ONNX+llama.cpp
-path delivers near-identical recognition quality to the official Paddle native
-pipeline using the same PaddleOCR-VL-1.6 model.
+The project goal is to align inputs, outputs, parameters, and local evaluation
+evidence. Remaining gaps are reported by engine instead of hidden.
 
 ### Running the eval
 

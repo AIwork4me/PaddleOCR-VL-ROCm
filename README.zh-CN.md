@@ -143,25 +143,18 @@ python -m pytest -q
 paddleocr-vl-rocm --help
 ```
 
-## 评测（OmniDocBench v1.6）
+## 评测（OmniDocBench v1.6，本地 AMD Windows）
 
-基于 OmniDocBench v1.6（1,651 页）的基准打分。使用同一个 PaddleOCR-VL-1.6
-模型，通过轻量 ONNXRuntime + llama.cpp（HIP/ROCm）推理路径，与官方
-PaddleOCR-VL-1.6 发表数据（[arXiv 2606.03264](https://arxiv.org/abs/2606.03264)）对比：
+本仓库的分数均为 Windows + AMD Radeon + llama.cpp/GGUF + OmniDocBench/CDM
+环境中的本地测量结果，不声称来自 Linux vLLM/BF16 参考路径。
 
-| 指标 | 本仓库 | 官方 1.6 | 说明 |
-|---|---:|---:|---|
-| 文本 Edit-dist ↓ | **0.035**（96.5%） | 0.033（96.7%） | 差 0.24pt |
-| 阅读顺序 Edit-dist ↓ | **0.129**（87.1%） | 0.127（87.3%） | 差 0.25pt |
-| 表格 TEDS ↑ | **0.940** | 0.948 | 差 0.76pt |
-| 公式 Edit-dist ↓ | **0.094**（90.6%） | — | 有效指标 |
-| 公式 CDM ↑ | **0.944** | 0.975 | 差 3.1pt |
+| 引擎 | 文本 Edit-dist ↓ | 阅读顺序 Edit-dist ↓ | 表格 TEDS ↑ | 公式 CDM ↑ | 说明 |
+|---|---:|---:|---:|---:|---|
+| 轻量本地引擎 | 0.035 | 0.129 | 94.00 | 94.40 | 已记录的本地 CDM 产物 |
+| 官方本地引擎 | 0.034 | 0.129 | 94.22 | 96.81 | 已在配套本地环境复现；在此使用 `--engine official` 重跑 |
+| 公开 PaddleOCR-VL-1.6 目标 | 0.035 | 0.129 | 94.64 | 97.49 | 仅作外部参考 |
 
-**Hard 子集（296 页）：** 文本 0.058 · 公式 0.143 · 表格 TEDS 0.912 · 阅读顺序 0.182。
-
-文本与阅读顺序两项与官方模型差 0.25pt 以内，表格 TEDS 差 0.76pt——验证了轻量
-ONNX+llama.cpp 路线使用同一个 PaddleOCR-VL-1.6 模型能达到接近官方 Paddle 原生
-管线的识别质量。
+项目目标是对齐输入、输出、参数和本地评测证据。仍存在的差距按引擎分别报告，不再隐藏。
 
 ### 运行评测
 
@@ -171,6 +164,26 @@ ONNX+llama.cpp 路线使用同一个 PaddleOCR-VL-1.6 模型能达到接近官�
 
 ```powershell
 python eval/run_eval.py --stage all --version v16
+```
+
+轻量本地引擎：
+
+```powershell
+python eval/run_eval.py --stage infer --version v16 `
+  --engine lightweight `
+  --vlm-backend llama-cpp-server `
+  --server-url http://127.0.0.1:8111/v1 `
+  --api-model-name PaddleOCR-VL-1.6-GGUF.gguf
+```
+
+官方本地引擎：
+
+```powershell
+python eval/run_eval.py --stage infer --version v16 `
+  --engine official `
+  --server-url http://127.0.0.1:8111/v1 `
+  --api-model-name PaddleOCR-VL-1.6-GGUF.gguf `
+  --page-retries 1
 ```
 
 前置条件、三个阶段、CDM/Docker 说明、v1.5 与 v1.6 的差异，以及分数落地位置，

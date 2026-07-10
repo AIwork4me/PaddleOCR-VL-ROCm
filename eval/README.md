@@ -28,10 +28,10 @@ Before running any stage, you need all of the following:
    [README](../README.md), then confirm:
 
    ```powershell
-   paddleocr-vl-rocm-check-server --server-url http://127.0.0.1:8000/v1
+   paddleocr-vl-rocm-check-server --server-url http://127.0.0.1:8111/v1
    ```
 
-   The default server URL used below is `http://127.0.0.1:8000/v1`.
+   The local engine examples below use `http://127.0.0.1:8111/v1`.
 
 2. **The PP-DocLayoutV3 ONNX layout model downloaded.**
 
@@ -89,6 +89,26 @@ python eval/PaddleOCRVLROCm_img2md.py `
   --out-dir predictions/paddleocrvl_rocm `
   --layout-model models/PP-DocLayoutV3-onnx `
   --server-url http://127.0.0.1:8000/v1
+```
+
+### Local lightweight engine
+
+```powershell
+python eval/run_eval.py --stage infer --version v16 `
+  --engine lightweight `
+  --vlm-backend llama-cpp-server `
+  --server-url http://127.0.0.1:8111/v1 `
+  --api-model-name PaddleOCR-VL-1.6-GGUF.gguf
+```
+
+### Local official engine
+
+```powershell
+python eval/run_eval.py --stage infer --version v16 `
+  --engine official `
+  --server-url http://127.0.0.1:8111/v1 `
+  --api-model-name PaddleOCR-VL-1.6-GGUF.gguf `
+  --page-retries 1
 ```
 
 This stage is **server-gated**: it first pings the VLM server and exits with a
