@@ -308,7 +308,16 @@ def run_official_folder(
     for img in images:
         start = time.time()
         destination = out_dir / expected_md_name(img.name)
-        destination.unlink(missing_ok=True)
+        fallback_path = (
+            fallback_pred_dir / expected_md_name(img.name)
+            if fallback_pred_dir is not None
+            else None
+        )
+        fallback_is_destination = (
+            fallback_path is not None and fallback_path.resolve() == destination.resolve()
+        )
+        if not fallback_is_destination:
+            destination.unlink(missing_ok=True)
         last_exc: Exception | None = None
         last_tb = ""
         attempts = 0
@@ -340,13 +349,9 @@ def run_official_folder(
                     time.sleep(min(2.0, 0.25 * attempts))
                     continue
         else:
-            fallback_path = (
-                fallback_pred_dir / expected_md_name(img.name)
-                if fallback_pred_dir is not None
-                else None
-            )
             if fallback_path is not None and fallback_path.is_file():
-                shutil.copyfile(fallback_path, destination)
+                if not fallback_is_destination:
+                    shutil.copyfile(fallback_path, destination)
                 status = f"fallback: {last_exc}"
             else:
                 status = f"failed: {last_exc}"
@@ -356,7 +361,8 @@ def run_official_folder(
                     f"(attempts={attempts})\n{last_tb}\n"
                 )
                 if fallback_path is not None and fallback_path.is_file():
-                    fh.write(f"FALLBACK prediction copied from: {fallback_path}\n")
+                    action = "retained at" if fallback_is_destination else "copied from"
+                    fh.write(f"FALLBACK prediction {action}: {fallback_path}\n")
             stats.append(
                 {
                     "image": img.name,

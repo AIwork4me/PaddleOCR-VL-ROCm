@@ -189,3 +189,38 @@ def test_official_folder_materializes_generator_results(tmp_path, monkeypatch):
 
     assert summary["ok"] == 1
     assert (out_dir / "page.md").read_text(encoding="utf-8") == "first page\n\nsecond page"
+
+
+def test_official_folder_preserves_same_directory_fallback_after_failure(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    out_dir = tmp_path / "predictions"
+    img_dir.mkdir()
+    out_dir.mkdir()
+    (img_dir / "page.png").write_bytes(b"fake image")
+    fallback_markdown = "existing fallback prediction"
+    (out_dir / "page.md").write_text(fallback_markdown, encoding="utf-8")
+
+    class FailingOfficialPipeline:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def predict(self, image_path):
+            raise RuntimeError("controlled official failure")
+
+    monkeypatch.setitem(sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FailingOfficialPipeline))
+
+    summary = mod.run_official_folder(
+        img_dir=img_dir,
+        out_dir=out_dir,
+        server_url="http://127.0.0.1:8111/v1",
+        api_model_name="PaddleOCR-VL-1.6-GGUF.gguf",
+        page_retries=0,
+        fallback_pred_dir=out_dir,
+    )
+
+    assert (out_dir / "page.md").read_text(encoding="utf-8") == fallback_markdown
+    assert summary["ok"] == 1
+    assert summary["fail"] == 0
+    assert summary["fallback"] == 1
+    assert summary["stats"][0]["status"].startswith("fallback:")
