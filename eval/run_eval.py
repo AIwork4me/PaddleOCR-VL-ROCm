@@ -191,6 +191,10 @@ def _render_eval_config(
 
     config_data = yaml.safe_load(base_config.read_text(encoding="utf-8"))
     eval_config = config_data["end2end_eval"]
+    ground_truth_path = Path(eval_config["dataset"]["ground_truth"]["data_path"])
+    if not ground_truth_path.is_absolute():
+        ground_truth_path = ground_truth_path.expanduser().resolve()
+    eval_config["dataset"]["ground_truth"]["data_path"] = str(ground_truth_path)
     eval_config["dataset"]["prediction"]["data_path"] = str(
         predictions_dir.expanduser().resolve()
     )

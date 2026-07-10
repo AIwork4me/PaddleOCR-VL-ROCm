@@ -143,6 +143,9 @@ def test_stage_eval_passes_rendered_config_for_selected_predictions_without_cdm(
     eval_config = captured["config"]["end2end_eval"]
     assert captured["config_path"] != Path(args.config).resolve()
     assert eval_config["dataset"]["prediction"]["data_path"] == str(predictions.resolve())
+    assert eval_config["dataset"]["ground_truth"]["data_path"] == str(
+        Path("data/omnidocbench/v16/OmniDocBench.json").resolve()
+    )
     assert eval_config["metrics"]["display_formula"]["metric"] == ["Edit_dist"]
 
 
