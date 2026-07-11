@@ -13,13 +13,15 @@ measurements. They are not Linux vLLM/BF16 reference-path measurements.
 ## Score Aggregation Conventions
 
 The dated Windows-native 2026-07-11 artifacts contain two valid score views
-with different aggregation conventions. The README score row uses the raw
-all-values from `metric_result`: Table TEDS **93.1345** and Formula CDM
-**96.7129**. The paired `run_summary` artifact's
-`notebook_metric_summary` records the notebook/page convention instead:
-Table TEDS **94.3222** and Formula CDM **96.9219**. The latter applies the
-notebook's page denominators, so these values are not contradictory; always
-name the artifact and convention when comparing scores.
+with different aggregation conventions. The project README defaults to the
+OmniDocBench official leaderboard/notebook convention: page-level Text
+Edit-distance **0.03402**, Reading-order Edit-distance **0.12824**, Table TEDS
+**94.3222**, Formula CDM **96.9219**, and Overall **95.9475**. This matches the
+aggregation style used by OmniDocBench's `tools/generate_result_tables.ipynb`.
+
+The lower-level raw all-values from `metric_result` are retained for audit:
+Table TEDS **93.1345** and Formula CDM **96.7129**. These values are not
+contradictory; always name the artifact and convention when comparing scores.
 
 ## Historical Artifacts
 
