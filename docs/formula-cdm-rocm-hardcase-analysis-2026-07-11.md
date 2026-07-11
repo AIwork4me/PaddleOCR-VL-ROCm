@@ -46,10 +46,12 @@ No production fix is accepted until a focused test reproduces the exact case and
 
 - `docs/formula-cdm-rocm-hardcase-analysis-2026-07-11.md`
 
-## Commit
+## Revision History
 
-- `a3e9677` (`docs: classify rocm formula cdm hard cases`)
-- `0c6181a` (`docs: record rocm hard-case verification`)
+This report was created and revised across the `docs: classify rocm formula cdm hard cases`,
+`docs: record rocm hard-case verification`, and `docs: fix rocm hard-case report provenance`
+commits. Use `git log -- docs/formula-cdm-rocm-hardcase-analysis-2026-07-11.md`
+for the exact final revision chain.
 
 ## Verification Commands
 
