@@ -48,13 +48,14 @@ No production fix is accepted until a focused test reproduces the exact case and
 
 ## Commit
 
-`a3e9677` (amended below to record the final commit hash).
+- `a3e9677` (`docs: classify rocm formula cdm hard cases`)
+- `0c6181a` (`docs: record rocm hard-case verification`)
 
 ## Verification Commands
 
 Commands and results are recorded here after execution:
 
-- `python scripts/analyze_formula_cdm_cases.py --per-sample-cdm docs/formula-cdm-rocm-hardcase-summary-2026-07-11.json --threshold 0.8` - NOT USED; this input is the generated summary rather than the raw scalar map, so the analyzer interpreted summary fields as cases and produced invalid counts (`count=53`, `below_threshold_count=50`, `zero_count=17`).
+- `python scripts/analyze_formula_cdm_cases.py --per-sample-cdm docs/formula-cdm-rocm-hardcase-summary-2026-07-11.json --threshold 0.8` - EXECUTED WITH WARNING; this input is the generated summary rather than the raw scalar map, so the analyzer interpreted summary fields as cases and produced invalid summary-of-summary counts (`count=53`, `below_threshold_count=50`, `zero_count=17`).
 - `python -m pytest tests/test_formula_cdm_case_analysis.py -q` - PASS; 3 tests passed.
 - `python -m pytest -q` - PASS; 61 tests passed.
 - PowerShell summary schema/count check - PASS; verified `count=2352`, `below_threshold_count=93`, `zero_count=17` and scalar `page`/`sample_id`/`cdm` fields.
