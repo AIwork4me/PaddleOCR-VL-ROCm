@@ -100,6 +100,17 @@ def test_official_markdown_html_wrappers_become_scorer_friendly_markdown():
     )
 
 
+def test_official_markdown_html_wrapper_preserves_formula_text():
+    mod = _load_adapter()
+    markdown = (
+        '<div style="text-align: center;">'
+        '<span class="formula">$\\frac{1}{2} &amp; x^2$</span>'
+        "</div>"
+    )
+
+    assert mod._normalize_official_markdown_for_omnidocbench(markdown) == ("$\\frac{1}{2} & x^2$")
+
+
 def test_run_adapter_resolves_defaults_from_env_local(tmp_path, monkeypatch):
     mod = _load_adapter()
     adapter_dir = tmp_path / "adapter"

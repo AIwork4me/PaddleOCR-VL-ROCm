@@ -30,6 +30,17 @@ function Invoke-Step {
   & $Body
 }
 
+function Assert-FullPredictionStats {
+  $StatsPath = "predictions/paddleocr_official_local_llamacpp_gguf_v16/_run_stats.json"
+  if (-not (Test-Path $StatsPath)) {
+    throw "CDM scoring requires full official predictions first. Missing $StatsPath; run with -Full."
+  }
+  $Stats = Get-Content $StatsPath -Raw | ConvertFrom-Json
+  if ($null -ne $Stats.limit_pages) {
+    throw "CDM scoring requires full official predictions. $StatsPath has limit_pages=$($Stats.limit_pages); run with -Full before -Cdm."
+  }
+}
+
 Invoke-Step "server gate" {
   Invoke-Native python scripts/check_server.py --server-url $ServerUrl
 }
@@ -60,6 +71,9 @@ if ($Full) {
 }
 
 if ($Cdm) {
+  Invoke-Step "official full prediction stats gate for CDM" {
+    Assert-FullPredictionStats
+  }
   Invoke-Step "official full CDM scoring" {
     Invoke-Native python eval/run_eval.py --stage eval --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --cdm
   }

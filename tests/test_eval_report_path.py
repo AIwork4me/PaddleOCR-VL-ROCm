@@ -6,6 +6,7 @@ not against the orchestrator's own CWD.
 """
 
 import importlib.util
+import json
 from pathlib import Path
 
 import yaml
@@ -84,9 +85,12 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
     summary = tmp_path / "results" / "summary.json"
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
-    monkeypatch.setattr(
-        mod.subprocess, "run", lambda *args, **kwargs: type("R", (), {"returncode": 0})()
-    )
+
+    def fake_run(*args, **kwargs):
+        report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
+        return type("R", (), {"returncode": 0})()
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
     monkeypatch.setattr(
         mod, "_resolve_report_path", lambda checkout, predictions_dir, match_method: report
     )
@@ -111,6 +115,181 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
     assert summary.is_file()
 
 
+def test_stage_eval_refuses_to_publish_limited_predictions(tmp_path, monkeypatch):
+    mod = _load_run_eval()
+    checkout = tmp_path / "checkout"
+    predictions = tmp_path / "predictions" / "paddleocr_official_local_llamacpp_gguf_v16"
+    predictions.mkdir(parents=True)
+    (predictions / "_run_stats.json").write_text(
+        json.dumps(
+            {
+                "count": 16,
+                "ok": 16,
+                "fail": 0,
+                "fallback": 0,
+                "engine": "official",
+                "limit_pages": 16,
+                "stats": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    copied = tmp_path / "results" / "metric.json"
+
+    monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+
+    args = type(
+        "Args",
+        (),
+        {
+            "config": "eval/configs/omnidocbench_v16.yaml",
+            "version": "v16",
+            "dataset_dir": None,
+            "predictions_dir": str(predictions),
+            "match_method": "quick_match",
+            "copy_report": str(copied),
+            "run_summary": None,
+            "cdm": True,
+        },
+    )()
+
+    try:
+        mod.stage_eval(args)
+    except SystemExit as exc:
+        assert "full unbounded inference" in str(exc)
+    else:
+        raise AssertionError("Expected limited predictions to be rejected before scoring")
+
+
+def test_stage_eval_refuses_to_publish_when_dataset_count_mismatches(tmp_path, monkeypatch):
+    mod = _load_run_eval()
+    checkout = tmp_path / "checkout"
+    dataset = tmp_path / "dataset"
+    images = dataset / "images"
+    predictions = tmp_path / "predictions" / "paddleocr_official_local_llamacpp_gguf_v16"
+    images.mkdir(parents=True)
+    predictions.mkdir(parents=True)
+    for name in ("a.png", "b.jpg", "c.jpeg"):
+        (images / name).write_bytes(b"image")
+    (predictions / "_run_stats.json").write_text(
+        json.dumps(
+            {
+                "count": 2,
+                "ok": 2,
+                "fail": 0,
+                "fallback": 0,
+                "engine": "official",
+                "limit_pages": None,
+                "stats": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+
+    args = type(
+        "Args",
+        (),
+        {
+            "config": "eval/configs/omnidocbench_v16.yaml",
+            "version": "v16",
+            "dataset_dir": str(dataset),
+            "predictions_dir": str(predictions),
+            "match_method": "quick_match",
+            "copy_report": str(tmp_path / "results" / "metric.json"),
+            "run_summary": None,
+            "cdm": False,
+        },
+    )()
+
+    try:
+        mod.stage_eval(args)
+    except SystemExit as exc:
+        assert "does not match dataset image count" in str(exc)
+    else:
+        raise AssertionError("Expected mismatched prediction count to be rejected")
+
+
+def test_stage_eval_fails_when_expected_report_is_missing(tmp_path, monkeypatch):
+    mod = _load_run_eval()
+    checkout = tmp_path / "checkout"
+    predictions = tmp_path / "predictions" / "paddleocrvl_rocm"
+    predictions.mkdir(parents=True)
+    (predictions / "_run_stats.json").write_text(
+        '{"count": 1, "ok": 1, "fail": 0, "fallback": 0, "limit_pages": null, "stats": []}',
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    monkeypatch.setattr(
+        mod.subprocess, "run", lambda *args, **kwargs: type("R", (), {"returncode": 0})()
+    )
+
+    args = type(
+        "Args",
+        (),
+        {
+            "config": "eval/configs/omnidocbench_v16.yaml",
+            "version": "v16",
+            "dataset_dir": None,
+            "predictions_dir": str(predictions),
+            "match_method": "quick_match",
+            "copy_report": None,
+            "run_summary": None,
+            "cdm": False,
+        },
+    )()
+
+    try:
+        mod.stage_eval(args)
+    except SystemExit as exc:
+        assert "expected report not found" in str(exc)
+    else:
+        raise AssertionError("Expected missing report to fail eval")
+
+
+def test_stage_eval_removes_stale_report_before_scoring(tmp_path, monkeypatch):
+    mod = _load_run_eval()
+    checkout = tmp_path / "checkout"
+    predictions = tmp_path / "predictions" / "paddleocrvl_rocm"
+    report = checkout / "result" / f"{predictions.name}_quick_match_metric_result.json"
+    predictions.mkdir(parents=True)
+    report.parent.mkdir(parents=True)
+    report.write_text('{"stale": true}', encoding="utf-8")
+    (predictions / "_run_stats.json").write_text(
+        '{"count": 1, "ok": 1, "fail": 0, "fallback": 0, "limit_pages": null, "stats": []}',
+        encoding="utf-8",
+    )
+
+    def fake_run(*args, **kwargs):
+        assert not report.exists()
+        report.write_text('{"fresh": true}', encoding="utf-8")
+        return type("R", (), {"returncode": 0})()
+
+    monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    args = type(
+        "Args",
+        (),
+        {
+            "config": "eval/configs/omnidocbench_v16.yaml",
+            "version": "v16",
+            "dataset_dir": None,
+            "predictions_dir": str(predictions),
+            "match_method": "quick_match",
+            "copy_report": None,
+            "run_summary": None,
+            "cdm": False,
+        },
+    )()
+
+    mod.stage_eval(args)
+
+    assert json.loads(report.read_text(encoding="utf-8")) == {"fresh": True}
+
+
 def test_stage_eval_passes_rendered_config_for_selected_predictions_without_cdm(
     tmp_path, monkeypatch
 ):
@@ -127,6 +306,7 @@ def test_stage_eval_passes_rendered_config_for_selected_predictions_without_cdm(
         config_path = Path(cmd[cmd.index("--config") + 1])
         captured["config_path"] = config_path
         captured["config"] = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
@@ -165,11 +345,16 @@ def test_stage_eval_passes_rendered_config_with_cdm_when_requested(tmp_path, mon
     predictions.mkdir(parents=True)
     report.parent.mkdir(parents=True)
     report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
+    (predictions / "_run_stats.json").write_text(
+        '{"count": 1, "ok": 1, "fail": 0, "fallback": 0, "limit_pages": null, "stats": []}',
+        encoding="utf-8",
+    )
     captured = {}
 
     def fake_run(cmd, **kwargs):
         config_path = Path(cmd[cmd.index("--config") + 1])
         captured["config"] = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
@@ -212,6 +397,7 @@ def test_stage_eval_uses_checkout_venv_python_when_available(tmp_path, monkeypat
 
     def fake_run(cmd, **kwargs):
         captured["cmd"] = cmd
+        report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
@@ -248,6 +434,7 @@ def test_stage_eval_sets_pythonutf8_for_windows_omnidocbench_subprocess(tmp_path
 
     def fake_run(cmd, **kwargs):
         captured["env"] = kwargs.get("env", {})
+        report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)

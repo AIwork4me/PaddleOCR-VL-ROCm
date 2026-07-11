@@ -270,7 +270,7 @@ _CENTERED_TEXT_DIV_RE = re.compile(
     r"<div[^>]*style=[\"'][^\"']*text-align:\s*center;?[^\"']*[\"'][^>]*>\s*(.*?)\s*</div>",
     re.IGNORECASE | re.DOTALL,
 )
-_HTML_TAG_RE = re.compile(r"<[^>]+>")
+_INLINE_FORMATTING_TAG_RE = re.compile(r"</?(?:b|strong|i|em|span)\b[^>]*>", re.IGNORECASE)
 
 
 def _normalize_official_markdown_for_omnidocbench(markdown: str) -> str:
@@ -278,7 +278,7 @@ def _normalize_official_markdown_for_omnidocbench(markdown: str) -> str:
         return f"![]({html.unescape(match.group(1))})"
 
     def replace_text(match: re.Match[str]) -> str:
-        inner = _HTML_TAG_RE.sub("", match.group(1))
+        inner = _INLINE_FORMATTING_TAG_RE.sub("", match.group(1))
         return html.unescape(inner.strip())
 
     markdown = _CENTERED_IMAGE_DIV_RE.sub(replace_image, markdown)

@@ -74,7 +74,15 @@ def test_write_run_summary_and_provenance(tmp_path):
 
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-    assert summary["run_stats"]["ok"] == 2
+    assert "run_stats" not in summary
+    assert summary["run_stats_summary"] == {
+        "count": 3,
+        "ok": 2,
+        "fail": 1,
+        "fallback": 1,
+        "limit_pages": None,
+        "failure_samples": [],
+    }
     assert summary["metric_result_path"] == str(metric_path)
     assert provenance["git_commit"] == "abc123"
     assert provenance["ok_pages"] == 2

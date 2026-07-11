@@ -141,6 +141,10 @@ python scripts/check_official_paddleocr.py --construct `
 .\scripts\run_official_local_v16.ps1 -Cdm
 ```
 
+`-Cdm` refuses to score limited smoke/subset predictions. Run `-Full` first so
+`predictions/paddleocr_official_local_llamacpp_gguf_v16/_run_stats.json` records
+`limit_pages: null`.
+
 The generated prediction Markdown remains under
 `predictions/paddleocr_official_local_llamacpp_gguf_v16`. Tracked evidence is
 copied under `results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_*`.

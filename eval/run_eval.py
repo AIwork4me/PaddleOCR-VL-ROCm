@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import logging
 import os
 import subprocess
@@ -58,6 +59,7 @@ DEFAULT_SERVER_URL = "http://127.0.0.1:8111/v1"
 DEFAULT_LAYOUT_MODEL = "models/PP-DocLayoutV3-onnx"
 DEFAULT_API_MODEL_NAME = "PaddleOCR-VL-1.6-GGUF.gguf"
 DEFAULT_VLM_BACKEND = "llama-cpp-server"
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".gif"}
 
 
 def _load_script_module(name: str, path: Path):
@@ -182,6 +184,48 @@ def _resolve_report_path(checkout: Path, predictions_dir: Path, match_method: st
     return checkout / RESULT_DIR / f"{save}_metric_result.json"
 
 
+def _requires_full_prediction_stats(args: argparse.Namespace) -> bool:
+    return bool(
+        getattr(args, "cdm", False)
+        or getattr(args, "copy_report", None)
+        or getattr(args, "run_summary", None)
+    )
+
+
+def _dataset_image_count(args: argparse.Namespace) -> int | None:
+    dataset_dir_arg = getattr(args, "dataset_dir", None)
+    if dataset_dir_arg is None:
+        return None
+    images_dir = Path(dataset_dir_arg) / "images"
+    if not images_dir.is_dir():
+        return None
+    return sum(1 for path in images_dir.iterdir() if path.suffix.lower() in IMAGE_EXTENSIONS)
+
+
+def _validate_full_prediction_stats(args: argparse.Namespace, predictions_dir: Path) -> None:
+    if not _requires_full_prediction_stats(args):
+        return
+    stats_path = predictions_dir / "_run_stats.json"
+    if not stats_path.is_file():
+        raise SystemExit(
+            f"Prediction run stats not found: {stats_path}. Run full unbounded inference first."
+        )
+    run_stats = json.loads(stats_path.read_text(encoding="utf-8"))
+    if run_stats.get("limit_pages") is not None:
+        raise SystemExit(
+            "Refusing to publish/evaluate official evidence from limited predictions: "
+            f"{stats_path}. "
+            "Run full unbounded inference first so _run_stats.json has limit_pages=null."
+        )
+    expected_count = _dataset_image_count(args)
+    actual_count = run_stats.get("count")
+    if expected_count is not None and actual_count != expected_count:
+        raise SystemExit(
+            f"Prediction count {actual_count} does not match dataset image count "
+            f"{expected_count}. Run full unbounded inference before scoring."
+        )
+
+
 def _render_eval_config(
     base_config: Path, predictions_dir: Path, *, cdm: bool, destination_dir: Path
 ) -> Path:
@@ -236,6 +280,11 @@ def stage_eval(args: argparse.Namespace) -> None:
         raise SystemExit(
             f"Predictions dir not found: {predictions_dir}. Run the 'infer' stage first."
         )
+    _validate_full_prediction_stats(args, predictions_dir)
+    match_method = args.match_method
+    report = _resolve_report_path(checkout, predictions_dir, match_method)
+    if report.exists():
+        report.unlink()
 
     # pdf_validation.py is run from the checkout cwd (it writes ./result/ there).
     # Render a runtime config so the subprocess sees the selected prediction
@@ -259,9 +308,6 @@ def stage_eval(args: argparse.Namespace) -> None:
     if result.returncode != 0:
         raise SystemExit(f"pdf_validation.py exited {result.returncode}")
 
-    # Match the report path. match_method defaults to quick_match per config templates.
-    match_method = args.match_method
-    report = _resolve_report_path(checkout, predictions_dir, match_method)
     if report.exists():
         print(f"[eval] Report ready: {report}")
         if getattr(args, "copy_report", None):
@@ -279,9 +325,9 @@ def stage_eval(args: argparse.Namespace) -> None:
                 )
                 print(f"[eval] Run summary ready: {summary}")
     else:
-        print(
-            f"[eval] pdf_validation completed but expected report not found at {report}; "
-            f"check {RESULT_DIR.resolve()} for the *_metric_result.json file."
+        raise SystemExit(
+            f"pdf_validation completed but expected report not found at {report}; "
+            f"check {(checkout / RESULT_DIR).resolve()} for the *_metric_result.json file."
         )
 
 

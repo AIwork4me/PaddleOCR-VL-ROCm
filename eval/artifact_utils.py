@@ -111,6 +111,19 @@ def write_run_summary(
 ) -> Path:
     run_stats = load_json(run_stats_path)
     metric_result = load_json(metric_result_path)
+    failures = [
+        item
+        for item in run_stats.get("stats", [])
+        if isinstance(item, dict) and str(item.get("status", "")).startswith(("fail", "fallback"))
+    ][:20]
+    run_stats_summary = {
+        "count": run_stats.get("count"),
+        "ok": run_stats.get("ok"),
+        "fail": run_stats.get("fail"),
+        "fallback": run_stats.get("fallback"),
+        "limit_pages": run_stats.get("limit_pages"),
+        "failure_samples": failures,
+    }
     summary = {
         "save_name": save_name,
         "engine": run_stats.get("engine"),
@@ -124,7 +137,7 @@ def write_run_summary(
         "run_stats_path": str(run_stats_path),
         "readme_metrics": extract_readme_metrics(metric_result),
         "metric_quality": analyze_metric_quality(metric_result),
-        "run_stats": run_stats,
+        "run_stats_summary": run_stats_summary,
     }
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
