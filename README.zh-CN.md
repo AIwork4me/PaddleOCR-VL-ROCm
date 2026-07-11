@@ -150,12 +150,16 @@ paddleocr-vl-rocm --help
 
 | 引擎 | 文本 Edit-dist ↓ | 阅读顺序 Edit-dist ↓ | 表格 TEDS ↑ | 公式 CDM ↑ | 说明 |
 |---|---:|---:|---:|---:|---|
-| 轻量本地引擎 | 0.03402 | 0.12824 | 93.1345 | 96.7129 | 最新 Windows-native CDM 证据，针对 `predictions/paddleocrvl_rocm_cdm` |
+| 轻量本地引擎 | 0.03402 | 0.12824 | 93.1345 | 96.7129 | 最新 Windows-native CDM 证据；表格行使用 `metric_result` 原始 all-values，针对 `predictions/paddleocrvl_rocm_cdm` |
 | 官方本地引擎 | 0.034 | 0.129 | 94.24 | 96.50 | 修复 Windows CDM 路径/toolchain 后生成的本仓库 official-local 产物 |
 | [公开 PaddleOCR-VL-1.6 目标](https://arxiv.org/abs/2606.03264) | 0.035 | 0.129 | 94.64 | 97.49 | 仅作外部参考 |
 
 较早的轻量本地产物保留在 `results/omnidocbench/v16/` 中用于比较；带日期
-的 Windows-native 产物是当前本地 ROCm CDM 证据。
+的 Windows-native 产物是当前本地 ROCm CDM 证据。表格行明确使用
+`metric_result` 的原始 all-values：表格 TEDS 93.1345、公式 CDM 96.7129。
+配对的 `run_summary.notebook_metric_summary` 使用 notebook/page 聚合约定，
+记录表格 TEDS 94.3222、公式 CDM 96.9219；两组数值的口径说明见
+`results/omnidocbench/v16/README.md`。
 
 项目目标是对齐输入、输出、参数和本地评测证据。仍存在的差距按引擎分别报告，不再隐藏。
 官方本地行由 `results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_*`

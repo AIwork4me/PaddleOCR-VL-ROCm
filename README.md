@@ -162,7 +162,7 @@ Linux vLLM/BF16 reference path.
 
 | Engine | Text Edit-dist ↓ | Reading-order Edit-dist ↓ | Table TEDS ↑ | Formula CDM ↑ | Notes |
 |---|---:|---:|---:|---:|---|
-| Lightweight local engine | 0.03402 | 0.12824 | 93.1345 | 96.7129 | Latest Windows-native CDM artifact for `predictions/paddleocrvl_rocm_cdm` |
+| Lightweight local engine | 0.03402 | 0.12824 | 93.1345 | 96.7129 | Latest Windows-native CDM artifact; raw `metric_result` all-values for `predictions/paddleocrvl_rocm_cdm` |
 | Official local engine | 0.034 | 0.129 | 94.24 | 96.50 | Tracked official-local artifacts after Windows CDM path/toolchain fixes |
 | [Public PaddleOCR-VL-1.6 target](https://arxiv.org/abs/2606.03264) | 0.035 | 0.129 | 94.64 | 97.49 | External reference, shown for context only |
 
@@ -172,7 +172,11 @@ The official-local row is backed by
 `results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_*`.
 Older tracked lightweight artifacts are retained under
 `results/omnidocbench/v16/` for comparison; the dated Windows-native artifact
-is the current local ROCm CDM evidence.
+is the current local ROCm CDM evidence. The table row is the raw
+`metric_result` all-values view; the paired `run_summary.notebook_metric_summary`
+uses notebook/page aggregation and records Table TEDS 94.3222 and Formula CDM
+96.9219. The raw values are Table TEDS 93.1345 and Formula CDM 96.7129; both
+conventions are documented in `results/omnidocbench/v16/README.md`.
 
 ### Running the eval
 
