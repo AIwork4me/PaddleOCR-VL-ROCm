@@ -20,6 +20,22 @@ def _coerce_case(page: str, item: dict[str, Any]) -> dict[str, object] | None:
     }
 
 
+def _coerce_scalar_case(sample_key: str, value: int | float) -> dict[str, object]:
+    page, separator, sample_id = sample_key.rpartition("_[")
+    if not separator or not sample_id.endswith("]"):
+        page = sample_key
+        sample_id = ""
+    else:
+        sample_id = sample_id[:-1]
+    return {
+        "page": page,
+        "sample_id": sample_id,
+        "cdm": float(value),
+        "gt": "",
+        "pred": "",
+    }
+
+
 def load_formula_scores(path: Path) -> list[dict[str, object]]:
     data = json.loads(path.read_text(encoding="utf-8"))
     cases: list[dict[str, object]] = []
@@ -35,6 +51,8 @@ def load_formula_scores(path: Path) -> list[dict[str, object]]:
                 case = _coerce_case(str(page), value)
                 if case is not None:
                     cases.append(case)
+            elif isinstance(value, (int, float)) and not isinstance(value, bool):
+                cases.append(_coerce_scalar_case(str(page), value))
     elif isinstance(data, list):
         for item in data:
             if isinstance(item, dict):

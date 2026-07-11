@@ -1,6 +1,357 @@
 {
-  "count": 0,
-  "below_threshold_count": 0,
-  "zero_count": 0,
-  "lowest_cases": []
+  "count": 2352,
+  "below_threshold_count": 93,
+  "zero_count": 17,
+  "lowest_cases": [
+    {
+      "page": "page-21967f5d-667d-488e-a5b3-76b9d6f53656.png",
+      "sample_id": "16",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-21967f5d-667d-488e-a5b3-76b9d6f53656.png",
+      "sample_id": "20",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-21967f5d-667d-488e-a5b3-76b9d6f53656.png",
+      "sample_id": "21",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-cdb92c2f-f43f-45ef-ace7-91d4664a7834.png",
+      "sample_id": "12",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+      "sample_id": "7",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+      "sample_id": "10",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+      "sample_id": "11",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+      "sample_id": "12",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+      "sample_id": "13",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-05746fc5-2045-4dea-94e7-4bbab648d702.png",
+      "sample_id": "12",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-dad0f4e5-290f-496f-bbdd-099ad75c6ff0.png",
+      "sample_id": "15",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "notes_9e951846094758afac08c620144e3a76_14.jpg",
+      "sample_id": "2",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0451.png",
+      "sample_id": "7",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0451.png",
+      "sample_id": "8",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "book_en_国外数学教材-非数学专业教材-线性代数-Gilbert Strang—Linear Algebra and Its Applications 4e_0242.png",
+      "sample_id": "3",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "exam_paper_en-file-putnam-archive_2008_Solutions_2008s_page_004.png",
+      "sample_id": "4",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "exam_paper_en-file-putnam-archive_2015_Solutions_2015s_page_006.png",
+      "sample_id": "9",
+      "cdm": 0.0,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-21967f5d-667d-488e-a5b3-76b9d6f53656.png",
+      "sample_id": "19",
+      "cdm": 0.03,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-21967f5d-667d-488e-a5b3-76b9d6f53656.png",
+      "sample_id": "18",
+      "cdm": 0.032,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-bbe2b2d5-1e02-4d53-ba1c-158eaab2e6d5.png",
+      "sample_id": "8",
+      "cdm": 0.034,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-7dfc88d8-6d95-446c-b910-2410e8552f76.png",
+      "sample_id": "1",
+      "cdm": 0.061,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0242.png",
+      "sample_id": "3",
+      "cdm": 0.065,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0242.png",
+      "sample_id": "1",
+      "cdm": 0.095,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+      "sample_id": "14",
+      "cdm": 0.133,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0242.png",
+      "sample_id": "0",
+      "cdm": 0.138,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-7050793e-109f-4066-be91-107f94b617b9.png",
+      "sample_id": "3",
+      "cdm": 0.152,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-7050793e-109f-4066-be91-107f94b617b9.png",
+      "sample_id": "2",
+      "cdm": 0.153,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "sample_id": "42",
+      "cdm": 0.16,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "jiaocaineedrop_jiaocai_needrop_en_546.jpg",
+      "sample_id": "14",
+      "cdm": 0.175,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "exam_paper_en-file-putnam-archive_1993_Problems_1993_page_001.png",
+      "sample_id": "4",
+      "cdm": 0.213,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+      "sample_id": "15",
+      "cdm": 0.235,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "exam_paper_en-file-putnam-archive_2011_Solutions_2011s_page_003.png",
+      "sample_id": "3",
+      "cdm": 0.235,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "sample_id": "44",
+      "cdm": 0.258,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "exam_paper_en-file-putnam-archive_2002_Solutions_2002s_page_001.png",
+      "sample_id": "24",
+      "cdm": 0.261,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "sample_id": "69",
+      "cdm": 0.267,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "sample_id": "70",
+      "cdm": 0.267,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "exam_paper_en-file-putnam-archive_1993_Problems_1993_page_001.png",
+      "sample_id": "5",
+      "cdm": 0.292,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "sample_id": "45",
+      "cdm": 0.308,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "jiaocaineedrop_jiaocai_needrop_en_1198.jpg",
+      "sample_id": "2",
+      "cdm": 0.31,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-ba4443e6-f432-435f-89e7-ddf0a571d2cd.png",
+      "sample_id": "0",
+      "cdm": 0.333,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-8524b54d-6372-4f9e-a662-5254349cfda3.png",
+      "sample_id": "15",
+      "cdm": 0.338,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0242.png",
+      "sample_id": "2",
+      "cdm": 0.339,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "sample_id": "26",
+      "cdm": 0.381,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "sample_id": "31",
+      "cdm": 0.381,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0242.png",
+      "sample_id": "4",
+      "cdm": 0.387,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-21967f5d-667d-488e-a5b3-76b9d6f53656.png",
+      "sample_id": "17",
+      "cdm": 0.389,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-7050793e-109f-4066-be91-107f94b617b9.png",
+      "sample_id": "1",
+      "cdm": 0.4,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "page-7050793e-109f-4066-be91-107f94b617b9.png",
+      "sample_id": "4",
+      "cdm": 0.4,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "sample_id": "1",
+      "cdm": 0.4,
+      "gt": "",
+      "pred": ""
+    },
+    {
+      "page": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "sample_id": "40",
+      "cdm": 0.4,
+      "gt": "",
+      "pred": ""
+    }
+  ]
 }

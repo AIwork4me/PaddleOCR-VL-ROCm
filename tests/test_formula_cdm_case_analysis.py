@@ -28,6 +28,21 @@ def test_load_formula_scores_accepts_per_sample_mapping(tmp_path: Path):
     assert cases[1]["pred"] == ""
 
 
+def test_load_formula_scores_accepts_scalar_sample_mapping(tmp_path: Path):
+    sample_path = tmp_path / "scalar_per_sample.json"
+    sample_path.write_text(
+        json.dumps({"page-d156.png_[3]": 1.0, "page-other.png": 0.25}),
+        encoding="utf-8",
+    )
+
+    cases = load_formula_scores(sample_path)
+
+    assert cases == [
+        {"page": "page-d156.png", "sample_id": "3", "cdm": 1.0, "gt": "", "pred": ""},
+        {"page": "page-other.png", "sample_id": "", "cdm": 0.25, "gt": "", "pred": ""},
+    ]
+
+
 def test_summarize_cases_ranks_lowest_cases():
     cases = [
         {"page": "a", "sample_id": "1", "cdm": 0.5},
