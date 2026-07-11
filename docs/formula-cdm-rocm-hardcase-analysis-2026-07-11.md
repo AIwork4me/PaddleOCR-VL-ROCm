@@ -48,7 +48,7 @@ No production fix is accepted until a focused test reproduces the exact case and
 
 ## Commit
 
-Recorded after committing this report.
+`a3e9677` (amended below to record the final commit hash).
 
 ## Verification Commands
 
