@@ -10,23 +10,26 @@ Local Windows + AMD + llama.cpp/GGUF only. No Linux vLLM/BF16 reference path.
 
 ## Evidence
 
-- Source summary: `docs/formula-cdm-rocm-hardcase-summary-2026-07-11.json`
-- Underlying per-sample source: not present in this repository; the checked-in summary is scalar-only.
+- Source per-sample file: `C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_display_formula_per_sample_CDM.json`
+- Checked-in scalar summary: `docs/formula-cdm-rocm-hardcase-summary-2026-07-11.json`
 - Total samples: 2352
 - Samples with CDM < 0.8: 93
 - Samples with CDM == 0: 17
 - Lowest observed samples include pages `page-21967f5d-667d-488e-a5b3-76b9d6f53656.png`, `page-cdb92c2f-f43f-45ef-ace7-91d4664a7834.png`, `page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png`, and `book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0451.png`.
 
-The summary contains `page`, `sample_id`, and scalar `cdm` values. Its empty `gt` and `pred` fields are produced by the scalar-map analyzer because source text is unavailable; they are not evidence that either prediction or ground truth was empty.
+The source per-sample file is a scalar map keyed by page/sample id, not paired formula text.
+The checked-in summary contains `page`, `sample_id`, and scalar `cdm` values. Its empty
+`gt` and `pred` fields are produced by the scalar-map analyzer because source text is
+unavailable; they are not evidence that either prediction or ground truth was empty.
 
 ## Categories
 
 | Category | Count | Example pages | Action |
-|---|---:|---|---|
-| Empty prediction | N/A | Not determinable from scalar CDM data | No code fix; obtain prediction text before classifying |
-| Malformed LaTeX | N/A | Not determinable from scalar CDM data | No code fix; obtain formula text before adding a test |
-| Markdown wrapper mismatch | N/A | Not determinable from scalar CDM data | No normalization change without text-level evidence |
-| True model-output difference | N/A | Low/zero CDM pages are candidates only | Document as unresolved until GT/pred text is available |
+|---|---|---|---|
+| Empty prediction | Unclassifiable from this artifact | Not determinable from scalar CDM data | No code fix; obtain prediction text before classifying |
+| Malformed LaTeX | Unclassifiable from this artifact | Not determinable from scalar CDM data | No code fix; obtain formula text before adding a test |
+| Markdown wrapper mismatch | Unclassifiable from this artifact | Not determinable from scalar CDM data | No normalization change without text-level evidence |
+| True model-output difference | Unclassifiable from this artifact | Low/zero CDM pages are candidates only | Document as unresolved until GT/pred text is available |
 
 ## Decision
 
@@ -57,7 +60,7 @@ for the exact final revision chain.
 
 Commands and results are recorded here after execution:
 
-- `python scripts/analyze_formula_cdm_cases.py --per-sample-cdm docs/formula-cdm-rocm-hardcase-summary-2026-07-11.json --threshold 0.8` - EXECUTED WITH WARNING; this input is the generated summary rather than the raw scalar map, so the analyzer interpreted summary fields as cases and produced invalid summary-of-summary counts (`count=53`, `below_threshold_count=50`, `zero_count=17`).
+- `python scripts/analyze_formula_cdm_cases.py --per-sample-cdm C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_display_formula_per_sample_CDM.json --threshold 0.8 --out docs\formula-cdm-rocm-hardcase-summary-2026-07-11.json` - PASS; produced the checked-in scalar summary with `count=2352`, `below_threshold_count=93`, and `zero_count=17`.
 - `python -m pytest tests/test_formula_cdm_case_analysis.py -q` - PASS; 3 tests passed.
 - `python -m pytest -q` - PASS; 61 tests passed.
 - PowerShell summary schema/count check - PASS; verified `count=2352`, `below_threshold_count=93`, `zero_count=17` and scalar `page`/`sample_id`/`cdm` fields.
