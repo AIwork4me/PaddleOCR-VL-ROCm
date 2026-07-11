@@ -112,7 +112,11 @@ def write_run_summary(
     run_stats = load_json(run_stats_path)
     metric_result = load_json(metric_result_path)
     failures = [
-        item
+        {
+            key: (value[:200] if isinstance(value, str) else value)
+            for key, value in item.items()
+            if key in {"image", "status", "error", "seconds", "attempts"}
+        }
         for item in run_stats.get("stats", [])
         if isinstance(item, dict) and str(item.get("status", "")).startswith(("fail", "fallback"))
     ][:20]

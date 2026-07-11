@@ -194,9 +194,8 @@ def _requires_full_prediction_stats(args: argparse.Namespace) -> bool:
 
 def _dataset_image_count(args: argparse.Namespace) -> int | None:
     dataset_dir_arg = getattr(args, "dataset_dir", None)
-    if dataset_dir_arg is None:
-        return None
-    images_dir = Path(dataset_dir_arg) / "images"
+    dataset_dir = Path(dataset_dir_arg) if dataset_dir_arg else VERSION_DATASET_DIRS[args.version]
+    images_dir = dataset_dir / "images"
     if not images_dir.is_dir():
         return None
     return sum(1 for path in images_dir.iterdir() if path.suffix.lower() in IMAGE_EXTENSIONS)

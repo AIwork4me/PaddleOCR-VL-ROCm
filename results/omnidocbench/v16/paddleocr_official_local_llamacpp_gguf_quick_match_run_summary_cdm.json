@@ -2,7 +2,7 @@
   "save_name": "paddleocr_official_local_llamacpp_gguf_v16_quick_match",
   "engine": "official",
   "cdm": true,
-  "created_at_utc": "2026-07-11T13:12:19.021960+00:00",
+  "created_at_utc": "2026-07-11T13:28:54.113867+00:00",
   "prediction_count": 1651,
   "ok_pages": 1650,
   "failed_pages": 1,
@@ -34,8 +34,7 @@
         "image": "newspaper_The Times UK_0801@magazinesclubnew_page_031.png",
         "status": "failed: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}}",
         "seconds": 76.13,
-        "attempts": 2,
-        "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\rocm\\Desktop\\PaddleOCR-VL-ROCm\\eval\\PaddleOCRVLROCm_img2md.py\", line 345, in run_official_folder\n    result = pipeline.predict(str(img))\n  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddleocr\\_pipelines\\paddleocr_vl.py\", line 186, in predict\n    return list(\n        self.predict_iter(\n    ...<25 lines>...\n        )\n    )\n  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddlex\\inference\\pipelines\\_parallel.py\", line 161, in predict\n    yield from self._pipeline.predict(\n    ...<3 lines>...\n    )\n  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddlex\\inference\\pipelines\\paddleocr_vl\\pipeline.py\", line 1179, in predict\n    raise RuntimeError(\n        f\"Exception from the '{item[1]}' worker: {item[2]}\"\n    )\nRuntimeError: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}}\n"
+        "attempts": 2
       }
     ]
   }

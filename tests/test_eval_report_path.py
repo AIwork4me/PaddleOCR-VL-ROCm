@@ -76,6 +76,10 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
     report.parent.mkdir(parents=True)
     report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
     predictions = tmp_path / "predictions" / "paddleocr_official_local_llamacpp_gguf_v16"
+    dataset = tmp_path / "dataset"
+    images = dataset / "images"
+    images.mkdir(parents=True)
+    (images / "page.png").write_bytes(b"image")
     predictions.mkdir(parents=True)
     (predictions / "_run_stats.json").write_text(
         '{"count": 1, "ok": 1, "fail": 0, "fallback": 0, "engine": "official", "stats": []}',
@@ -85,6 +89,7 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
     summary = tmp_path / "results" / "summary.json"
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    monkeypatch.setitem(mod.VERSION_DATASET_DIRS, "v16", dataset)
 
     def fake_run(*args, **kwargs):
         report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
@@ -211,6 +216,57 @@ def test_stage_eval_refuses_to_publish_when_dataset_count_mismatches(tmp_path, m
         raise AssertionError("Expected mismatched prediction count to be rejected")
 
 
+def test_stage_eval_uses_version_dataset_count_without_dataset_override(tmp_path, monkeypatch):
+    mod = _load_run_eval()
+    checkout = tmp_path / "checkout"
+    dataset = tmp_path / "data" / "omnidocbench" / "v16"
+    images = dataset / "images"
+    predictions = tmp_path / "predictions" / "paddleocr_official_local_llamacpp_gguf_v16"
+    images.mkdir(parents=True)
+    predictions.mkdir(parents=True)
+    for name in ("a.png", "b.jpg"):
+        (images / name).write_bytes(b"image")
+    (predictions / "_run_stats.json").write_text(
+        json.dumps(
+            {
+                "count": 1,
+                "ok": 1,
+                "fail": 0,
+                "fallback": 0,
+                "engine": "official",
+                "limit_pages": None,
+                "stats": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    monkeypatch.setitem(mod.VERSION_DATASET_DIRS, "v16", dataset)
+
+    args = type(
+        "Args",
+        (),
+        {
+            "config": "eval/configs/omnidocbench_v16.yaml",
+            "version": "v16",
+            "dataset_dir": None,
+            "predictions_dir": str(predictions),
+            "match_method": "quick_match",
+            "copy_report": str(tmp_path / "results" / "metric.json"),
+            "run_summary": None,
+            "cdm": False,
+        },
+    )()
+
+    try:
+        mod.stage_eval(args)
+    except SystemExit as exc:
+        assert "does not match dataset image count" in str(exc)
+    else:
+        raise AssertionError("Expected default dataset count mismatch to be rejected")
+
+
 def test_stage_eval_fails_when_expected_report_is_missing(tmp_path, monkeypatch):
     mod = _load_run_eval()
     checkout = tmp_path / "checkout"
@@ -296,7 +352,11 @@ def test_stage_eval_passes_rendered_config_for_selected_predictions_without_cdm(
     mod = _load_run_eval()
     checkout = tmp_path / "checkout"
     predictions = tmp_path / "predictions" / "paddleocr_official_local_llamacpp_gguf_v16"
+    dataset = tmp_path / "dataset"
+    images = dataset / "images"
     report = checkout / "result" / f"{predictions.name}_quick_match_metric_result.json"
+    images.mkdir(parents=True)
+    (images / "page.png").write_bytes(b"image")
     predictions.mkdir(parents=True)
     report.parent.mkdir(parents=True)
     report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
@@ -310,6 +370,7 @@ def test_stage_eval_passes_rendered_config_for_selected_predictions_without_cdm(
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    monkeypatch.setitem(mod.VERSION_DATASET_DIRS, "v16", dataset)
     monkeypatch.setattr(mod.subprocess, "run", fake_run)
 
     args = type(
@@ -341,7 +402,11 @@ def test_stage_eval_passes_rendered_config_with_cdm_when_requested(tmp_path, mon
     mod = _load_run_eval()
     checkout = tmp_path / "checkout"
     predictions = tmp_path / "predictions" / "paddleocr_official_local_llamacpp_gguf_v16"
+    dataset = tmp_path / "dataset"
+    images = dataset / "images"
     report = checkout / "result" / f"{predictions.name}_quick_match_metric_result.json"
+    images.mkdir(parents=True)
+    (images / "page.png").write_bytes(b"image")
     predictions.mkdir(parents=True)
     report.parent.mkdir(parents=True)
     report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
@@ -358,6 +423,7 @@ def test_stage_eval_passes_rendered_config_with_cdm_when_requested(tmp_path, mon
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    monkeypatch.setitem(mod.VERSION_DATASET_DIRS, "v16", dataset)
     monkeypatch.setattr(mod.subprocess, "run", fake_run)
 
     args = type(

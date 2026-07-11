@@ -41,7 +41,20 @@ def test_write_run_summary_and_provenance(tmp_path):
     metric_path = results_dir / "metric.json"
     stats_path.write_text(
         json.dumps(
-            {"count": 3, "ok": 2, "fail": 1, "fallback": 1, "engine": "official", "stats": []}
+            {
+                "count": 3,
+                "ok": 2,
+                "fail": 1,
+                "fallback": 1,
+                "engine": "official",
+                "stats": [
+                    {
+                        "image": "bad.png",
+                        "status": "fail: controlled",
+                        "error": "x" * 500,
+                    }
+                ],
+            }
         ),
         encoding="utf-8",
     )
@@ -81,7 +94,7 @@ def test_write_run_summary_and_provenance(tmp_path):
         "fail": 1,
         "fallback": 1,
         "limit_pages": None,
-        "failure_samples": [],
+        "failure_samples": [{"image": "bad.png", "status": "fail: controlled", "error": "x" * 200}],
     }
     assert summary["metric_result_path"] == str(metric_path)
     assert provenance["git_commit"] == "abc123"

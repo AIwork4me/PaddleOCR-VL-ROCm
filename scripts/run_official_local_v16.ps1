@@ -53,6 +53,16 @@ Invoke-Step "official dependency constructor gate" {
   Invoke-Native python scripts/check_official_paddleocr.py --construct --server-url $ServerUrl --api-model-name $ApiModelName
 }
 
+if ($Cdm) {
+  Invoke-Step "official full prediction stats gate for CDM" {
+    Assert-FullPredictionStats
+  }
+  Invoke-Step "official full CDM scoring" {
+    Invoke-Native python eval/run_eval.py --stage eval --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --cdm
+  }
+  return
+}
+
 Invoke-Step "official smoke gate" {
   Invoke-Native python eval/run_eval.py --stage infer --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --limit-pages $SmokePages
 }
@@ -67,14 +77,5 @@ if ($Full) {
   }
   Invoke-Step "official full non-CDM scoring" {
     Invoke-Native python eval/run_eval.py --stage eval --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName
-  }
-}
-
-if ($Cdm) {
-  Invoke-Step "official full prediction stats gate for CDM" {
-    Assert-FullPredictionStats
-  }
-  Invoke-Step "official full CDM scoring" {
-    Invoke-Native python eval/run_eval.py --stage eval --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --cdm
   }
 }
