@@ -162,7 +162,7 @@ Linux vLLM/BF16 reference path.
 
 | Engine | Text Edit-dist ↓ | Reading-order Edit-dist ↓ | Table TEDS ↑ | Formula CDM ↑ | Notes |
 |---|---:|---:|---:|---:|---|
-| Lightweight local engine | 0.035 | 0.129 | 94.00 | 94.40 | Existing recorded local CDM artifact |
+| Lightweight local engine | 0.03402 | 0.12824 | 93.1345 | 96.7129 | Latest Windows-native CDM artifact for `predictions/paddleocrvl_rocm_cdm` |
 | Official local engine | 0.034 | 0.129 | 94.24 | 96.50 | Tracked official-local artifacts after Windows CDM path/toolchain fixes |
 | [Public PaddleOCR-VL-1.6 target](https://arxiv.org/abs/2606.03264) | 0.035 | 0.129 | 94.64 | 97.49 | External reference, shown for context only |
 
@@ -170,6 +170,9 @@ The project goal is to align inputs, outputs, parameters, and local evaluation
 evidence. Remaining gaps are reported by engine instead of hidden.
 The official-local row is backed by
 `results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_*`.
+Older tracked lightweight artifacts are retained under
+`results/omnidocbench/v16/` for comparison; the dated Windows-native artifact
+is the current local ROCm CDM evidence.
 
 ### Running the eval
 
