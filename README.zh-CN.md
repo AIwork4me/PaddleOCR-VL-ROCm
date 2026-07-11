@@ -151,12 +151,12 @@ paddleocr-vl-rocm --help
 | 引擎 | 文本 Edit-dist ↓ | 阅读顺序 Edit-dist ↓ | 表格 TEDS ↑ | 公式 CDM ↑ | 说明 |
 |---|---:|---:|---:|---:|---|
 | 轻量本地引擎 | 0.035 | 0.129 | 94.00 | 94.40 | 已记录的本地 CDM 产物 |
-| 官方本地引擎 | 0.034 | 0.129 | 94.24 | pending | 已有本仓库跟踪的 official-local 产物；本机 Windows CDM 因 OmniDocBench 临时路径全异常而判为无效 |
+| 官方本地引擎 | 0.034 | 0.129 | 94.24 | 96.50 | 修复 Windows CDM 路径/toolchain 后生成的本仓库 official-local 产物 |
 | [公开 PaddleOCR-VL-1.6 目标](https://arxiv.org/abs/2606.03264) | 0.035 | 0.129 | 94.64 | 97.49 | 仅作外部参考 |
 
 项目目标是对齐输入、输出、参数和本地评测证据。仍存在的差距按引擎分别报告，不再隐藏。
 官方本地行由 `results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_*`
-支撑；公式 CDM 需等待本机 CDM 工具链产出非异常评测后再发布。
+支撑。
 
 ### 运行评测
 

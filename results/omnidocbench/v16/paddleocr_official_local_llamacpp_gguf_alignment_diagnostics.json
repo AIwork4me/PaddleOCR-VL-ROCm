@@ -5,7 +5,8 @@
     "official_cdm_summary": "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_quick_match_run_summary_cdm.json",
     "official_provenance": "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_provenance.json",
     "run_stats": "predictions\\paddleocr_official_local_llamacpp_gguf_v16\\_run_stats.json",
-    "errors_log": "predictions\\paddleocr_official_local_llamacpp_gguf_v16\\_errors.log"
+    "errors_log": "predictions\\paddleocr_official_local_llamacpp_gguf_v16\\_errors.log",
+    "cdm_rerun_log": "logs/official_cdm_rerun_20260711_092548.log"
   },
   "lightweight_baseline": {
     "summary_path": "results\\omnidocbench\\v16\\paddleocrvl_rocm_quick_match_run_summary.json",
@@ -50,15 +51,21 @@
       "text_edit_dist": 0.034444814497297645,
       "reading_order_edit_dist": 0.12948741658477197,
       "table_teds_percent": 94.23931666667129,
-      "formula_cdm_percent": null
+      "formula_cdm_percent": 96.50220103430605
     },
     "metric_quality": {
       "formula_cdm": {
-        "valid": false,
-        "reason": "all CDM samples raised exceptions (2352/2352); first_reason=FileNotFoundError: [Errno 2] No such file or directory: 'result/paddleocr_official_local_llamacpp_gguf_v16_quick_match_display_formula/CDM\\\\cdm_calc_93m927d7\\\\temp_gt\\\\result_paddleocr_official_local_llamacpp_gguf_v16_quick_match_display_formula_CDM\\\\cdm_calc_93m927d7\\\\gt_sample_0.tex'",
+        "valid": true,
+        "reason": "",
         "sample_count": 2352,
-        "exception_case_count": 2352
+        "exception_case_count": 0
       }
+    },
+    "cdm_debug": {
+      "workers": 13,
+      "sample_count": 2352,
+      "timeout_case_count": 0,
+      "exception_case_count": 0
     },
     "run_stats": {
       "prediction_count": 1651,
@@ -86,14 +93,19 @@
   },
   "root_cause_findings": [
     {
-      "issue": "CDM score artifact is invalid on this local Windows run",
-      "evidence": {
-        "valid": false,
-        "reason": "all CDM samples raised exceptions (2352/2352); first_reason=FileNotFoundError: [Errno 2] No such file or directory: 'result/paddleocr_official_local_llamacpp_gguf_v16_quick_match_display_formula/CDM\\\\cdm_calc_93m927d7\\\\temp_gt\\\\result_paddleocr_official_local_llamacpp_gguf_v16_quick_match_display_formula_CDM\\\\cdm_calc_93m927d7\\\\gt_sample_0.tex'",
-        "sample_count": 2352,
-        "exception_case_count": 2352
-      },
-      "conclusion": "Formula CDM must be reported as pending/null, not as 0.0, until the local OmniDocBench CDM temp-path/toolchain issue is fixed and rerun."
+      "issue": "Windows CDM temp path construction generated nested or overlong .tex paths",
+      "evidence": "Initial CDM runs failed with FileNotFoundError under temp_gt/temp_pred; local single-sample reproductions isolated mixed slash handling and long filename prefixes.",
+      "fix": "Sanitize CDM temp filenames to short gt/pred sample prefixes and pass absolute forward-slash TeX input/output paths."
+    },
+    {
+      "issue": "Windows CDM subprocess commands used POSIX shell quoting and /dev/null redirection",
+      "evidence": "run_cmd([pdflatex --version]) passed only after switching pdflatex/magick calls to argv subprocess execution.",
+      "fix": "Use argv-based subprocess calls for pdflatex and ImageMagick."
+    },
+    {
+      "issue": "Local TeX/ImageMagick toolchain lacked upgreek and Ghostscript resource discovery",
+      "evidence": "TeX log reported missing upgreek.sty; ImageMagick reported gswin64c.exe and GS init/resource lookup failures.",
+      "fix": "Installed TeX Live package was and injected bundled tlgs bin plus GS_LIB Resource/Init, Resource, lib, and kanji paths into CDM subprocess env."
     },
     {
       "issue": "One official inference page failed",
@@ -119,13 +131,13 @@
         "RuntimeError: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}}",
         ""
       ],
-      "conclusion": "The failure is a llama.cpp/server 500 peg-native format error from the official PaddleOCRVL pipeline on one newspaper page after two attempts."
+      "conclusion": "The remaining inference failure is a llama.cpp/server 500 peg-native format error from the official PaddleOCRVL pipeline on one newspaper page after two attempts."
     }
   ],
   "recommended_next_quality_targets": [
-    "Fix or isolate the local Windows OmniDocBench CDM temp-path issue before publishing Formula CDM.",
-    "Classify the single failed official page and decide whether retry/backoff, server prompt constraints, or known-failure accounting is appropriate.",
-    "Use official-local non-CDM metrics as the reference baseline for lightweight accuracy work: text, table, and reading order are now artifact-backed."
+    "Use the valid official-local CDM score as the formula reference for lightweight accuracy work.",
+    "Classify lightweight-vs-official formula hard cases by malformed LaTeX, adapter formatting, matching, or true local model/server-output differences.",
+    "Classify the single failed official page and decide whether retry/backoff, server prompt constraints, or known-failure accounting is appropriate."
   ],
   "recommended_next_speed_targets": [
     "Use per-page seconds in _run_stats.json to rank slow pages and identify retry/failure outliers.",

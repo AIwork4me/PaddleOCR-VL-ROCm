@@ -2,7 +2,7 @@
   "save_name": "paddleocr_official_local_llamacpp_gguf_v16_quick_match",
   "engine": "official",
   "cdm": true,
-  "created_at_utc": "2026-07-10T21:10:11.756949+00:00",
+  "created_at_utc": "2026-07-11T02:21:04.155354+00:00",
   "prediction_count": 1651,
   "ok_pages": 1650,
   "failed_pages": 1,
@@ -13,14 +13,14 @@
     "text_edit_dist": 0.034444814497297645,
     "reading_order_edit_dist": 0.12948741658477197,
     "table_teds_percent": 94.23931666667129,
-    "formula_cdm_percent": null
+    "formula_cdm_percent": 96.50220103430605
   },
   "metric_quality": {
     "formula_cdm": {
-      "valid": false,
-      "reason": "all CDM samples raised exceptions (2352/2352); first_reason=FileNotFoundError: [Errno 2] No such file or directory: 'result/paddleocr_official_local_llamacpp_gguf_v16_quick_match_display_formula/CDM\\\\cdm_calc_93m927d7\\\\temp_gt\\\\result_paddleocr_official_local_llamacpp_gguf_v16_quick_match_display_formula_CDM\\\\cdm_calc_93m927d7\\\\gt_sample_0.tex'",
+      "valid": true,
+      "reason": "",
       "sample_count": 2352,
-      "exception_case_count": 2352
+      "exception_case_count": 0
     }
   },
   "run_stats": {

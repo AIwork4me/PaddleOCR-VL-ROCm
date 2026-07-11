@@ -1,6 +1,6 @@
 {
-  "created_at_utc": "2026-07-10T21:10:11.794184+00:00",
-  "git_commit": "128db270603bc92a55c4ad11c73537439cc90511",
+  "created_at_utc": "2026-07-11T02:22:28.387426+00:00",
+  "git_commit": "dd11c65e59bd09b40578a0b547cb8c84786c7419",
   "engine": "official",
   "vlm_server_url": "http://127.0.0.1:8111/v1",
   "api_model_name": "PaddleOCR-VL-1.6-GGUF.gguf",
