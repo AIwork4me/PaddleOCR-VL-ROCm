@@ -67,7 +67,11 @@ def test_artifact_profile_sets_official_predictions_dir():
 def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
     mod = _load_run_eval()
     checkout = tmp_path / "checkout"
-    report = checkout / "result" / "paddleocr_official_local_llamacpp_gguf_v16_quick_match_metric_result.json"
+    report = (
+        checkout
+        / "result"
+        / "paddleocr_official_local_llamacpp_gguf_v16_quick_match_metric_result.json"
+    )
     report.parent.mkdir(parents=True)
     report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
     predictions = tmp_path / "predictions" / "paddleocr_official_local_llamacpp_gguf_v16"
@@ -80,8 +84,12 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
     summary = tmp_path / "results" / "summary.json"
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
-    monkeypatch.setattr(mod.subprocess, "run", lambda *args, **kwargs: type("R", (), {"returncode": 0})())
-    monkeypatch.setattr(mod, "_resolve_report_path", lambda checkout, predictions_dir, match_method: report)
+    monkeypatch.setattr(
+        mod.subprocess, "run", lambda *args, **kwargs: type("R", (), {"returncode": 0})()
+    )
+    monkeypatch.setattr(
+        mod, "_resolve_report_path", lambda checkout, predictions_dir, match_method: report
+    )
 
     args = type(
         "Args",

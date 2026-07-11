@@ -40,11 +40,15 @@ def test_write_run_summary_and_provenance(tmp_path):
     stats_path = predictions / "_run_stats.json"
     metric_path = results_dir / "metric.json"
     stats_path.write_text(
-        json.dumps({"count": 3, "ok": 2, "fail": 1, "fallback": 1, "engine": "official", "stats": []}),
+        json.dumps(
+            {"count": 3, "ok": 2, "fail": 1, "fallback": 1, "engine": "official", "stats": []}
+        ),
         encoding="utf-8",
     )
     metric_path.parent.mkdir(parents=True)
-    metric_path.write_text(json.dumps({"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}), encoding="utf-8")
+    metric_path.write_text(
+        json.dumps({"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}), encoding="utf-8"
+    )
 
     summary_path = mod.write_run_summary(
         save_name="paddleocr_official_local_llamacpp_gguf_quick_match",
@@ -85,7 +89,9 @@ def test_cdm_all_exception_metric_is_marked_invalid(tmp_path):
     stats_path = predictions / "_run_stats.json"
     metric_path = results_dir / "metric_cdm.json"
     stats_path.write_text(
-        json.dumps({"count": 2, "ok": 2, "fail": 0, "fallback": 0, "engine": "official", "stats": []}),
+        json.dumps(
+            {"count": 2, "ok": 2, "fail": 0, "fallback": 0, "engine": "official", "stats": []}
+        ),
         encoding="utf-8",
     )
     metric_path.parent.mkdir(parents=True)

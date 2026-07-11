@@ -40,7 +40,9 @@ def test_dependency_check_constructs_with_local_llamacpp_arguments(monkeypatch):
         def __init__(self, **kwargs):
             captured.update(kwargs)
 
-    monkeypatch.setitem(sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FakePaddleOCRVL))
+    monkeypatch.setitem(
+        sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FakePaddleOCRVL)
+    )
 
     result = mod.check_official_dependency(
         construct=True,

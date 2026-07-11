@@ -196,9 +196,7 @@ def _render_eval_config(
     if not ground_truth_path.is_absolute():
         ground_truth_path = ground_truth_path.expanduser().resolve()
     eval_config["dataset"]["ground_truth"]["data_path"] = str(ground_truth_path)
-    eval_config["dataset"]["prediction"]["data_path"] = str(
-        predictions_dir.expanduser().resolve()
-    )
+    eval_config["dataset"]["prediction"]["data_path"] = str(predictions_dir.expanduser().resolve())
 
     formula_metrics = list(eval_config["metrics"]["display_formula"].get("metric", []))
     if cdm:
@@ -345,7 +343,9 @@ def main() -> None:
     )
     parser.add_argument("--page-retries", type=int, default=1)
     parser.add_argument("--fallback-pred-dir", default=None)
-    parser.add_argument("--artifact-profile", choices=["default", "official-local"], default="default")
+    parser.add_argument(
+        "--artifact-profile", choices=["default", "official-local"], default="default"
+    )
     parser.add_argument("--limit-pages", type=int, default=None)
     parser.add_argument("--copy-report", default=None)
     parser.add_argument("--run-summary", default=None)

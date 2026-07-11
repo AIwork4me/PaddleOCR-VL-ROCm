@@ -85,9 +85,7 @@ def run_adapter(
     llama_host = env.get("LLAMA_HOST") or "127.0.0.1"
     llama_port = env.get("LLAMA_PORT") or "8111"
     resolved_server = (
-        server_url
-        or os.environ.get("ADAPTER_SERVER_URL")
-        or f"http://{llama_host}:{llama_port}/v1"
+        server_url or os.environ.get("ADAPTER_SERVER_URL") or f"http://{llama_host}:{llama_port}/v1"
     )
     default_api_model = (
         api_model_name
@@ -347,7 +345,9 @@ def run_official_folder(
                     result = list(result)
                 if isinstance(result, list):
                     if not result:
-                        raise RuntimeError("Official PaddleOCRVL predict() returned no page results.")
+                        raise RuntimeError(
+                            "Official PaddleOCRVL predict() returned no page results."
+                        )
                     markdown = "\n\n".join(_official_result_to_markdown(item) for item in result)
                 else:
                     markdown = _official_result_to_markdown(result)
@@ -433,7 +433,9 @@ def main() -> None:
     parser.add_argument(
         "--page-retries", type=int, default=int(os.environ.get("PADDLEOCR_VL_PAGE_RETRIES", "1"))
     )
-    parser.add_argument("--fallback-pred-dir", default=os.environ.get("PADDLEOCR_VL_FALLBACK_PRED_DIR"))
+    parser.add_argument(
+        "--fallback-pred-dir", default=os.environ.get("PADDLEOCR_VL_FALLBACK_PRED_DIR")
+    )
     parser.add_argument("--limit-pages", type=int, default=None)
     args = parser.parse_args()
     summary = run_adapter(

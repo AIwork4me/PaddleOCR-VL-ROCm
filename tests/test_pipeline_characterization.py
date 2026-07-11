@@ -32,7 +32,7 @@ def _assert_json_close(actual, expected, path="$"):
     if isinstance(expected, list):
         assert isinstance(actual, list), f"{path}: expected list"
         assert len(actual) == len(expected), f"{path}: list length differs"
-        for index, (actual_item, expected_item) in enumerate(zip(actual, expected)):
+        for index, (actual_item, expected_item) in enumerate(zip(actual, expected, strict=True)):
             _assert_json_close(actual_item, expected_item, f"{path}[{index}]")
         return
     if isinstance(expected, float) or isinstance(actual, float):

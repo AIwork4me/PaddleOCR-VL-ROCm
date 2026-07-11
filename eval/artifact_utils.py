@@ -56,9 +56,7 @@ def _nested_number(metric: dict[str, Any], *keys: str) -> float | None:
 def analyze_metric_quality(metric: dict[str, Any]) -> dict[str, Any]:
     cdm_debug = _nested(metric, "display_formula", "metric_debug", "CDM") or {}
     sample_count = cdm_debug.get("sample_count") if isinstance(cdm_debug, dict) else None
-    exception_count = (
-        cdm_debug.get("exception_case_count") if isinstance(cdm_debug, dict) else None
-    )
+    exception_count = cdm_debug.get("exception_case_count") if isinstance(cdm_debug, dict) else None
     formula_cdm = {
         "valid": True,
         "reason": "",

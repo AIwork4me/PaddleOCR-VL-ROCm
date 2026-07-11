@@ -37,6 +37,7 @@ class PaddleOCRVLROCm:
     def _layout(self) -> PPDocLayoutV3Onnx:
         if self._layout_model is None:
             import onnxruntime
+
             available = onnxruntime.get_available_providers()
             gpu_first = ["DmlExecutionProvider", "CUDAExecutionProvider"]
             providers = [p for p in gpu_first if p in available]

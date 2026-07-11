@@ -224,7 +224,9 @@ def test_official_folder_materializes_generator_results(tmp_path, monkeypatch):
         def predict(self, image_path):
             return (FakeOfficialResult(markdown) for markdown in ("first page", "second page"))
 
-    monkeypatch.setitem(sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FakeOfficialPipeline))
+    monkeypatch.setitem(
+        sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FakeOfficialPipeline)
+    )
 
     summary = mod.run_official_folder(
         img_dir=img_dir,
@@ -254,7 +256,9 @@ def test_official_folder_preserves_same_directory_fallback_after_failure(tmp_pat
         def predict(self, image_path):
             raise RuntimeError("controlled official failure")
 
-    monkeypatch.setitem(sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FailingOfficialPipeline))
+    monkeypatch.setitem(
+        sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FailingOfficialPipeline)
+    )
 
     summary = mod.run_official_folder(
         img_dir=img_dir,
