@@ -160,14 +160,23 @@ Scores in this repository are local measurements from the Windows + AMD Radeon
 + llama.cpp/GGUF + OmniDocBench/CDM environment. They are not claimed from a
 Linux vLLM/BF16 reference path.
 
-| Engine | Text Edit-dist ↓ | Reading-order Edit-dist ↓ | Table TEDS ↑ | Formula CDM ↑ | Notes |
-|---|---:|---:|---:|---:|---|
-| Lightweight local engine | 0.035 | 0.129 | 94.00 | 94.40 | Existing recorded local CDM artifact |
-| Official local engine | pending | pending | pending | pending | Pending reproduction from tracked local artifacts; companion setup evidence is non-tracked context |
-| [Public PaddleOCR-VL-1.6 target](https://arxiv.org/abs/2606.03264) | 0.035 | 0.129 | 94.64 | 97.49 | External reference, shown for context only |
+| Engine | Overall ↑ | Text Edit-dist ↓ | Reading-order Edit-dist ↓ | Table TEDS ↑ | Formula CDM ↑ | Notes |
+|---|---:|---:|---:|---:|---:|---|
+| Lightweight local engine | 95.9475 | 0.03402 | 0.12824 | 94.3222 | 96.9219 | Latest Windows-native CDM artifact; OmniDocBench official leaderboard/notebook page-level aggregation for `predictions/paddleocrvl_rocm_cdm` |
+| Official local engine | 95.7657 | 0.034 | 0.129 | 94.24 | 96.50 | Tracked official-local artifacts after Windows CDM path/toolchain fixes |
+| [Public PaddleOCR-VL-1.6 target](https://arxiv.org/abs/2606.03264) | 96.33 | 0.033 | 0.127 | 94.76 | 97.49 | External reference, shown for context only |
 
 The project goal is to align inputs, outputs, parameters, and local evaluation
 evidence. Remaining gaps are reported by engine instead of hidden.
+The official-local row is backed by
+`results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_*`.
+Older tracked lightweight artifacts are retained under
+`results/omnidocbench/v16/` for comparison; the dated Windows-native artifact
+is the current local ROCm CDM evidence. The table uses the same page-level
+aggregation convention as OmniDocBench's official leaderboard notebook
+(`tools/generate_result_tables.ipynb`). The lower-level raw `metric_result`
+all-values remain available for audit: Table TEDS 93.1345 and Formula CDM
+96.7129. Both conventions are documented in `results/omnidocbench/v16/README.md`.
 
 ### Running the eval
 

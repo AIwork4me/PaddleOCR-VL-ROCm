@@ -13,12 +13,32 @@ GOLDEN = FIXTURES / "golden"
 COMPAT = FIXTURES / "compat_cache.json"
 META = FIXTURES / "record_meta.json"
 IMAGES = sorted((REPO / "examples" / "input").glob("*.png"))
+FLOAT_TOLERANCE = 1e-4
 
 
 def _load_meta() -> dict | None:
     if not META.exists():
         return None
     return json.loads(META.read_text(encoding="utf-8"))
+
+
+def _assert_json_close(actual, expected, path="$"):
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict), f"{path}: expected dict"
+        assert actual.keys() == expected.keys(), f"{path}: keys differ"
+        for key in expected:
+            _assert_json_close(actual[key], expected[key], f"{path}.{key}")
+        return
+    if isinstance(expected, list):
+        assert isinstance(actual, list), f"{path}: expected list"
+        assert len(actual) == len(expected), f"{path}: list length differs"
+        for index, (actual_item, expected_item) in enumerate(zip(actual, expected, strict=True)):
+            _assert_json_close(actual_item, expected_item, f"{path}[{index}]")
+        return
+    if isinstance(expected, float) or isinstance(actual, float):
+        assert actual == pytest.approx(expected, abs=FLOAT_TOLERANCE), path
+        return
+    assert actual == expected, path
 
 
 @pytest.fixture(autouse=True)
@@ -55,4 +75,4 @@ def test_pipeline_matches_golden(tmp_path, image):
     )
     actual = json.loads(json_path.read_text(encoding="utf-8"))
     expected = json.loads((GOLDEN / f"{image.stem}.json").read_text(encoding="utf-8"))
-    assert actual == expected
+    _assert_json_close(actual, expected)

@@ -1,0 +1,147 @@
+{
+  "scope": "local Windows + AMD + llama.cpp/GGUF only; no Linux vLLM/BF16 reference path used",
+  "generated_from": {
+    "official_summary": "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_quick_match_run_summary.json",
+    "official_cdm_summary": "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_quick_match_run_summary_cdm.json",
+    "official_provenance": "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_provenance.json",
+    "run_stats": "predictions\\paddleocr_official_local_llamacpp_gguf_v16\\_run_stats.json",
+    "errors_log": "predictions\\paddleocr_official_local_llamacpp_gguf_v16\\_errors.log",
+    "cdm_rerun_log": "logs/official_cdm_rerun_20260711_092548.log"
+  },
+  "lightweight_baseline": {
+    "summary_path": "results\\omnidocbench\\v16\\paddleocrvl_rocm_quick_match_run_summary.json",
+    "metrics": {
+      "text_block_Edit_dist": {
+        "raw": 0.03540384970738171,
+        "page_denominator": 1557,
+        "notebook_value": 0.03540384970738171
+      },
+      "display_formula_CDM": {
+        "raw": null,
+        "page_denominator": null,
+        "notebook_value": null
+      },
+      "table_TEDS": {
+        "raw": 0.9400260930576706,
+        "page_denominator": 458,
+        "notebook_value": 94.00260930576707
+      },
+      "table_TEDS_structure_only": {
+        "raw": 0.9634808528632705,
+        "page_denominator": 458,
+        "notebook_value": 96.34808528632705
+      },
+      "reading_order_Edit_dist": {
+        "raw": 0.12949903523231754,
+        "page_denominator": 1638,
+        "notebook_value": 0.12949903523231754
+      }
+    }
+  },
+  "official_local": {
+    "summary_path": "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_quick_match_run_summary.json",
+    "metrics": {
+      "text_edit_dist": 0.034444814497297645,
+      "reading_order_edit_dist": 0.12948741658477197,
+      "table_teds_percent": 94.23931666667129,
+      "formula_cdm_percent": null
+    },
+    "cdm_summary_path": "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_quick_match_run_summary_cdm.json",
+    "cdm_metrics": {
+      "text_edit_dist": 0.034444814497297645,
+      "reading_order_edit_dist": 0.12948741658477197,
+      "table_teds_percent": 94.23931666667129,
+      "formula_cdm_percent": 96.50220103430605
+    },
+    "metric_quality": {
+      "formula_cdm": {
+        "valid": true,
+        "reason": "",
+        "sample_count": 2352,
+        "exception_case_count": 0
+      }
+    },
+    "cdm_debug": {
+      "workers": 13,
+      "sample_count": 2352,
+      "timeout_case_count": 0,
+      "exception_case_count": 0
+    },
+    "run_stats": {
+      "prediction_count": 1651,
+      "ok_pages": 1650,
+      "failed_pages": 1,
+      "fallback_pages": 0,
+      "failed_items": [
+        {
+          "image": "newspaper_The Times UK_0801@magazinesclubnew_page_031.png",
+          "status": "failed: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}}",
+          "seconds": 76.13,
+          "attempts": 2,
+          "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\rocm\\Desktop\\PaddleOCR-VL-ROCm\\eval\\PaddleOCRVLROCm_img2md.py\", line 345, in run_official_folder\n    result = pipeline.predict(str(img))\n  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddleocr\\_pipelines\\paddleocr_vl.py\", line 186, in predict\n    return list(\n        self.predict_iter(\n    ...<25 lines>...\n        )\n    )\n  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddlex\\inference\\pipelines\\_parallel.py\", line 161, in predict\n    yield from self._pipeline.predict(\n    ...<3 lines>...\n    )\n  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddlex\\inference\\pipelines\\paddleocr_vl\\pipeline.py\", line 1179, in predict\n    raise RuntimeError(\n        f\"Exception from the '{item[1]}' worker: {item[2]}\"\n    )\nRuntimeError: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}}\n"
+        }
+      ]
+    },
+    "speed_seconds": {
+      "ok_page_count": 1650,
+      "total": 30584.07,
+      "mean": 18.536,
+      "median": 13.815,
+      "p95": 46.42,
+      "max": 136.05
+    }
+  },
+  "root_cause_findings": [
+    {
+      "issue": "Windows CDM temp path construction generated nested or overlong .tex paths",
+      "evidence": "Initial CDM runs failed with FileNotFoundError under temp_gt/temp_pred; local single-sample reproductions isolated mixed slash handling and long filename prefixes.",
+      "fix": "Sanitize CDM temp filenames to short gt/pred sample prefixes and pass absolute forward-slash TeX input/output paths."
+    },
+    {
+      "issue": "Windows CDM subprocess commands used POSIX shell quoting and /dev/null redirection",
+      "evidence": "run_cmd([pdflatex --version]) passed only after switching pdflatex/magick calls to argv subprocess execution.",
+      "fix": "Use argv-based subprocess calls for pdflatex and ImageMagick."
+    },
+    {
+      "issue": "Local TeX/ImageMagick toolchain lacked upgreek and Ghostscript resource discovery",
+      "evidence": "TeX log reported missing upgreek.sty; ImageMagick reported gswin64c.exe and GS init/resource lookup failures.",
+      "fix": "Installed TeX Live package was and injected bundled tlgs bin plus GS_LIB Resource/Init, Resource, lib, and kanji paths into CDM subprocess env."
+    },
+    {
+      "issue": "One official inference page failed",
+      "evidence": [
+        "[2026-07-10T23:36:01] newspaper_The Times UK_0801@magazinesclubnew_page_031.png: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}} (attempts=2)",
+        "Traceback (most recent call last):",
+        "  File \"C:\\Users\\rocm\\Desktop\\PaddleOCR-VL-ROCm\\eval\\PaddleOCRVLROCm_img2md.py\", line 345, in run_official_folder",
+        "    result = pipeline.predict(str(img))",
+        "  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddleocr\\_pipelines\\paddleocr_vl.py\", line 186, in predict",
+        "    return list(",
+        "        self.predict_iter(",
+        "    ...<25 lines>...",
+        "        )",
+        "    )",
+        "  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddlex\\inference\\pipelines\\_parallel.py\", line 161, in predict",
+        "    yield from self._pipeline.predict(",
+        "    ...<3 lines>...",
+        "    )",
+        "  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddlex\\inference\\pipelines\\paddleocr_vl\\pipeline.py\", line 1179, in predict",
+        "    raise RuntimeError(",
+        "        f\"Exception from the '{item[1]}' worker: {item[2]}\"",
+        "    )",
+        "RuntimeError: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}}",
+        ""
+      ],
+      "conclusion": "The remaining inference failure is a llama.cpp/server 500 peg-native format error from the official PaddleOCRVL pipeline on one newspaper page after two attempts."
+    }
+  ],
+  "recommended_next_quality_targets": [
+    "Use the valid official-local CDM score as the formula reference for lightweight accuracy work.",
+    "Classify lightweight-vs-official formula hard cases by malformed LaTeX, adapter formatting, matching, or true local model/server-output differences.",
+    "Classify the single failed official page and decide whether retry/backoff, server prompt constraints, or known-failure accounting is appropriate."
+  ],
+  "recommended_next_speed_targets": [
+    "Use per-page seconds in _run_stats.json to rank slow pages and identify retry/failure outliers.",
+    "Tune concurrency/retry controls only against a fixed subset with identical Markdown output checks.",
+    "Prefer cache reuse and bounded diagnostic subsets before changing prompts or decoding defaults."
+  ]
+}

@@ -1,0 +1,231 @@
+{
+    "save_name": "paddleocrvl_rocm_cdm_quick_match",
+    "runtime_environment": {
+        "system": {
+            "platform": "Windows-10-10.0.26200-SP0",
+            "python_version": "3.11.15 | packaged by Anaconda, Inc. | (main, Mar 11 2026, 17:12:15) [MSC v.1942 64 bit (AMD64)]",
+            "python_executable": "C:\\Users\\rocm\\Desktop\\omnidocbench-amd-windows\\.venv\\Scripts\\python.exe",
+            "python_prefix": "C:\\Users\\rocm\\Desktop\\omnidocbench-amd-windows\\.venv",
+            "conda_env": "",
+            "conda_prefix": "",
+            "libc": "",
+            "uname": "Windows DESKTOP-IF0424E 10 10.0.26200 AMD64 AMD64 Family 26 Model 112 Stepping 0, AuthenticAMD",
+            "os_release": {}
+        },
+        "system_packages": {
+            "package_manager": "unavailable",
+            "tracked_packages": {
+                "ghostscript": "unavailable (no supported package manager found)",
+                "imagemagick": "unavailable (no supported package manager found)",
+                "fontconfig": "unavailable (no supported package manager found)",
+                "python3": "unavailable (no supported package manager found)",
+                "python3-pip": "unavailable (no supported package manager found)",
+                "python3-setuptools": "unavailable (no supported package manager found)",
+                "python3-wheel": "unavailable (no supported package manager found)",
+                "texlive-base": "unavailable (no supported package manager found)",
+                "texlive-binaries": "unavailable (no supported package manager found)",
+                "texlive-lang-chinese": "unavailable (no supported package manager found)",
+                "texlive-lang-cjk": "unavailable (no supported package manager found)",
+                "texlive-latex-base": "unavailable (no supported package manager found)",
+                "texlive-latex-extra": "unavailable (no supported package manager found)",
+                "texlive-fonts-recommended": "unavailable (no supported package manager found)",
+                "texlive-plain-generic": "unavailable (no supported package manager found)",
+                "latexml": "unavailable (no supported package manager found)"
+            }
+        },
+        "python_packages": {
+            "apted": "1.0.3",
+            "beautifulsoup4": "4.15.0",
+            "evaluate": "0.4.6",
+            "func-timeout": "4.3.5",
+            "Levenshtein": "0.27.3",
+            "loguru": "0.7.3",
+            "lxml": "6.1.1",
+            "matplotlib": "3.11.0",
+            "nltk": "3.9.4",
+            "numpy": "2.3.5",
+            "pandas": "3.0.3",
+            "Pillow": "12.3.0",
+            "pylatexenc": "2.10",
+            "PyYAML": "6.0.2",
+            "scipy": "1.17.1",
+            "tabulate": "0.10.0",
+            "tqdm": "4.68.3",
+            "pip": "26.1.2",
+            "setuptools": "79.0.1",
+            "wheel": "unavailable"
+        },
+        "external_tools": {
+            "pdflatex": {
+                "path": "C:\\texlive\\2026\\bin\\windows\\pdflatex.EXE",
+                "returncode": 0,
+                "output": "pdfTeX 3.141592653-2.6-1.40.29 (TeX Live 2026) | kpathsea version 6.4.2 | Copyright 2026 Han The Thanh (pdfTeX) et al. | There is NO warranty.  Redistribution of this software is | covered by the terms of both the pdfTeX copyright and"
+            },
+            "kpsewhich": {
+                "path": "C:\\texlive\\2026\\bin\\windows\\kpsewhich.EXE",
+                "returncode": 0,
+                "output": "kpathsea version 6.4.2 | Copyright 2026 Karl Berry & Olaf Weber. | License LGPLv2.1+: GNU Lesser GPL version 2.1 or later <https://gnu.org/licenses/lgpl.html> | This is free software: you are free to change and redistribute it. | There is NO WARRANTY, to the extent permitted by law."
+            },
+            "tlmgr": {
+                "path": "C:\\texlive\\2026\\bin\\windows\\tlmgr.BAT",
+                "returncode": null,
+                "output": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)"
+            },
+            "ghostscript": {
+                "path": "gs",
+                "returncode": null,
+                "output": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)"
+            },
+            "magick": {
+                "path": "C:\\Program Files\\ImageMagick-7.1.2-Q16-HDRI\\magick.EXE",
+                "returncode": 0,
+                "output": "Version: ImageMagick 7.1.2-26 Q16-HDRI x64 38ba210:20260621 https://imagemagick.org | Copyright: (C) 1999 ImageMagick Studio LLC | License: https://imagemagick.org/license/ | Features: Channel-masks(64-bit) Cipher DPC HDRI Modules OpenCL OpenMP(2.0) | Delegates (built-in): bzlib cairo freetype gslib heic jng jp2 jpeg jxl lcms lqr lzma openexr pangocairo png ps raqm raw rsvg tiff webp xml zip zlib"
+            },
+            "convert": {
+                "path": "C:\\Windows\\system32\\convert.EXE",
+                "returncode": 4,
+                "output": "Invalid drive specification."
+            },
+            "identify": {
+                "path": "C:\\Users\\rocm\\AppData\\Local\\Microsoft\\WindowsApps\\identify.EXE",
+                "returncode": 0,
+                "output": "Version: ImageMagick 7.1.2-24 Q16-HDRI x64 271b6bc:20260526 https://imagemagick.org | Copyright: (C) 1999 ImageMagick Studio LLC | License: https://imagemagick.org/license/ | Features: Channel-masks(64-bit) Cipher DPC HDRI OpenCL OpenMP(2.0) | Delegates (built-in): bzlib cairo freetype gslib heic jng jp2 jpeg jxl lcms lqr lzma openexr pangocairo png ps raqm raw rsvg tiff webp xml zip zlib"
+            },
+            "latexmlc": {
+                "path": "latexmlc",
+                "returncode": null,
+                "output": "unavailable (FileNotFoundError: [WinError 2] 系统找不到指定的文件。)"
+            }
+        },
+        "texlive": {
+            "cjk_font_family": "gkai",
+            "cjk_sty": {
+                "path": "c:\\texlive\\2026\\texmf-dist\\tex\\latex\\cjk\\texinput\\CJK.sty",
+                "version": "4.8.5 (16-Oct-2021)",
+                "date": "2021/10/16",
+                "header": "% This is the file CJK.sty of the CJK package",
+                "status": "ok"
+            },
+            "cjk_font_fd": {
+                "path": "c:\\texlive\\2026\\texmf-dist\\tex\\latex\\cjk\\texinput\\UTF8\\c70gkai.fd",
+                "version": "4.8.5 (16-Oct-2021)",
+                "date": "2021/10/16",
+                "header": "% This is the file c70gkai.fd of the CJK package",
+                "status": "ok"
+            }
+        }
+    },
+    "stage_execution": {
+        "page_match": {
+            "workers": 24,
+            "page_count": 1651,
+            "quick_match_truncated_timeout_sec": 300,
+            "match_timeout_sec": 420,
+            "fallbacks": {
+                "quick_match_timeout": {
+                    "count": 2,
+                    "cases": [
+                        "docstructbench_enbook-zlib-o.O-17208435.pdf_57.jpg",
+                        "newspaper_0b1bb8d03b4287eb95f67b68c2cf9f92_1.jpg"
+                    ]
+                },
+                "page_timeout": {
+                    "count": 1,
+                    "cases": [
+                        "jiaocaineedrop_jiaocai_needrop_en_349.jpg"
+                    ]
+                }
+            }
+        },
+        "metrics": {
+            "display_formula": {
+                "CDM": {
+                    "workers": 8,
+                    "timeout_sec": null,
+                    "sample_count": 2352,
+                    "timeout_case_count": 0,
+                    "timeout_cases": [],
+                    "error_case_count": 0,
+                    "error_cases": [],
+                    "exception_case_count": 0,
+                    "exception_cases": []
+                }
+            },
+            "table": {
+                "TEDS": {
+                    "workers": 16,
+                    "timeout_sec": 120.0,
+                    "sample_count": 665,
+                    "timeout_case_count": 0,
+                    "timeout_cases": [],
+                    "error_case_count": 0,
+                    "error_cases": [],
+                    "exception_case_count": 0,
+                    "exception_cases": []
+                }
+            }
+        }
+    },
+    "page_denominators": {
+        "text_block": {
+            "Edit_dist": {
+                "ALL": 1557
+            }
+        },
+        "display_formula": {
+            "Edit_dist": {
+                "ALL": 313
+            },
+            "CDM": {
+                "ALL": 313
+            }
+        },
+        "table": {
+            "TEDS": {
+                "ALL": 458
+            },
+            "Edit_dist": {
+                "ALL": 458
+            },
+            "TEDS_structure_only": {
+                "ALL": 458
+            }
+        },
+        "reading_order": {
+            "Edit_dist": {
+                "ALL": 1638
+            }
+        }
+    },
+    "notebook_metric_summary": {
+        "source": "tools/generate_result_tables.ipynb#cell-2",
+        "metrics": {
+            "text_block_Edit_dist": {
+                "raw": 0.03401597503524673,
+                "page_denominator": 1557,
+                "notebook_value": 0.03401597503524673
+            },
+            "display_formula_CDM": {
+                "raw": 0.9692192577813941,
+                "page_denominator": 313,
+                "notebook_value": 96.92192577813941
+            },
+            "table_TEDS": {
+                "raw": 0.9432215352965814,
+                "page_denominator": 458,
+                "notebook_value": 94.32215352965814
+            },
+            "table_TEDS_structure_only": {
+                "raw": 0.9664502283521709,
+                "page_denominator": 458,
+                "notebook_value": 96.64502283521709
+            },
+            "reading_order_Edit_dist": {
+                "raw": 0.1282380300787933,
+                "page_denominator": 1638,
+                "notebook_value": 0.1282380300787933
+            }
+        },
+        "overall_notebook": 95.94749393475762
+    }
+}

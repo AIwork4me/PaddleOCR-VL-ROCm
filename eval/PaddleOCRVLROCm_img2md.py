@@ -27,6 +27,14 @@ def expected_md_name(image_name: str) -> str:
     return Path(image_name).stem + ".md"
 
 
+def iter_images(img_dir: Path, limit_pages: int | None = None) -> list[Path]:
+    images = sorted(p for p in img_dir.iterdir() if p.suffix.lower() in IMAGE_EXTENSIONS)
+    if limit_pages is None:
+        return images
+    limit = max(0, int(limit_pages))
+    return images[:limit]
+
+
 def _read_env_local(repo_root: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     env_file = repo_root / ".env.local"
@@ -65,6 +73,7 @@ def run_adapter(
     vlm_backend: str = DEFAULT_VLM_BACKEND,
     page_retries: int = 1,
     fallback_pred_dir: str | Path | None = None,
+    limit_pages: int | None = None,
 ) -> dict:
     env = _read_adapter_env()
     default_layout = (
@@ -76,9 +85,7 @@ def run_adapter(
     llama_host = env.get("LLAMA_HOST") or "127.0.0.1"
     llama_port = env.get("LLAMA_PORT") or "8111"
     resolved_server = (
-        server_url
-        or os.environ.get("ADAPTER_SERVER_URL")
-        or f"http://{llama_host}:{llama_port}/v1"
+        server_url or os.environ.get("ADAPTER_SERVER_URL") or f"http://{llama_host}:{llama_port}/v1"
     )
     default_api_model = (
         api_model_name
@@ -96,6 +103,7 @@ def run_adapter(
             server_url=resolved_server,
             api_model_name=default_api_model,
             vlm_backend=vlm_backend,
+            limit_pages=limit_pages,
         )
     if selected_engine == "official":
         return run_official_folder(
@@ -105,6 +113,7 @@ def run_adapter(
             api_model_name=default_api_model,
             page_retries=page_retries,
             fallback_pred_dir=Path(fallback_pred_dir) if fallback_pred_dir else None,
+            limit_pages=limit_pages,
         )
     raise ValueError(f"Unsupported engine '{engine}'. Use lightweight or official.")
 
@@ -117,6 +126,7 @@ def run_lightweight_folder(
     server_url: str = "http://127.0.0.1:8000/v1",
     api_model_name: str = DEFAULT_LOCAL_API_MODEL_NAME,
     vlm_backend: str = DEFAULT_VLM_BACKEND,
+    limit_pages: int | None = None,
 ) -> dict:
     """Run the local lightweight pipeline over every image in ``img_dir``."""
     if not img_dir.is_dir():
@@ -135,7 +145,7 @@ def run_lightweight_folder(
     errors_path = out_dir / "_errors.log"
     errors_path.unlink(missing_ok=True)
     stats: list[dict] = []
-    images = sorted(p for p in img_dir.iterdir() if p.suffix.lower() in IMAGE_EXTENSIONS)
+    images = iter_images(img_dir, limit_pages=limit_pages)
     for img in images:
         start = time.time()
         destination = out_dir / expected_md_name(img.name)
@@ -166,6 +176,7 @@ def run_lightweight_folder(
         "fail": len(images) - ok_count,
         "fallback": 0,
         "engine": "lightweight",
+        "limit_pages": limit_pages,
         "stats": stats,
     }
     (out_dir / "_run_stats.json").write_text(
@@ -185,6 +196,7 @@ def process_folder(
     server_url: str = "http://127.0.0.1:8000/v1",
     api_model_name: str = DEFAULT_LOCAL_API_MODEL_NAME,
     vlm_backend: str = DEFAULT_VLM_BACKEND,
+    limit_pages: int | None = None,
 ) -> dict:
     return run_lightweight_folder(
         img_dir=img_dir,
@@ -193,6 +205,7 @@ def process_folder(
         server_url=server_url,
         api_model_name=api_model_name,
         vlm_backend=vlm_backend,
+        limit_pages=limit_pages,
     )
 
 
@@ -257,7 +270,7 @@ _CENTERED_TEXT_DIV_RE = re.compile(
     r"<div[^>]*style=[\"'][^\"']*text-align:\s*center;?[^\"']*[\"'][^>]*>\s*(.*?)\s*</div>",
     re.IGNORECASE | re.DOTALL,
 )
-_HTML_TAG_RE = re.compile(r"<[^>]+>")
+_INLINE_FORMATTING_TAG_RE = re.compile(r"</?(?:b|strong|i|em|span)\b[^>]*>", re.IGNORECASE)
 
 
 def _normalize_official_markdown_for_omnidocbench(markdown: str) -> str:
@@ -265,7 +278,7 @@ def _normalize_official_markdown_for_omnidocbench(markdown: str) -> str:
         return f"![]({html.unescape(match.group(1))})"
 
     def replace_text(match: re.Match[str]) -> str:
-        inner = _HTML_TAG_RE.sub("", match.group(1))
+        inner = _INLINE_FORMATTING_TAG_RE.sub("", match.group(1))
         return html.unescape(inner.strip())
 
     markdown = _CENTERED_IMAGE_DIV_RE.sub(replace_image, markdown)
@@ -281,6 +294,7 @@ def run_official_folder(
     api_model_name: str,
     page_retries: int = 1,
     fallback_pred_dir: Path | None = None,
+    limit_pages: int | None = None,
 ) -> dict:
     if not img_dir.is_dir():
         raise SystemExit(f"Image directory not found: {img_dir}")
@@ -304,7 +318,7 @@ def run_official_folder(
     stats_path.unlink(missing_ok=True)
 
     stats: list[dict] = []
-    images = sorted(p for p in img_dir.iterdir() if p.suffix.lower() in IMAGE_EXTENSIONS)
+    images = iter_images(img_dir, limit_pages=limit_pages)
     page_retries = max(0, int(page_retries))
 
     for img in images:
@@ -331,7 +345,9 @@ def run_official_folder(
                     result = list(result)
                 if isinstance(result, list):
                     if not result:
-                        raise RuntimeError("Official PaddleOCRVL predict() returned no page results.")
+                        raise RuntimeError(
+                            "Official PaddleOCRVL predict() returned no page results."
+                        )
                     markdown = "\n\n".join(_official_result_to_markdown(item) for item in result)
                 else:
                     markdown = _official_result_to_markdown(result)
@@ -385,6 +401,7 @@ def run_official_folder(
         "fail": len(images) - ok_count,
         "fallback": fallback_count,
         "engine": "official",
+        "limit_pages": limit_pages,
         "stats": stats,
     }
     stats_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -416,7 +433,10 @@ def main() -> None:
     parser.add_argument(
         "--page-retries", type=int, default=int(os.environ.get("PADDLEOCR_VL_PAGE_RETRIES", "1"))
     )
-    parser.add_argument("--fallback-pred-dir", default=os.environ.get("PADDLEOCR_VL_FALLBACK_PRED_DIR"))
+    parser.add_argument(
+        "--fallback-pred-dir", default=os.environ.get("PADDLEOCR_VL_FALLBACK_PRED_DIR")
+    )
+    parser.add_argument("--limit-pages", type=int, default=None)
     args = parser.parse_args()
     summary = run_adapter(
         Path(args.img_dir),
@@ -428,6 +448,7 @@ def main() -> None:
         vlm_backend=args.vlm_backend,
         page_retries=args.page_retries,
         fallback_pred_dir=args.fallback_pred_dir,
+        limit_pages=args.limit_pages,
     )
     print(summary)
 

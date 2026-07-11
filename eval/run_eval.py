@@ -26,9 +26,12 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import logging
+import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 log = logging.getLogger("run_eval")
@@ -56,6 +59,7 @@ DEFAULT_SERVER_URL = "http://127.0.0.1:8111/v1"
 DEFAULT_LAYOUT_MODEL = "models/PP-DocLayoutV3-onnx"
 DEFAULT_API_MODEL_NAME = "PaddleOCR-VL-1.6-GGUF.gguf"
 DEFAULT_VLM_BACKEND = "llama-cpp-server"
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".gif"}
 
 
 def _load_script_module(name: str, path: Path):
@@ -67,6 +71,23 @@ def _load_script_module(name: str, path: Path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _load_artifact_utils():
+    return _load_script_module("eval_artifact_utils", Path("eval/artifact_utils.py"))
+
+
+def apply_artifact_profile_defaults(args: argparse.Namespace) -> None:
+    if getattr(args, "artifact_profile", "default") != "official-local":
+        return
+    artifacts = _load_artifact_utils()
+    paths = artifacts.official_local_paths(args.version, cdm=getattr(args, "cdm", False))
+    if args.predictions_dir == str(DEFAULT_PREDICTIONS_DIR):
+        args.predictions_dir = paths.predictions_dir.as_posix()
+    if getattr(args, "copy_report", None) is None:
+        args.copy_report = paths.metric_result.as_posix()
+    if getattr(args, "run_summary", None) is None:
+        args.run_summary = paths.run_summary.as_posix()
 
 
 # --- stages --------------------------------------------------------------------
@@ -126,6 +147,7 @@ def stage_infer(args: argparse.Namespace) -> None:
         vlm_backend=args.vlm_backend,
         page_retries=args.page_retries,
         fallback_pred_dir=args.fallback_pred_dir,
+        limit_pages=args.limit_pages,
     )
     print(f"[infer] {summary['ok']}/{summary['count']} pages succeeded -> {out_dir}")
 
@@ -162,6 +184,90 @@ def _resolve_report_path(checkout: Path, predictions_dir: Path, match_method: st
     return checkout / RESULT_DIR / f"{save}_metric_result.json"
 
 
+def _requires_full_prediction_stats(args: argparse.Namespace) -> bool:
+    return bool(
+        getattr(args, "cdm", False)
+        or getattr(args, "copy_report", None)
+        or getattr(args, "run_summary", None)
+    )
+
+
+def _dataset_image_count(args: argparse.Namespace) -> int | None:
+    dataset_dir_arg = getattr(args, "dataset_dir", None)
+    dataset_dir = Path(dataset_dir_arg) if dataset_dir_arg else VERSION_DATASET_DIRS[args.version]
+    images_dir = dataset_dir / "images"
+    if not images_dir.is_dir():
+        return None
+    return sum(1 for path in images_dir.iterdir() if path.suffix.lower() in IMAGE_EXTENSIONS)
+
+
+def _validate_full_prediction_stats(args: argparse.Namespace, predictions_dir: Path) -> None:
+    if not _requires_full_prediction_stats(args):
+        return
+    stats_path = predictions_dir / "_run_stats.json"
+    if not stats_path.is_file():
+        raise SystemExit(
+            f"Prediction run stats not found: {stats_path}. Run full unbounded inference first."
+        )
+    run_stats = json.loads(stats_path.read_text(encoding="utf-8"))
+    if run_stats.get("limit_pages") is not None:
+        raise SystemExit(
+            "Refusing to publish/evaluate official evidence from limited predictions: "
+            f"{stats_path}. "
+            "Run full unbounded inference first so _run_stats.json has limit_pages=null."
+        )
+    expected_count = _dataset_image_count(args)
+    actual_count = run_stats.get("count")
+    if expected_count is not None and actual_count != expected_count:
+        raise SystemExit(
+            f"Prediction count {actual_count} does not match dataset image count "
+            f"{expected_count}. Run full unbounded inference before scoring."
+        )
+
+
+def _render_eval_config(
+    base_config: Path, predictions_dir: Path, *, cdm: bool, destination_dir: Path
+) -> Path:
+    try:
+        import yaml
+    except ImportError as exc:
+        raise SystemExit("PyYAML is required to render the OmniDocBench eval config.") from exc
+
+    config_data = yaml.safe_load(base_config.read_text(encoding="utf-8"))
+    eval_config = config_data["end2end_eval"]
+    ground_truth_path = Path(eval_config["dataset"]["ground_truth"]["data_path"])
+    if not ground_truth_path.is_absolute():
+        ground_truth_path = ground_truth_path.expanduser().resolve()
+    eval_config["dataset"]["ground_truth"]["data_path"] = str(ground_truth_path)
+    eval_config["dataset"]["prediction"]["data_path"] = str(predictions_dir.expanduser().resolve())
+
+    formula_metrics = list(eval_config["metrics"]["display_formula"].get("metric", []))
+    if cdm:
+        if "CDM" not in formula_metrics:
+            formula_metrics.append("CDM")
+    else:
+        formula_metrics = [metric for metric in formula_metrics if metric != "CDM"]
+    eval_config["metrics"]["display_formula"]["metric"] = formula_metrics
+
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    rendered = destination_dir / base_config.name
+    rendered.write_text(
+        yaml.safe_dump(config_data, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    return rendered
+
+
+def _resolve_eval_python(checkout: Path) -> str:
+    for candidate in (
+        checkout / ".venv" / "Scripts" / "python.exe",
+        checkout / ".venv" / "bin" / "python",
+    ):
+        if candidate.is_file():
+            return str(candidate)
+    return sys.executable
+
+
 def stage_eval(args: argparse.Namespace) -> None:
     checkout = _ensure_omnidocbench_checkout()
     config = Path(args.config or VERSION_CONFIGS[args.version])
@@ -173,23 +279,54 @@ def stage_eval(args: argparse.Namespace) -> None:
         raise SystemExit(
             f"Predictions dir not found: {predictions_dir}. Run the 'infer' stage first."
         )
-
-    # pdf_validation.py is run from the checkout cwd (it writes ./result/ there).
-    cmd = [sys.executable, PDF_VALIDATION, "--config", str(config.resolve())]
-    print(f"[eval] Running in {checkout}: {' '.join(cmd)}")
-    result = subprocess.run(cmd, cwd=str(checkout), check=False)
-    if result.returncode != 0:
-        raise SystemExit(f"pdf_validation.py exited {result.returncode}")
-
-    # Match the report path. match_method defaults to quick_match per config templates.
+    _validate_full_prediction_stats(args, predictions_dir)
     match_method = args.match_method
     report = _resolve_report_path(checkout, predictions_dir, match_method)
     if report.exists():
+        report.unlink()
+
+    # pdf_validation.py is run from the checkout cwd (it writes ./result/ there).
+    # Render a runtime config so the subprocess sees the selected prediction
+    # directory and explicit CDM/non-CDM formula metrics.
+    with tempfile.TemporaryDirectory(prefix="paddleocr_eval_config_") as config_dir:
+        rendered_config = _render_eval_config(
+            config,
+            predictions_dir,
+            cdm=bool(getattr(args, "cdm", False)),
+            destination_dir=Path(config_dir),
+        )
+        cmd = [
+            _resolve_eval_python(checkout),
+            PDF_VALIDATION,
+            "--config",
+            str(rendered_config.resolve()),
+        ]
+        print(f"[eval] Running in {checkout}: {' '.join(cmd)}")
+        eval_env = {**os.environ, "PYTHONUTF8": "1"}
+        result = subprocess.run(cmd, cwd=str(checkout), check=False, env=eval_env)
+    if result.returncode != 0:
+        raise SystemExit(f"pdf_validation.py exited {result.returncode}")
+
+    if report.exists():
         print(f"[eval] Report ready: {report}")
+        if getattr(args, "copy_report", None):
+            artifacts = _load_artifact_utils()
+            copied = artifacts.copy_metric_report(report, Path(args.copy_report))
+            print(f"[eval] Copied report: {copied}")
+            if getattr(args, "run_summary", None):
+                save_name = f"{predictions_dir.name}_{match_method}"
+                summary = artifacts.write_run_summary(
+                    save_name=save_name,
+                    run_stats_path=predictions_dir / "_run_stats.json",
+                    metric_result_path=copied,
+                    destination=Path(args.run_summary),
+                    cdm=bool(getattr(args, "cdm", False)),
+                )
+                print(f"[eval] Run summary ready: {summary}")
     else:
-        print(
-            f"[eval] pdf_validation completed but expected report not found at {report}; "
-            f"check {RESULT_DIR.resolve()} for the *_metric_result.json file."
+        raise SystemExit(
+            f"pdf_validation completed but expected report not found at {report}; "
+            f"check {(checkout / RESULT_DIR).resolve()} for the *_metric_result.json file."
         )
 
 
@@ -251,7 +388,15 @@ def main() -> None:
     )
     parser.add_argument("--page-retries", type=int, default=1)
     parser.add_argument("--fallback-pred-dir", default=None)
+    parser.add_argument(
+        "--artifact-profile", choices=["default", "official-local"], default="default"
+    )
+    parser.add_argument("--limit-pages", type=int, default=None)
+    parser.add_argument("--copy-report", default=None)
+    parser.add_argument("--run-summary", default=None)
+    parser.add_argument("--cdm", action="store_true")
     args = parser.parse_args()
+    apply_artifact_profile_defaults(args)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 

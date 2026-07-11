@@ -28,6 +28,48 @@ def test_image_extensions_lowercase():
     assert {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".gif"} <= exts
 
 
+def test_iter_images_applies_deterministic_limit(tmp_path):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    img_dir.mkdir()
+    for name in ["b.png", "a.jpg", "notes.txt", "c.jpeg"]:
+        (img_dir / name).write_bytes(b"x")
+
+    selected = mod.iter_images(img_dir, limit_pages=2)
+
+    assert [p.name for p in selected] == ["a.jpg", "b.png"]
+
+
+def test_run_adapter_passes_limit_pages_to_official_engine(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    captured = {}
+
+    def fake_official_folder(**kwargs):
+        captured.update(kwargs)
+        return {
+            "count": 1,
+            "ok": 1,
+            "fail": 0,
+            "fallback": 0,
+            "engine": "official",
+            "limit_pages": 1,
+            "stats": [],
+        }
+
+    monkeypatch.setattr(mod, "run_official_folder", fake_official_folder, raising=False)
+
+    summary = mod.run_adapter(
+        tmp_path / "images",
+        tmp_path / "predictions",
+        "http://127.0.0.1:8111/v1",
+        engine="official",
+        limit_pages=1,
+    )
+
+    assert summary["engine"] == "official"
+    assert captured["limit_pages"] == 1
+
+
 def test_official_result_prefers_plain_markdown_export():
     mod = _load_adapter()
 
@@ -56,6 +98,17 @@ def test_official_markdown_html_wrappers_become_scorer_friendly_markdown():
     assert mod._normalize_official_markdown_for_omnidocbench(markdown) == (
         "![](imgs/table_1.jpg)\n\nFigure 1 & caption"
     )
+
+
+def test_official_markdown_html_wrapper_preserves_formula_text():
+    mod = _load_adapter()
+    markdown = (
+        '<div style="text-align: center;">'
+        '<span class="formula">$\\frac{1}{2} &amp; x^2$</span>'
+        "</div>"
+    )
+
+    assert mod._normalize_official_markdown_for_omnidocbench(markdown) == ("$\\frac{1}{2} & x^2$")
 
 
 def test_run_adapter_resolves_defaults_from_env_local(tmp_path, monkeypatch):
@@ -182,7 +235,9 @@ def test_official_folder_materializes_generator_results(tmp_path, monkeypatch):
         def predict(self, image_path):
             return (FakeOfficialResult(markdown) for markdown in ("first page", "second page"))
 
-    monkeypatch.setitem(sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FakeOfficialPipeline))
+    monkeypatch.setitem(
+        sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FakeOfficialPipeline)
+    )
 
     summary = mod.run_official_folder(
         img_dir=img_dir,
@@ -212,7 +267,9 @@ def test_official_folder_preserves_same_directory_fallback_after_failure(tmp_pat
         def predict(self, image_path):
             raise RuntimeError("controlled official failure")
 
-    monkeypatch.setitem(sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FailingOfficialPipeline))
+    monkeypatch.setitem(
+        sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FailingOfficialPipeline)
+    )
 
     summary = mod.run_official_folder(
         img_dir=img_dir,

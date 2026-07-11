@@ -1,0 +1,41 @@
+{
+  "save_name": "paddleocr_official_local_llamacpp_gguf_v16_quick_match",
+  "engine": "official",
+  "cdm": true,
+  "created_at_utc": "2026-07-11T13:28:54.113867+00:00",
+  "prediction_count": 1651,
+  "ok_pages": 1650,
+  "failed_pages": 1,
+  "fallback_pages": 0,
+  "metric_result_path": "results\\omnidocbench\\v16\\paddleocr_official_local_llamacpp_gguf_quick_match_metric_result_cdm.json",
+  "run_stats_path": "predictions\\paddleocr_official_local_llamacpp_gguf_v16\\_run_stats.json",
+  "readme_metrics": {
+    "text_edit_dist": 0.034444814497297645,
+    "reading_order_edit_dist": 0.12948741658477197,
+    "table_teds_percent": 94.23931666667129,
+    "formula_cdm_percent": 96.50220103430605
+  },
+  "metric_quality": {
+    "formula_cdm": {
+      "valid": true,
+      "reason": "",
+      "sample_count": 2352,
+      "exception_case_count": 0
+    }
+  },
+  "run_stats_summary": {
+    "count": 1651,
+    "ok": 1650,
+    "fail": 1,
+    "fallback": 0,
+    "limit_pages": null,
+    "failure_samples": [
+      {
+        "image": "newspaper_The Times UK_0801@magazinesclubnew_page_031.png",
+        "status": "failed: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}}",
+        "seconds": 76.13,
+        "attempts": 2
+      }
+    ]
+  }
+}
