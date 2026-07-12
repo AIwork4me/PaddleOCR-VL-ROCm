@@ -26,6 +26,10 @@
 - Modify `src/paddleocr_vl_rocm/vlm/client.py`: payload observer hook.
 - Modify `src/paddleocr_vl_rocm/pipeline_core.py`: complete block trace fields.
 - Modify `tests/test_vlm_payload.py`: payload-to-contract tests.
+- Modify `src/paddleocr_vl_rocm/layout.py`: fail-closed DirectML provider resolution.
+- Modify `src/paddleocr_vl_rocm/pipeline.py`: requested/active layout provider contract.
+- Create `tests/test_layout_provider.py`: provider resolution and local DirectML smoke tests.
+- Modify `pyproject.toml`: Windows DirectML runtime dependency marker.
 - Create `tests/fixtures/contracts/v16-native-output.json`: versioned output-key and default-parameter snapshot.
 - Create `tests/test_native_compat_contract.py`: CLI, Python, JSON, Markdown, and filename compatibility tests.
 - Modify `scripts/record_trace.py`: JSONL trace export and v1.6 defaults.
@@ -274,6 +278,122 @@ git diff --check
 ```
 
 Commit the three files with message `feat: add inference trace differential`.
+
+### Task 2A: Require DirectML for Windows AMD layout inference
+
+**Files:**
+- Modify: `pyproject.toml`
+- Modify: `src/paddleocr_vl_rocm/layout.py`
+- Modify: `src/paddleocr_vl_rocm/pipeline.py`
+- Modify: `src/paddleocr_vl_rocm/cli.py`
+- Create: `tests/test_layout_provider.py`
+- Modify: `tests/test_cli.py`
+
+**Interfaces:**
+- Produces: `resolve_layout_providers(available: Sequence[str], requested: str, platform_name: str) -> list[str]`.
+- `PaddleOCRVLROCm(..., layout_provider: str = "auto")` stores requested and active providers.
+- Windows `auto` means DirectML and raises if `DmlExecutionProvider` is absent.
+- Explicit `cpu` remains available for troubleshooting but is ineligible for benchmark evidence.
+
+- [ ] **Step 1: Write failing provider-resolution tests**
+
+```python
+def test_windows_auto_requires_directml():
+    assert resolve_layout_providers(
+        ["DmlExecutionProvider", "CPUExecutionProvider"], "auto", "Windows"
+    ) == ["DmlExecutionProvider"]
+
+
+def test_windows_auto_never_silently_falls_back_to_cpu():
+    with pytest.raises(RuntimeError, match="onnxruntime-directml"):
+        resolve_layout_providers(["CPUExecutionProvider"], "auto", "Windows")
+
+
+def test_explicit_cpu_is_available_for_troubleshooting():
+    assert resolve_layout_providers(["CPUExecutionProvider"], "cpu", "Windows") == [
+        "CPUExecutionProvider"
+    ]
+```
+
+Add Linux `auto -> CPUExecutionProvider`, invalid-choice, and unavailable-explicit-
+DirectML cases.
+
+- [ ] **Step 2: Run tests and verify RED**
+
+Run `python -m pytest tests/test_layout_provider.py -q`.
+
+Expected: import failure for `resolve_layout_providers`.
+
+- [ ] **Step 3: Install the correct Windows runtime dependency**
+
+Change project dependencies to avoid installing two packages that own the same
+`onnxruntime` module:
+
+```toml
+"onnxruntime>=1.18.0; platform_system != 'Windows'",
+"onnxruntime-directml>=1.18.0; platform_system == 'Windows'",
+```
+
+Keep the `gpu` extra as a compatibility alias with the same Windows marker.
+Install the worktree with `pip install -e ".[dev,gpu]"`, then assert
+`DmlExecutionProvider` appears in `onnxruntime.get_available_providers()`.
+
+- [ ] **Step 4: Implement fail-closed provider resolution**
+
+```python
+def resolve_layout_providers(
+    available: Sequence[str], requested: str, platform_name: str
+) -> list[str]:
+    choice = requested.strip().lower()
+    if choice == "auto":
+        choice = "directml" if platform_name == "Windows" else "cpu"
+    mapping = {
+        "directml": "DmlExecutionProvider",
+        "cpu": "CPUExecutionProvider",
+    }
+    if choice not in mapping:
+        raise ValueError(f"Unsupported layout provider: {requested}")
+    provider = mapping[choice]
+    if provider not in available:
+        if choice == "directml":
+            raise RuntimeError(
+                "DmlExecutionProvider is unavailable. Install with "
+                "pip install -e '.[gpu]' and verify the AMD graphics driver."
+            )
+        raise RuntimeError(f"{provider} is unavailable")
+    return [provider]
+```
+
+Create the ORT session with the resolved provider. Call `disable_fallback()`
+when available, store `session.get_providers()` as `active_providers`, and reject
+a Windows DirectML session whose first active provider is not DirectML.
+
+- [ ] **Step 5: Wire Python and CLI configuration**
+
+Add `layout_provider="auto"` to `PaddleOCRVLROCm`. Add
+`--layout-provider {auto,directml,cpu}` to the CLI and pass it through. Include
+requested and active layout providers in trace/run metadata without changing
+the native JSON result schema.
+
+- [ ] **Step 6: Prove local GPU execution**
+
+Using the real `models/PP-DocLayoutV3-onnx/inference.onnx` and one example image,
+construct the session with `directml`, run `predict`, and assert:
+
+```python
+assert model.active_providers[0] == "DmlExecutionProvider"
+assert len(boxes) > 0
+```
+
+Record provider list, model path, image, and elapsed time in the task report.
+This local smoke test is mandatory for task acceptance and must not skip on the
+release machine.
+
+- [ ] **Step 7: Verify and commit**
+
+Run layout-provider, CLI, layout preprocessing, pipeline characterization, and
+the full suite. Run Ruff, mypy, and `git diff --check`. Commit with
+`feat: require directml for windows layout inference`.
 
 ### Task 3A: Lock the public input, parameter, and output contract
 

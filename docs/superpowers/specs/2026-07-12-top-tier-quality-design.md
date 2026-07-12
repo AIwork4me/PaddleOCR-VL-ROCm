@@ -18,11 +18,14 @@ with AMD GPUs. The project must provide:
    result.
 3. Strict, versioned input, request-parameter, output, and serialization
    compatibility contracts.
-4. Mean latency at least 30% lower and P95 latency at least 25% lower than the
+4. PP-DocLayoutV3 executes through ONNX Runtime DirectML on the local Windows
+   AMD GPU; the managed Windows path must fail closed instead of silently using
+   CPU layout inference.
+5. Mean latency at least 30% lower and P95 latency at least 25% lower than the
    same-machine official path, without an accuracy regression.
-5. A polished experience for both new Windows AMD users and developers who
+6. A polished experience for both new Windows AMD users and developers who
    already run an OpenAI-compatible VLM endpoint.
-6. A reviewable release with reproducible evidence pushed to the target GitHub
+7. A reviewable release with reproducible evidence pushed to the target GitHub
    repository.
 
 The public paper result was measured on a Linux CUDA path. It is an external
@@ -239,6 +242,12 @@ starts. It owns box filtering, merging, table-figure tokenization, formula
 margin cropping, and crop hashing. Its output can be replayed independently of
 the layout model.
 
+On Windows, `auto` resolves to `DmlExecutionProvider`. The managed Windows AMD
+path raises an actionable error if DirectML is unavailable and records the
+requested and active provider in traces, diagnostics, and benchmark provenance.
+An explicit CPU option may remain for troubleshooting, but it is not eligible
+for release evidence.
+
 ### 5.3 Bounded VLM scheduler
 
 The scheduler owns concurrency, backpressure, connection reuse, retries, and
@@ -433,6 +442,8 @@ The release is complete only when all of the following are true:
 - Mean latency is at most 13.00 seconds and P95 is at most 34.82 seconds on the
   same-machine benchmark.
 - Input, parameter, JSON, Markdown, and filename contracts pass.
+- Windows benchmark and onboarding evidence records `DmlExecutionProvider` as
+  the active PP-DocLayoutV3 execution provider; CPU fallback is absent.
 - Both onboarding journeys pass on a clean Windows AMD setup.
 - README claims, evidence, English/Chinese docs, and release notes agree.
 - The reviewed work is pushed to the target GitHub repository.
