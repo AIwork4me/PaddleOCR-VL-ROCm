@@ -6,6 +6,8 @@ README_ZH = ROOT / "README.zh-CN.md"
 EVAL_README = ROOT / "eval" / "README.md"
 EVIDENCE_README = ROOT / "results" / "omnidocbench" / "v16" / "README.md"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
+RELEASE_READINESS = ROOT / "docs" / "releases" / "0.1.0-readiness.md"
+WINDOWS_VALIDATION = ROOT / "docs" / "releases" / "0.1.0-windows-validation.md"
 
 OMNIDOCBENCH_V16_COMMIT = "147cd5ac9472002f5751221d390bf00abdbc0d2f"
 LAYOUT_HF = "https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx"
@@ -111,3 +113,40 @@ def test_offline_ci_covers_supported_python_matrix_and_quality_gates() -> None:
         assert value in workflow
     for forbidden in ("download_omnidocbench", "setup --auto", "run --server-url"):
         assert forbidden not in workflow
+
+
+def test_release_readiness_fails_closed_until_all_gates_pass() -> None:
+    text = _read(RELEASE_READINESS)
+
+    assert "Status: BLOCKED" in text
+    for gate in ("G0", "G1", "G2", "G3", "G4", "G5"):
+        assert gate in text
+    for evidence in (
+        "1650/1651",
+        "20/20",
+        "95.9480",
+        "96.13",
+        "13.00",
+        "34.82",
+        "gh auth status",
+        "does not authorize bypassing any evidence gate",
+    ):
+        assert evidence in text
+    assert "Do not bump" in text
+
+
+def test_windows_validation_distinguishes_cached_install_from_network_setup() -> None:
+    text = _read(WINDOWS_VALIDATION)
+
+    for evidence in (
+        "AMD Radeon(TM) 8060S Graphics",
+        "9884 (86961efd5)",
+        "Verified 5 pinned resources",
+        "DirectML first and fallback disabled",
+        "44",
+        "8123",
+        "pre-verified local cache",
+        "release-assets.githubusercontent.com",
+        "not a clean network-download acceptance",
+    ):
+        assert evidence in text
