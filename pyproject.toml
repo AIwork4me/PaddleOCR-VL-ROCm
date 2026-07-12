@@ -6,7 +6,8 @@ readme = "README.md"
 requires-python = ">=3.10,<3.14"
 dependencies = [
   "numpy>=1.26.0",
-  "onnxruntime>=1.18.0",
+  "onnxruntime>=1.18.0; platform_system != 'Windows'",
+  "onnxruntime-directml>=1.18.0; platform_system == 'Windows'",
   "opencv-python-headless>=4.9.0",
   "pillow>=10.0.0",
   "requests>=2.32.0",
@@ -17,7 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0", "ruff>=0.6.0", "mypy>=1.11.0"]
 download = ["huggingface_hub>=0.25.0"]
-gpu = ["onnxruntime-directml>=1.18.0"]
+gpu = ["onnxruntime-directml>=1.18.0; platform_system == 'Windows'"]
 # Note: OmniDocBench's own dependencies (including CDM's Node.js, ImageMagick 7,
 # and TeX Live toolchain) are NOT vendored here. They live in the OmniDocBench
 # checkout pinned at eval/.omnidocbench/ (gitignored) and installed via its own

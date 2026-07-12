@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import platform
 import tempfile
 from pathlib import Path
 
-from .layout import PPDocLayoutV3Onnx
+from .layout import PPDocLayoutV3Onnx, resolve_layout_providers
 from .pipeline_core import run_light_parser
 from .result import PaddleOCRVLROCmResult
 
@@ -22,6 +23,7 @@ class PaddleOCRVLROCm:
         seed: int = 1,
         threshold: float = 0.3,
         vlm_max_workers: int = 1,
+        layout_provider: str = "auto",
     ) -> None:
         self.layout_model_dir = Path(layout_model_dir)
         self.vlm_server_url = vlm_server_url
@@ -32,6 +34,8 @@ class PaddleOCRVLROCm:
         self.seed = seed
         self.threshold = threshold
         self.vlm_max_workers = vlm_max_workers
+        self.layout_provider = layout_provider
+        self.active_layout_providers: list[str] = []
         self._layout_model: PPDocLayoutV3Onnx | None = None
 
     def _layout(self) -> PPDocLayoutV3Onnx:
@@ -39,11 +43,11 @@ class PaddleOCRVLROCm:
             import onnxruntime
 
             available = onnxruntime.get_available_providers()
-            gpu_first = ["DmlExecutionProvider", "CUDAExecutionProvider"]
-            providers = [p for p in gpu_first if p in available]
-            if not providers:
-                providers = ["CPUExecutionProvider"]
+            providers = resolve_layout_providers(
+                available, self.layout_provider, platform.system()
+            )
             self._layout_model = PPDocLayoutV3Onnx(self.layout_model_dir, providers=providers)
+            self.active_layout_providers = list(self._layout_model.active_providers)
         return self._layout_model
 
     def predict(self, image_path: str | Path) -> PaddleOCRVLROCmResult:

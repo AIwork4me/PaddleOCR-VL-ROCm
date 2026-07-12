@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -721,6 +722,29 @@ def postprocess_layout(
     return results
 
 
+def resolve_layout_providers(
+    available: Sequence[str], requested: str, platform_name: str
+) -> list[str]:
+    choice = requested.strip().lower()
+    if choice == "auto":
+        choice = "directml" if platform_name == "Windows" else "cpu"
+    mapping = {
+        "directml": "DmlExecutionProvider",
+        "cpu": "CPUExecutionProvider",
+    }
+    if choice not in mapping:
+        raise ValueError(f"Unsupported layout provider: {requested}")
+    provider = mapping[choice]
+    if provider not in available:
+        if choice == "directml":
+            raise RuntimeError(
+                "DmlExecutionProvider is unavailable. Install onnxruntime-directml with "
+                "pip install -e '.[gpu]' and verify the AMD graphics driver."
+            )
+        raise RuntimeError(f"{provider} is unavailable")
+    return [provider]
+
+
 class PPDocLayoutV3Onnx:
     def __init__(
         self,
@@ -744,6 +768,17 @@ class PPDocLayoutV3Onnx:
             sess_options=options,
             providers=providers or ["CPUExecutionProvider"],
         )
+        disable_fallback = getattr(self.session, "disable_fallback", None)
+        if disable_fallback is not None:
+            disable_fallback()
+        self.active_providers = list(self.session.get_providers())
+        if providers and providers[0] == "DmlExecutionProvider" and (
+            not self.active_providers or self.active_providers[0] != "DmlExecutionProvider"
+        ):
+            raise RuntimeError(
+                "DmlExecutionProvider failed to activate; refusing CPU fallback for "
+                "layout inference"
+            )
 
     def predict(
         self,

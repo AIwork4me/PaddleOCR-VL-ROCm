@@ -19,6 +19,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="PP-DocLayoutV3 ONNX model directory.",
     )
     parser.add_argument(
+        "--layout-provider",
+        choices=["auto", "directml", "cpu"],
+        default="auto",
+        help="Layout execution provider (Windows auto requires DirectML).",
+    )
+    parser.add_argument(
         "--server-url", default="http://127.0.0.1:8000/v1", help="OpenAI-compatible VLM server URL."
     )
     parser.add_argument("--api-model-name", default="PaddleOCR-VL-1.5-0.9B", help="VLM model id.")
@@ -46,6 +52,7 @@ def main() -> None:
         timeout=args.timeout,
         threshold=args.threshold,
         vlm_max_workers=args.vlm_max_workers,
+        layout_provider=args.layout_provider,
     )
     result = pipeline.predict(args.input)
     output = Path(args.output)
