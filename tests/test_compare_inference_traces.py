@@ -230,3 +230,8 @@ def test_record_trace_resolves_and_propagates_actual_layout_providers(tmp_path, 
         and event["layout_providers_active"] == ["DmlExecutionProvider"]
         for event in written_events
     )
+    record_meta = json.loads(
+        (record_trace.FIXTURES / "record_meta.json").read_text(encoding="utf-8")
+    )
+    assert record_meta["layout_provider_requested"] == "auto"
+    assert record_meta["layout_providers_active"] == ["DmlExecutionProvider"]

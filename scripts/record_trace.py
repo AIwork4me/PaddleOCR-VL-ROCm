@@ -167,6 +167,8 @@ def main() -> None:
                 "vlm_backend": args.vlm_backend,
                 "api_model_name": args.api_model_name,
                 "layout_model": str(Path(args.layout_model)),
+                "layout_provider_requested": layout_model.layout_provider_requested,
+                "layout_providers_active": layout_model.layout_providers_active,
                 "server_url": args.server_url,
             },
             ensure_ascii=False,
