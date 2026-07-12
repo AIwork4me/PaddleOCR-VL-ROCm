@@ -28,6 +28,15 @@ all 20 exact case IDs, complete boundary observations, no credential keys,
 `auto`, and the exact DirectML-first provider list. Official deeper boundaries
 alone may use the explicit scalar status `unobservable`.
 
+The review fix added a regression test that loads the actual committed summary;
+its first run failed because that artifact did not exist. The validator now
+uses strict allowlists at every object level, exact enums and types, lowercase
+64-character SHA-256 constraints, exact manifest case order/identity, an
+authenticated 20-trace capture-set hash, fixed `auto`/DirectML-first providers,
+and `layout_fallback_disabled=true`. Mutation tests reject arbitrary credential
+or raw-content fields and require an observable official `final_output` for all
+twenty cases.
+
 ## Capture diagnostics
 
 The default port 8000 was not listening. Read-only listener and `/v1/models`
@@ -51,8 +60,25 @@ was accepted.
 - Authentic same-boundary trace pairs: zero.
 - First observable inference divergence: unproven.
 
-The tracked scalar summary is in `docs/accuracy-root-cause-v16.md`. It contains
-case-ID and SHA-256 prefixes only, plus the provider and observability contract.
+The tracked machine-readable scalar summary is
+`tests/fixtures/accuracy/v16-trace-capture-summary.json`. It contains exact
+case IDs and full SHA-256 values, the fixed provider contract, strict boundary
+observability, hashes for every raw lightweight trace, and hashes for the four
+official scorer source artifacts. The Markdown table is navigation-only and
+its 12-character prefixes are not authoritative.
+
+A fresh checkout can validate the committed full-hash contract and its binding
+to the committed manifest. It cannot recompute the raw capture or official-row
+fingerprints without the private benchmark images and ignored JSONL, crops,
+responses, predictions, and scorer artifacts.
+
+## Review-fix verification
+
+- Full pytest suite: 158 passed, 7 skipped.
+- Focused Ruff check and format check: passed.
+- `git diff --check`: passed.
+- Machine summary SHA-256:
+  `3094ddb24a95577466ccf1a79883b4e794308bfd0baab8fc475dc09ad620215a`.
 
 ## Scope protection
 

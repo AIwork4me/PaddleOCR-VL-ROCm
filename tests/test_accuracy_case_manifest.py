@@ -10,6 +10,9 @@ from pathlib import Path
 import pytest
 
 MANIFEST_PATH = Path(__file__).parent / "fixtures" / "accuracy" / "v16-root-cause-cases.json"
+TRACE_SUMMARY_PATH = (
+    Path(__file__).parent / "fixtures" / "accuracy" / "v16-trace-capture-summary.json"
+)
 REQUIRED_BOUNDARIES = ["layout", "crop", "payload", "raw_vlm", "final_output"]
 EXPECTED_DELTAS = {
     "formula_cdm": [
@@ -127,6 +130,13 @@ EXPECTED_CASE_IDENTITIES = {
     ): ([], "27bed167feebda34670629d51900ab3d188ea591d93893360ef5203342374ef2"),
 }
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+
+
+def _fingerprint(value: object) -> str:
+    canonical = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 MANIFEST_KEYS = {"schema", "trace_contract", "cases"}
 TRACE_CONTRACT_KEYS = {"layout_providers_active_first", "allow_cpu_fallback"}
 CASE_KEYS = {
@@ -217,17 +227,6 @@ def _assert_manifest_schema(manifest: object) -> None:
         assert all(isinstance(boundary, str) for boundary in boundaries)
 
 
-def _assert_no_credentials(value: object) -> None:
-    credential_names = {"api_key", "authorization", "password", "secret", "token"}
-    if isinstance(value, dict):
-        assert not credential_names.intersection(key.casefold() for key in value)
-        for child in value.values():
-            _assert_no_credentials(child)
-    elif isinstance(value, list):
-        for child in value:
-            _assert_no_credentials(child)
-
-
 def _assert_boundary_fingerprints(boundaries: object, *, allow_unobservable: bool) -> None:
     assert isinstance(boundaries, dict)
     assert set(boundaries) == set(REQUIRED_BOUNDARIES)
@@ -247,24 +246,64 @@ def _assert_boundary_fingerprints(boundaries: object, *, allow_unobservable: boo
 
 def _assert_trace_summary_schema(summary: object, manifest: dict[str, object]) -> None:
     assert isinstance(summary, dict)
-    assert set(summary) == {"schema", "cases"}
-    assert summary["schema"] == 1
-    _assert_no_credentials(summary)
+    assert set(summary) == {"schema", "benchmark_version", "evidence_sources", "cases"}
+    assert type(summary["schema"]) is int and summary["schema"] == 1
+    assert summary["benchmark_version"] == "1.6"
+
+    sources = summary["evidence_sources"]
+    assert isinstance(sources, dict)
+    assert set(sources) == {"manifest", "lightweight_capture_set", "official_scorer_artifacts"}
+    assert sources["manifest"] == {
+        "path": "v16-root-cause-cases.json",
+        "sha256": hashlib.sha256(MANIFEST_PATH.read_bytes()).hexdigest(),
+    }
+    capture_set = sources["lightweight_capture_set"]
+    assert isinstance(capture_set, dict)
+    assert set(capture_set) == {"artifact_count", "sha256"}
+    assert type(capture_set["artifact_count"]) is int and capture_set["artifact_count"] == 20
+    assert isinstance(capture_set["sha256"], str)
+    assert SHA256_PATTERN.fullmatch(capture_set["sha256"])
+    artifacts = sources["official_scorer_artifacts"]
+    assert isinstance(artifacts, list) and len(artifacts) == 4
+    expected_roles = {"formula_cdm", "table_teds", "text_edit", "reading_order"}
+    for artifact in artifacts:
+        assert isinstance(artifact, dict)
+        assert set(artifact) == {"role", "filename", "sha256"}
+        assert artifact["role"] in expected_roles
+        assert (
+            artifact["filename"]
+            == {
+                "formula_cdm": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_display_formula_result.json",
+                "table_teds": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_table_result.json",
+                "text_edit": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_text_block_result.json",
+                "reading_order": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_reading_order_result.json",
+            }[artifact["role"]]
+        )
+        assert isinstance(artifact["sha256"], str)
+        assert SHA256_PATTERN.fullmatch(artifact["sha256"])
+    assert {artifact["role"] for artifact in artifacts} == expected_roles
 
     cases = summary["cases"]
     assert isinstance(cases, list)
     expected_case_ids = {case["case_id"] for case in manifest["cases"]}
     assert len(cases) == len(expected_case_ids)
     assert {case["case_id"] for case in cases} == expected_case_ids
+    assert [case["case_id"] for case in cases] == [case["case_id"] for case in manifest["cases"]]
 
     for case in cases:
         assert isinstance(case, dict)
-        assert set(case) == {"case_id", "lightweight", "official"}
+        assert set(case) == {"case_id", "component", "lightweight", "official"}
+        manifest_case = next(
+            item for item in manifest["cases"] if item["case_id"] == case["case_id"]
+        )
+        assert case["component"] == manifest_case["component"]
         lightweight = case["lightweight"]
         assert isinstance(lightweight, dict)
         assert set(lightweight) == {
             "layout_provider_requested",
             "layout_providers_active",
+            "layout_fallback_disabled",
+            "trace_artifact_sha256",
             "boundaries",
         }
         assert lightweight["layout_provider_requested"] == "auto"
@@ -272,11 +311,24 @@ def _assert_trace_summary_schema(summary: object, manifest: dict[str, object]) -
             "DmlExecutionProvider",
             "CPUExecutionProvider",
         ]
+        assert lightweight["layout_fallback_disabled"] is True
+        assert isinstance(lightweight["trace_artifact_sha256"], str)
+        assert SHA256_PATTERN.fullmatch(lightweight["trace_artifact_sha256"])
         _assert_boundary_fingerprints(lightweight["boundaries"], allow_unobservable=False)
 
         official = case["official"]
         assert isinstance(official, dict) and set(official) == {"boundaries"}
         _assert_boundary_fingerprints(official["boundaries"], allow_unobservable=True)
+        assert official["boundaries"]["final_output"]["status"] == "observable"
+
+    capture_contract = [
+        {
+            "case_id": case["case_id"],
+            "trace_artifact_sha256": case["lightweight"]["trace_artifact_sha256"],
+        }
+        for case in cases
+    ]
+    assert _fingerprint(capture_contract) == capture_set["sha256"]
 
 
 def test_manifest_locks_five_distinct_scalar_cases_per_component() -> None:
@@ -338,18 +390,54 @@ def _synthetic_trace_summary() -> dict[str, object]:
         cases.append(
             {
                 "case_id": case["case_id"],
+                "component": case["component"],
                 "lightweight": {
                     "layout_provider_requested": "auto",
                     "layout_providers_active": [
                         "DmlExecutionProvider",
                         "CPUExecutionProvider",
                     ],
+                    "layout_fallback_disabled": True,
+                    "trace_artifact_sha256": "a" * 64,
                     "boundaries": deepcopy(boundaries),
                 },
                 "official": {"boundaries": deepcopy(boundaries)},
             }
         )
-    return {"schema": 1, "cases": cases}
+    return {
+        "schema": 1,
+        "benchmark_version": "1.6",
+        "evidence_sources": {
+            "manifest": {
+                "path": "v16-root-cause-cases.json",
+                "sha256": hashlib.sha256(MANIFEST_PATH.read_bytes()).hexdigest(),
+            },
+            "lightweight_capture_set": {
+                "artifact_count": 20,
+                "sha256": _fingerprint(
+                    [
+                        {"case_id": case["case_id"], "trace_artifact_sha256": "a" * 64}
+                        for case in cases
+                    ]
+                ),
+            },
+            "official_scorer_artifacts": [
+                {"role": role, "filename": filename, "sha256": "a" * 64}
+                for role, filename in {
+                    "formula_cdm": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_display_formula_result.json",
+                    "table_teds": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_table_result.json",
+                    "text_edit": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_text_block_result.json",
+                    "reading_order": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_reading_order_result.json",
+                }.items()
+            ],
+        },
+        "cases": cases,
+    }
+
+
+def test_committed_trace_summary_authenticates_all_canonical_captures() -> None:
+    summary = json.loads(TRACE_SUMMARY_PATH.read_text(encoding="utf-8"))
+    _assert_trace_summary_schema(summary, _load_manifest())
 
 
 def test_trace_summary_accepts_all_canonical_cases_and_boundaries() -> None:
@@ -369,8 +457,27 @@ def test_trace_summary_accepts_all_canonical_cases_and_boundaries() -> None:
         lambda summary: summary["cases"][0]["lightweight"].update(
             layout_providers_active=["CPUExecutionProvider", "DmlExecutionProvider"]
         ),
+        lambda summary: summary["cases"][0]["official"]["boundaries"]["final_output"].clear(),
+        lambda summary: summary["cases"][0]["official"]["boundaries"]["final_output"].update(
+            status="unobservable"
+        ),
+        lambda summary: summary["cases"][0].update(raw_response="must-not-publish"),
+        lambda summary: summary["cases"][0]["lightweight"]["boundaries"]["crop"].update(
+            fingerprint="A" * 64
+        ),
+        lambda summary: summary.update(schema=True),
     ],
-    ids=["missing-case", "empty-fingerprint", "credential", "cpu-first"],
+    ids=[
+        "missing-case",
+        "empty-fingerprint",
+        "credential-key",
+        "cpu-first",
+        "missing-official-final",
+        "unobservable-official-final",
+        "raw-content-key",
+        "uppercase-hash",
+        "boolean-schema",
+    ],
 )
 def test_trace_summary_rejects_incomplete_or_unqualified_evidence(mutation) -> None:
     summary = _synthetic_trace_summary()

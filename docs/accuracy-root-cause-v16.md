@@ -226,13 +226,24 @@ providers exactly `[DmlExecutionProvider, CPUExecutionProvider]`; the layout
 session disables fallback and DirectML was first. Raw JSONL, crops, payloads,
 responses, and predictions remain ignored and untracked.
 
-The table contains only scalar SHA-256 prefixes. `LW final` fingerprints the
-current lightweight parser output. `Official scorer` fingerprints all
-authentic historical official scorer rows for that page. These are not the
-same boundary, so they were not passed to `compare_inference_traces.py` and no
-first inference divergence is claimed. Official layout, crop, payload, and raw
-VLM boundaries are explicitly `unobservable`; the closest observable official
-boundary is the historical scorer output.
+The authoritative scalar record is
+`tests/fixtures/accuracy/v16-trace-capture-summary.json`. It binds every exact
+64-character case ID to full 64-character SHA-256 values for the raw trace
+artifact, every observable lightweight boundary, and the official final scorer
+rows. It also authenticates the manifest, the complete lightweight capture
+set, and all four official scorer source artifacts. A fresh checkout can
+validate this committed full-hash contract, but cannot recompute it without the
+private benchmark images and ignored raw capture/scorer artifacts.
+
+`LW final` fingerprints the current lightweight parser output. `Official
+scorer` fingerprints the authentic historical official scorer rows for that
+page. These are not the same boundary, so they were not passed to
+`compare_inference_traces.py` and no first inference divergence is claimed.
+Official layout, crop, payload, and raw VLM boundaries are explicitly
+`unobservable`; the closest observable official boundary is the historical
+scorer output. The abbreviated values below are for visual navigation only and
+are not authoritative evidence; validation relies exclusively on the full
+hashes in the machine-readable summary.
 
 | Case ID prefix | Trace | Layout | Crop | Payload | Raw VLM | LW final | Official scorer |
 |---|---|---|---|---|---|---|---|

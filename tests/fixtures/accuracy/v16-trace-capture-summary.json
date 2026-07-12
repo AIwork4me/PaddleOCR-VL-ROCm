@@ -1,0 +1,1138 @@
+{
+  "schema": 1,
+  "benchmark_version": "1.6",
+  "evidence_sources": {
+    "manifest": {
+      "path": "v16-root-cause-cases.json",
+      "sha256": "69d136ebab952330d986e929c98e8e16bc504f417df302f77d2c66a26078baf0"
+    },
+    "lightweight_capture_set": {
+      "artifact_count": 20,
+      "sha256": "a85a37e583ca063cd1af0d22839735a10a66e058ff630fa139f15f9335a4a5f1"
+    },
+    "official_scorer_artifacts": [
+      {
+        "role": "formula_cdm",
+        "filename": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_display_formula_result.json",
+        "sha256": "89c7c1d9fc16622d510a0429f93021e4afec10adfec1662a68084d0c87b8cde8"
+      },
+      {
+        "role": "table_teds",
+        "filename": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_table_result.json",
+        "sha256": "e94b314d3b4a44d518f81430c602c785c49bf8e874caf27cef1dc528d314716a"
+      },
+      {
+        "role": "text_edit",
+        "filename": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_text_block_result.json",
+        "sha256": "b0d2e1871e8f107341a888f79a1dc9f7ce89367ae534d598335d18c4716590a3"
+      },
+      {
+        "role": "reading_order",
+        "filename": "paddleocr_official_local_llamacpp_gguf_v16_quick_match_reading_order_result.json",
+        "sha256": "a82fe11b9463c17ea75460a405a3df24409c81987617d7abf178977f2253c2ad"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "b93ac0c74e1629aaaa2eb1578d09a1d77fa51ad74e7fdeab773ea71e9d781bbe",
+      "component": "formula_cdm",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "6c94cfa1f1fa709b3df8597a5e30280bf35ed486ecf8f693b351049e6adaa1a9",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "33cf437eafd114f21f88021be5f59d6d1cd403411c1af3f8cbe0421d94dcbcc8"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "cbdef18a56acaa96c93b4f5057a1557b64a854a377e703712b4504a8f6f0d0dc"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "8e6cc4cd0766d199182edce4a8e8652c3d1f5b9ed0fe2dc48d23be393ffae0a9"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "cea435df2c767ed86b63177485e51bff813ad13f19ade61ce2085c1a0b37c8f5"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "09713e6742d807ebedaa2f1e856752f2c7394dd987fa391ed78a680bca4434fd"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "fe877e9a21bc6aa6b1f65beca05d5b151808c0f7331e567142bd7f5da48647d5"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "e5a0e8987c11ea43ed8135491ab316d9d4c962074dc9772d7f212613353f9467",
+      "component": "formula_cdm",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "388750e68dee626ccc805e925ec0e7c41b999be46e9cf22f0fd7b2db375d8bda",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "0ab09ed7328a906f0573d1e832b008d8556ea2e04f71354dbfd9c4e7c5f3d509"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "17b537001e7b02fd66d82893cc55ea199e6018cd4217db9a976e9a6b090d252f"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "7e4d2829ba1334a966f59c61bd8c9de074a9ed09b4b866d26cec2ebec2411b51"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "c02a0d6a17b97fa68e1d4923aa5f33474f99c5e5f426faa042dbe690cb22612b"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "3f7ca6d4341f7d6dd6486da32608d9c379cba0799ba4783fa38bc4afb98d36e0"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "5e3e88703088342578e97982cda04060f55630647bd8d43ca1f102851cb30efa"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "13d7060250ddd10823e6891961682ce7009b9677d298d36db8588b7f7f508c8e",
+      "component": "formula_cdm",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "156d577dd309457352e823d5f0d80eebdd705d082a7a6240beb73be05dae1af2",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "a745462dc9785d181006d021e0cb1dc1015b346467d15bb6d96dbb45fe5d3fdd"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "29d70c2ac4177d443e6f5d7a07cc4a47072ac4de5c2d1dc37953758da9a18d91"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "10a5bffe127f8694c930c082e7e16a9fb83b1ce2063c8f8e8baf1adb271f8a28"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "2b9b46cf061e58065ff42c750b1e924c4fb90d8e68d11117f6793700daf85bc1"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "945ad827647021c1e4eaa383c9ad1ef5b41e3595e6ad9701b5b8728c7c51db27"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "730af95877b23f50d739912c8c1323a7abb8d3b8fa3de155bd347fd3b8da1d5b"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "06f6f1ff28420b164978261ffabbc28f9c7a817e27277712570bb436161d30de",
+      "component": "formula_cdm",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "8f7f43cbeba34bd95ad8f340d78f49e49308f3fe41f770a752509d7926a2990e",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "3ed5806f06d6a2128f5f2d77fae92dd3d4f1b6c6d7869f58f1d14d6446986034"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "813dff4cb7c9f0b5d6e724826532ae4d806cb4c884b5cc32f0aa9ed1a6f26673"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "e6f1f98853f0e6f650dd12c5e5a95ac05530dae5682ac3d13379655946d9c025"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "ed827b34ea6065abe7b94343b7f189cd0736a5ab25aea00dbca11eaca4218396"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "6af85bec81dc6f14a9c7e2e2dd742305df54527016660ea89fc0aa50c976d37f"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "a778915b53d90203b134334b4d122c333437ef062db6bf522fc1d5f4e5458b61"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "8602994a7678e923e2fbbd825f90dd41130167a6758d6eab6c63cc7bd5f9a4c3",
+      "component": "formula_cdm",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "6fd067e0c10269733acafd9183e7c448b9027e582a1c3adb9dc21724ed50f437",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "997e95064a5db0d138b91274b95e2a05c3bb9fb291d3a54b5688f00a5ba2dc05"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "ba3594136d1aa9ed0b0669d75917c56d4c6e628f3c1837d8c4dd90d81d504a73"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "73fc586fd2dd552b6b6b748d64fb52968c7e3ebc73d6d96bb38b4efbca58ed5c"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "1a746b35499853a2fa53a21711429bb1ef136fb266d72e68a2c6a0013844c783"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "d6c577598b9e793b84223bb79e1e06dd687a491620710a9419973f3d6bc62362"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "a1f48597f04295781565acbe71aac96e57b50f15924f978d1b0aabffa7153ee8"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "d18aa15a556ca83ffc3e625d004104aa7f7be98ff82f7df8bf2044ae9659e13f",
+      "component": "table_teds",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "9156aea16a1a65221db7ca3cb5ef1ddfa3fa40a59a3acf4d44cb6a3e06b26e21",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "c132f0989f8d544e2bc8dc314f7c5e84784cce674e76e8e717889b079b8c4474"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "6ab50133f469625f512948b203bc40a5b57a429e65d769a897ce517257b76f03"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "c6bbc2223e80dea913aad2978cf9334e8f4ba6b2b748a8f5d108beae0e7076bf"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "c69252f881f0940a4272f5ca52d020e84b32de3506a0b58413ea86e2eda10e9e"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "a734baf8be5a2ecfb8b18024c0c980d0df6274e17f6e8acc0e1a2c39c7a8ebb6"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "bbf19cd4f026f4fcef8a1e199f932ac06625f4857584cc1f432c1bff30cd6b82"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "a963d6c05bacde274abac846b484300489fb07c41663bd393e3804b4dc42073e",
+      "component": "table_teds",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "6659bce8f3b81554f1bdbdd85b7eb195d50a85c83a0afac5e795f33869059fec",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "cda77781d7da475d697abb27318d8138ebb8bebf805e50b5142451bcb2301c6f"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "d8114c7a096f27c1a6b5ad8470a1ac6ca9294891a7acc833739fafdf4ac95c19"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "837c3f8a80c13a0696e807aea514d9c4f655ee8c9d05db3ffdf87d3f4dc55729"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "fa8fa0cf079559622afc5d637a73dc640605c07ea44fe86ec420b1fc60ab23a6"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "e6fa81a81665f10e021057b1690b9bd5ff6567a984338d8ff237e4062f7c8323"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "3fcf912a634da0ec5c00c6ad6befb4fb7f7ca4104655c16f88c45875595da1a2"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "e0d93191a7c7036e4254efdfa13f9eb7fcd9779f56c02fe7f10c2b20d1c645b7",
+      "component": "table_teds",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "49ed7ea8a5112f7169817c7268dcd882f65c6aa3835529a6642138378e64a19b",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "51251451ec4876e2c156e6f861f59c12ec3c6cdde1165b48a0b4c8fda5549090"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "42e7a49ba5a7f10cd3006aeac1f9074f575ea2e0beefebcf2facb857b064414b"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "31d6d9cd113f1192ddd124097ce8f1c8da17767221362de37cc86040e8f7b17f"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "7ba72bfba742416c7d02704acf43b51671e50513e149591e6392388fe0222985"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "42360a2c1c66d784b67055054e16af0f83e248298caeceffcd2254120f548e34"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "4882a07041e7c405f1b968ab302f9b4a1f258357b5907b1a6fc20e5226605b26"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "5aa11596200d4643960d2ebb38a557a4415726f23ff2cdc599c6a9eeca7466d3",
+      "component": "table_teds",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "4fde689b2fedccbd5a65510671b6d2b08c3a6bb3f9033fa0be956aad5ab764e8",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "a1e3a747afcee8f3893b5624763f89a675b648775551347f000182739ad44abb"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "a93d93188f1630791eb7ea253c26cdca87da330855684b2b7a4df670f1361799"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "bd7977688b617a0c2f0234ff6292b0fe55af9515b54b786292df845956855625"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "664853e3340c8e727973bd35dd31712816e4fb8c5d8f3c82393e2ec6352502fd"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "3dc3f1cbfa49de2d194770236e62a3a42216f88616eb700571457b46b69e9900"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "533acc587f59a15c8d518643a1b8c63209e66d5d3c5f680d363ac44817f8a7e6"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "ed2a0570f69a7dc914e7b038e8916fbc9e4f88bddc803a88418cf4a355e82f91",
+      "component": "table_teds",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "bb4f37527ca38ad46193c93c1b6de113e6f27ad50f6f4c5428845b1de1916519",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "8d4edd8c4a7de66341d36876dad427c18e792fe7b8f27a1b5a9e6ef681619a9a"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "9c8734f4e47c268a3a773058778bd8a1d15f6af5dcf00a976ad10a49721718b4"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "ebe981e642eeb44fb199106a92ef56b9906b3113a99ec236e258c1eef60d0dad"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "655ef0fa3eaba9aeb6f132ff898a7b82eaf883dc0c611b6fa4821c50a5ae4dc7"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "c5211f5f83a32b81417d8ac2dc9340211a4349a97b30a5359fae57a6494e99d3"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "371f57d6aa19440bb8711561d2d335d6cb3e8ab12f20ff703be8d69f85755088"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "dba1aec09157aba6e11892b4e165065f737ccc362c89e3cf22ab0ec9006c8a2c",
+      "component": "text_edit",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "87bddd1498adba31d9d09934ac7d0ef050ecf9798e19029546285752050fef21",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "1aa79571c7e3a8c7b3e97fa847f50c1c734b9cc476e614d7a70769c2605a9ca6"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "89b46a7e613affe4280452efa9d88d254510e256a3f4cb2684dc0f43d42f2174"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "0c7992539425e2933f0a6805a66a20f56415f4448f4d8503a1ab5394c66d8a35"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "6aef8bf8669da0b89c7d7657130ba57606d10759db5c8250d76f171a27f7b50d"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "e87adaf466eff68e7faeac34c4acad246338c7922aa0e92f7373ff30d1e05245"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "e078fd48f236289ce7a591ba3b235d5ec03eb5144f573618d36c077e1bd9f4a4"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "d34e246c22c41549168a738aabd3b404b3a5a96b82ccd0d5ee6c252c71fa16b6",
+      "component": "text_edit",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "ad1203c81cbedbc80a5997d3a55d4f9acd166d37c4e02f3017ac653478c1c11e",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "b3421ec0c6787ba9b26667a95f5150f486b7147f613d42cc214ae8f8305a5219"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "c8c05df35536164c1e115a209439a76207b33e140e95a1e34279a31a02e85c3f"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "97f1624e656501b89d0602915900b73d0d4286b4b64f75c77f6212a1666bb48a"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "f92ba21b7c03f34401ff01f2d8a1f8a93b13cbe85d62f17a9bf2b1d407038494"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "e1a29fccbe00fe7ccc67cf10fe69b23e7c746de0ea495758077568231dc8c2f7"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "7fbd776373d0387e839a428898e3c326bdd6cf9f8edd349096868df2f7f10ce4"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "a1b6c1a7af8a198745762c5f4805e7659a9ff19f0a6934d8131c3fbf4e826962",
+      "component": "text_edit",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "985763956e6d00ae8c0f046bff9041b2b9a4426d02f932c7593a65789a2e4ff1",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "26323b85593b38b0cf27e68b932a6d08f589d172fbd90c0a6d014d64eb1eb7d4"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "327522ae50e48e99852920471256b7bc4b953eaeb70535325b88439bfe664180"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "26300566bbe1bd56ea6d8339a57629e9edab88dae66fe6b9bf94e6c4811d1200"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "23ce08c03de5cff121ebdab8aa8a94b0a677a1e505be8483902c90d9f9a360ab"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "8cb6ac02be3434715127f20c4c333d068c0b7c867bd4a9cb43d62d2005980a62"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "a62006d9d4e4e3fcb1097f362f1c993c2a1d2675f1d5c4e1d205ad612bbf2093"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "fc98de317a28bd7cef09fdcab46031e6093752566f2ae2f7a1456b92b7decd88",
+      "component": "text_edit",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "db473ae614f58264307150eb2807a506b6a46aa09e9bb8e79fbde82196bb8e08",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "83ebced010ceb95049f7d94d64ed45e60072e9a4e3c66c167ea96ea7b2432002"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "9a7778f4fae82f90efba976a2b216a60ef988a89d5c752b5139aa52e023b352d"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "1d69566c26abffb5c8cde4f56bf1a379833842bc2327b4ad55dc67e135dcf724"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "ac9c06444d07124b8bcd17033dc50c1f15670dd0b8512f621d4e482ccc2401f2"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "dcc5caff64418d890023188f56aee8ae54eccd896aa6616d32177ab299f5f1b9"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "3801f4ff9651c259164f479b2a0fd194b47a9cb49fdfdc3e53ed8a737f27188e"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "9bb616a6d1c45569a1d7e4e0672b10fdbd2cd3771ed6306be17b7eea3baba83a",
+      "component": "text_edit",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "cc438206e68046cfaef9bf5399fc7eca4410459f6bc3ba5859f4704c30bdbf88",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "a6dca95d0c41ec77e631abf0b989bef4d1dec5e9d60ac0ed2644068e5c6bc65a"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "5f5ee170b78a99bd31bbef95f0f698db37ba1469b90a3ff740a6bed5e8568d86"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "6add63eb3117a22c61cca7e1656486568f3850e68a6c11f9701440a603dea11b"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "79d202b1960e601bac624c1b9e39f9a26218a232ed49a92d741d11fe628eefc4"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "1821e1fd004728413ca8cd6136782653074c3e7a9f19102dd0e6d91feeacaa1c"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "43d990fdf86c4035c89a37f47ac48c647a7cb778b250eea88a84aa59ee5830b7"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "4d791bbfe0ae8e15586d173cd56e780c82f2ec52d97e3f58b772c4f5cb369426",
+      "component": "reading_order",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "09a25e2d3c768295f2d7f1388631b040d5661f4fa5d8fd66718300c335a00d0e",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "83ebced010ceb95049f7d94d64ed45e60072e9a4e3c66c167ea96ea7b2432002"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "9a7778f4fae82f90efba976a2b216a60ef988a89d5c752b5139aa52e023b352d"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "1d69566c26abffb5c8cde4f56bf1a379833842bc2327b4ad55dc67e135dcf724"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "ba047a6960933c3041cc6752e1087fca2f5487c2048f53cee2b45575177a7926"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "8a82154130fcd693705152c5996edad081a8cc6ab22907183c59bb55d0d5e332"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "ee7a8673874b87d29ad89b223f52a6e2096aaf5ea2af8781245f90ef0ec986ea"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "2f98a52ddf0744194dca6148de179cb06a957c209104a05343976155bab75466",
+      "component": "reading_order",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "317fb06ed0a0246252ab46c5e5cd862511d1545c63e1fa54a45cc9161c537b3c",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "5d72b0f2af1946109c6be9ed9e0fa4eb9171647e4646e693b1977a786a6cd6fe"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "2baa7c9f3baee3ede4e88a52aafff850094c19f81ef0d8cebb2bea0bcdaaea4a"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "2cfca4b08760320149d3b10e2d8263ecf46c2636815f0a66c3d6a1629595c562"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "072dcfbe633dff3a0d7f2f1a9bfe34d4b9ce7ca0e3a1e44c9783578debf78772"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "ecb12f4e391375319825a422a49de2be94084a00565947c42bd1b4c154d4351e"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "5ee38cb8508d24e638d5b7922aeae1bb884fd7f5c0be2d693df59179ccf2695f"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "1251d0294f22c0807d36488df916edad3bfed3d65f6f625f1c75000d07e8faec",
+      "component": "reading_order",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "4d2ca15eaf1319635c11d92c5a8df0d0c431c14f884132c76c6566a92c1d209f",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "c2986fea0ca6e38b1bad65ba61276487530e90abaed964b954d4fa0b6d2ace56"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "58bb6439368d5635ef8bed875bbadcf36447998bf1e8ff5d76f5b2f827947a8f"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "59afba2be6a6428511cbb5047272dbdcf9ce47a2b750f9321e4aaf6bafb6eb51"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "0740fe08ca8a4d706e683ff34f446ae4bf9b360b4b7cf5eb1e8fc049b5800daf"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "2260f025ecb05677f55a6c55a9b2a9c4ad14f2caef99165f8162bc5b9f6fb7f1"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "be4d1d8d6b66f1ee7d8e5e1f3bf0d584b5c91e3d99c44f08973f67de5b0e2a19"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "427790a859a75cf69a7badb860ea5499a01657ec08bdd8d48996eba741f47bed",
+      "component": "reading_order",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "2ab2273685453983378c93c838ab562d1202902abc399a935060d50b82d85b8f",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "dd12be69d75fa577d9cfa7d3eefa5e884d47ddb832fc115a66ea0169a6176d1c"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "6aa34d110c99ab7a438c292b858d3171bb783eedcca64c9bd8a5e9fca211c20f"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "54e98a3b363930812fbc25b33acd0e4001a9ad30929562108fcc57dd56f17d02"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "c8292d90b6e27aa34e99ed4f83d0152eace87336858914c0892f9e8edb03dd53"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "8bc8eff63d9cf2721006ba3cbe80be251be25926eb05a5a93ece3b0102dca6bd"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "c93b58fda6139fd737cbb7594596a0d11dbd917521c663b00d4a721fb56661e8"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "c868f6459ab2b04e98b364f518de8cc7c4dea08b32cc1a550f0e17fe86b284b1",
+      "component": "reading_order",
+      "lightweight": {
+        "layout_provider_requested": "auto",
+        "layout_providers_active": [
+          "DmlExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "trace_artifact_sha256": "c766b18c27663b258c17f447dbe852673df50833c22a8978495a4e7dfc255d79",
+        "boundaries": {
+          "layout": {
+            "status": "observable",
+            "fingerprint": "d2f0398aebce17e449695562f001b3b90699476e0da75cdd9fb346ec29e562b1"
+          },
+          "crop": {
+            "status": "observable",
+            "fingerprint": "99a33ed73f439e1304bfc6c110c270cc0bc406b4f1a4abfa2e941656a918667f"
+          },
+          "payload": {
+            "status": "observable",
+            "fingerprint": "b8076f7aba2b08c1da3181671821e0a4f9cd87051bf9785a82f4aaf9c7c34b50"
+          },
+          "raw_vlm": {
+            "status": "observable",
+            "fingerprint": "80350088820ec9b0ab99c00717fc43169cc8c1ddc715d56665e6905cf1248031"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "14f74f4a60b5446cfdec9487de88c7aff88964ec2185717db7d22f08ac829e72"
+          }
+        },
+        "layout_fallback_disabled": true
+      },
+      "official": {
+        "boundaries": {
+          "layout": {
+            "status": "unobservable"
+          },
+          "crop": {
+            "status": "unobservable"
+          },
+          "payload": {
+            "status": "unobservable"
+          },
+          "raw_vlm": {
+            "status": "unobservable"
+          },
+          "final_output": {
+            "status": "observable",
+            "fingerprint": "75856e8878684052d17e27c473b8d06c462fc48edd013dbda8323ce4ac584b72"
+          }
+        }
+      }
+    }
+  ]
+}
