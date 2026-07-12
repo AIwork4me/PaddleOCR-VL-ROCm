@@ -32,6 +32,118 @@ def test_official_local_paths_are_engine_identified():
     )
 
 
+def test_extract_notebook_metrics_uses_official_page_fields_and_rounding():
+    mod = _load_artifacts()
+    metric = {
+        "text_block": {"all": {"Edit_dist": {"ALL_page_avg": 0.0344448}}},
+        "display_formula": {
+            "all": {"CDM": {"all": 0.9617079}},
+            "page": {"CDM": {"ALL": 0.96502201}},
+        },
+        "table": {
+            "all": {"TEDS": {"all": 0.9304263}},
+            "page": {
+                "TEDS": {"ALL": 0.94239317},
+                "TEDS_structure_only": {"ALL": 0.955},
+            },
+        },
+        "reading_order": {"all": {"Edit_dist": {"ALL_page_avg": 0.1294874}}},
+    }
+
+    values = mod.extract_notebook_metrics(metric)
+
+    assert values == {
+        "text_edit_dist": 0.034,
+        "formula_cdm_percent": 96.502,
+        "table_teds_percent": 94.239,
+        "table_teds_structure_only_percent": 95.5,
+        "reading_order_edit_dist": 0.129,
+        "overall": 95.78033333333333,
+    }
+
+
+def test_extract_notebook_metrics_matches_tracked_official_local_artifact():
+    mod = _load_artifacts()
+    metric_path = Path(
+        "results/omnidocbench/v16/"
+        "paddleocr_official_local_llamacpp_gguf_quick_match_metric_result_cdm.json"
+    )
+
+    values = mod.extract_notebook_metrics(json.loads(metric_path.read_text(encoding="utf-8")))
+
+    assert values["overall"] == 95.78033333333333
+
+
+def test_metric_quality_requires_clean_formula_and_table_debug_counts():
+    mod = _load_artifacts()
+    metric = {
+        "display_formula": {
+            "metric_debug": {
+                "CDM": {
+                    "sample_count": 2,
+                    "timeout_case_count": 0,
+                    "exception_case_count": 0,
+                }
+            }
+        },
+        "table": {
+            "metric_debug": {
+                "TEDS": {
+                    "sample_count": 1,
+                    "timeout_case_count": 0,
+                    "error_case_count": 0,
+                }
+            }
+        },
+    }
+
+    quality = mod.analyze_metric_quality(metric)
+
+    assert quality["formula_cdm"]["valid"] is True
+    assert quality["formula_cdm"]["timeout_case_count"] == 0
+    assert quality["formula_cdm"]["exception_case_count"] == 0
+    assert quality["table_teds"]["valid"] is True
+    assert quality["table_teds"]["timeout_case_count"] == 0
+    assert quality["table_teds"]["error_case_count"] == 0
+
+
+def test_extract_readme_metrics_suppresses_failed_quality_metrics_and_overall():
+    mod = _load_artifacts()
+    metric = {
+        "text_block": {"all": {"Edit_dist": {"ALL_page_avg": 0.0344}}},
+        "display_formula": {
+            "page": {"CDM": {"ALL": 0.965}},
+            "metric_debug": {
+                "CDM": {
+                    "sample_count": 2,
+                    "timeout_case_count": 1,
+                    "exception_case_count": 0,
+                }
+            },
+        },
+        "table": {
+            "page": {
+                "TEDS": {"ALL": 0.9424},
+                "TEDS_structure_only": {"ALL": 0.955},
+            },
+            "metric_debug": {
+                "TEDS": {
+                    "sample_count": 1,
+                    "timeout_case_count": 0,
+                    "error_case_count": 1,
+                }
+            },
+        },
+        "reading_order": {"all": {"Edit_dist": {"ALL_page_avg": 0.1295}}},
+    }
+
+    values = mod.extract_readme_metrics(metric)
+
+    assert values["formula_cdm_percent"] is None
+    assert values["table_teds_percent"] is None
+    assert values["overall"] is None
+
+
 def test_write_run_summary_and_provenance(tmp_path):
     mod = _load_artifacts()
     predictions = tmp_path / "predictions"
@@ -152,4 +264,7 @@ def test_cdm_all_exception_metric_is_marked_invalid(tmp_path):
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["readme_metrics"]["formula_cdm_percent"] is None
     assert summary["metric_quality"]["formula_cdm"]["valid"] is False
-    assert "all CDM samples raised exceptions" in summary["metric_quality"]["formula_cdm"]["reason"]
+    assert summary["metric_quality"]["formula_cdm"]["reason"] == (
+        "CDM requires samples>0, timeouts=0, errors=0; "
+        "samples=2, timeouts=0, errors=2"
+    )

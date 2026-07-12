@@ -53,52 +53,84 @@ def _nested_number(metric: dict[str, Any], *keys: str) -> float | None:
     return value if isinstance(value, (int, float)) else None
 
 
-def analyze_metric_quality(metric: dict[str, Any]) -> dict[str, Any]:
-    cdm_debug = _nested(metric, "display_formula", "metric_debug", "CDM") or {}
-    sample_count = cdm_debug.get("sample_count") if isinstance(cdm_debug, dict) else None
-    exception_count = cdm_debug.get("exception_case_count") if isinstance(cdm_debug, dict) else None
-    formula_cdm = {
-        "valid": True,
-        "reason": "",
-        "sample_count": sample_count,
-        "exception_case_count": exception_count,
-    }
-    if (
+def _debug_quality(
+    metric: dict[str, Any], element: str, name: str, error_key: str
+) -> dict[str, Any]:
+    debug = _nested(metric, element, "metric_debug", name) or {}
+    sample_count = debug.get("sample_count")
+    timeout_count = int(debug.get("timeout_case_count") or 0)
+    error_count = int(debug.get(error_key) or 0)
+    valid = (
         isinstance(sample_count, int)
         and sample_count > 0
-        and isinstance(exception_count, int)
-        and exception_count >= sample_count
-    ):
-        first_reason = ""
-        exception_cases = cdm_debug.get("exception_cases", [])
-        if exception_cases and isinstance(exception_cases[0], dict):
-            first_reason = str(exception_cases[0].get("reason", ""))
-        formula_cdm["valid"] = False
-        formula_cdm["reason"] = (
-            f"all CDM samples raised exceptions ({exception_count}/{sample_count}); "
-            f"first_reason={first_reason}"
-        )
-    return {"formula_cdm": formula_cdm}
+        and timeout_count == 0
+        and error_count == 0
+    )
+    return {
+        "valid": valid,
+        "sample_count": sample_count,
+        "timeout_case_count": timeout_count,
+        error_key: error_count,
+        "reason": "" if valid else (
+            f"{name} requires samples>0, timeouts=0, errors=0; "
+            f"samples={sample_count}, timeouts={timeout_count}, errors={error_count}"
+        ),
+    }
+
+
+def analyze_metric_quality(metric: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "formula_cdm": _debug_quality(
+            metric, "display_formula", "CDM", "exception_case_count"
+        ),
+        "table_teds": _debug_quality(metric, "table", "TEDS", "error_case_count"),
+    }
+
+
+def _rounded(value: float | None, digits: int = 3) -> float | None:
+    return None if value is None else round(value, digits)
+
+
+def extract_notebook_metrics(metric: dict[str, Any]) -> dict[str, float | None]:
+    text = _nested_number(metric, "text_block", "all", "Edit_dist", "ALL_page_avg")
+    formula_raw = _nested_number(metric, "display_formula", "page", "CDM", "ALL")
+    table_raw = _nested_number(metric, "table", "page", "TEDS", "ALL")
+    table_s_raw = _nested_number(
+        metric, "table", "page", "TEDS_structure_only", "ALL"
+    )
+    reading = _nested_number(
+        metric, "reading_order", "all", "Edit_dist", "ALL_page_avg"
+    )
+
+    text_value = _rounded(text)
+    formula_value = _rounded(None if formula_raw is None else formula_raw * 100.0)
+    table_value = _rounded(None if table_raw is None else table_raw * 100.0)
+    overall = None
+    if text_value is not None and formula_value is not None and table_value is not None:
+        overall = ((1.0 - text_value) * 100.0 + formula_value + table_value) / 3.0
+
+    return {
+        "text_edit_dist": text_value,
+        "formula_cdm_percent": formula_value,
+        "table_teds_percent": table_value,
+        "table_teds_structure_only_percent": _rounded(
+            None if table_s_raw is None else table_s_raw * 100.0
+        ),
+        "reading_order_edit_dist": _rounded(reading),
+        "overall": overall,
+    }
 
 
 def extract_readme_metrics(metric: dict[str, Any]) -> dict[str, float | None]:
     quality = analyze_metric_quality(metric)
-    cdm_value = _nested_number(metric, "display_formula", "page", "CDM", "ALL")
+    values = extract_notebook_metrics(metric)
     if not quality["formula_cdm"]["valid"]:
-        cdm_value = None
-
-    return {
-        "text_edit_dist": _nested_number(metric, "text_block", "page", "Edit_dist", "ALL"),
-        "reading_order_edit_dist": _nested_number(
-            metric, "reading_order", "page", "Edit_dist", "ALL"
-        ),
-        "table_teds_percent": (
-            _nested_number(metric, "table", "page", "TEDS", "ALL") * 100
-            if _nested_number(metric, "table", "page", "TEDS", "ALL") is not None
-            else None
-        ),
-        "formula_cdm_percent": cdm_value * 100 if cdm_value is not None else None,
-    }
+        values["formula_cdm_percent"] = None
+        values["overall"] = None
+    if not quality["table_teds"]["valid"]:
+        values["table_teds_percent"] = None
+        values["overall"] = None
+    return values
 
 
 def write_run_summary(
