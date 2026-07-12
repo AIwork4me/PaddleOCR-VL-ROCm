@@ -30,6 +30,11 @@ they do not prove whether the first inference divergence is layout, crop,
 payload, raw VLM output, or post-processing. Those causes remain unproven and
 no production inference change is authorized by this report.
 
+The authenticated attribution run evaluated all 20 manifest cases. All 20
+returned `status="unproven"`; the replay callback was invoked zero times, no
+oracle score or synthetic contribution was produced, and no first causal
+boundary was established.
+
 ## Evidence classes and provenance
 
 ### Fresh evidence
@@ -217,6 +222,47 @@ post-processing deletion.
 Counts above are not silently converted to zero. “Unproven” means the
 observable does not exist.
 
+## Authenticated oracle attribution and production admission
+
+The attribution input is the committed, authenticated capture summary described
+below. It supplies lightweight boundary hashes and historical official scorer
+fingerprints, but it supplies no official value at the same `crop`, `payload`,
+`raw_vlm`, or `final_output` boundary. The ordered attribution therefore cannot
+perform a valid swap.
+
+| Manifest cases | Proven causes | Unproven cases | Replay calls | Synthetic contributions | Oracle improvements | First causal boundaries | Authorized production tasks |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 20 | 0 | 20 | 0 | 0 | 0 observed | 0 established | 0 |
+
+There is no proven-cause row for which an exact page/GT index, before score,
+oracle score, affected-case count, estimated v1.6 Overall contribution, first
+causal boundary, and trace hashes can all be recorded. Inventing missing values
+or copying values from the historical recovery pools would misclassify scorer
+observations as causal inference evidence. The historical Formula, Table, Text,
+and reading-order pools above remain unproven prioritization evidence only.
+
+A production task is admitted only when one cause satisfies all four conditions:
+
+1. At least one exact manifest fixture reproduces the divergence under the
+   authenticated DirectML-first trace contract.
+2. A same-boundary authenticated official oracle swap improves the applicable
+   official v1.6 metric from a recorded before score to a recorded oracle score.
+3. Named neighboring gain fixtures exercise the same generic behavior and are
+   designated as non-regression cases.
+4. The earliest causal boundary is established from ordered, one-variable-at-a-
+   time swaps, identifying a generic correction boundary rather than a
+   case-specific output substitution.
+
+No cause currently satisfies all four conditions. In particular, the official
+same-boundary oracle inputs needed to establish metric improvement and the
+earliest causal boundary are absent. To reopen admission,
+capture or otherwise authenticate the missing official boundary values for an
+exact manifest case, retain the existing case and trace hashes, run the ordered
+oracle replay with the official v1.6 scorer, record a positive metric delta and
+the earliest positive boundary, and name gain fixtures that must not regress.
+Until that evidence exists, prompt, crop, model, normalization, and serialization
+changes are not authorized.
+
 ## DirectML-qualified canonical capture summary
 
 On 2026-07-12, `scripts/record_trace.py` captured each of the twenty manifest
@@ -270,10 +316,10 @@ hashes in the machine-readable summary.
 
 ## Decision
 
-The next work is evidence completion and root-cause investigation: capture canonical
-traces for the named cases with `DmlExecutionProvider` active on every Windows
-lightweight trace, and perform crop/payload/raw/final oracle swaps. Only a
-subsequent evidence-specific plan may change inference behavior. The current
-historical loss pools are suitable for prioritization and fixtures, not for
-claiming that Task 5 diagnosis is complete, a production root cause, or a fresh
-96.13 acceptance result.
+The production-plan admission gate authorizes zero inference-fix tasks. The
+separate inference-fix plan records this closed decision and stops. Evidence
+completion may resume only through authenticated same-boundary official oracle
+inputs and the gate criteria above; it does not authorize speculative prompt,
+crop, model, normalization, or serialization work. The historical loss pools
+remain suitable for prioritization, not for claiming a production cause or a
+fresh 96.13 acceptance result.
