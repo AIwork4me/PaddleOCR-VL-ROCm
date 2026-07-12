@@ -21,6 +21,11 @@ SCORING_BLOBS = {
     "src/metrics/cdm_metric.py": "c82d5a405f92cf7493e6cf9201b4ba5531759ba8",
     "src/dataset/end2end_dataset.py": "633a28a2629d7cd30d9d49c10cecc619b57519ac",
 }
+WINDOWS_CDM_PATHS = (
+    "src/metrics/cdm/modules/latex2bbox_color.py",
+    "src/metrics/cdm/modules/texlive_env.py",
+)
+WINDOWS_CDM_PATCH = Path(__file__).parent / "patches" / "omnidocbench-v16-windows-cdm.patch"
 
 _GIT_CHECKOUT: ContextVar[Path | None] = ContextVar("git_checkout", default=None)
 
@@ -45,7 +50,7 @@ def _git(*args: str) -> str:
         text=True,
         capture_output=True,
     )
-    return result.stdout.strip()
+    return result.stdout.rstrip()
 
 
 def validate_checkout(checkout: Path) -> dict[str, object]:
@@ -67,7 +72,29 @@ def validate_checkout(checkout: Path) -> dict[str, object]:
                     f"OmniDocBench v1.6 scoring blob mismatch for {path}: "
                     f"expected {expected_blob}, found {blob}"
                 )
+            worktree_blob = _git("hash-object", "--", path)
+            if worktree_blob != expected_blob:
+                raise RuntimeError(
+                    f"OmniDocBench v1.6 working-tree scoring blob mismatch for {path}: "
+                    f"expected {expected_blob}, found {worktree_blob}"
+                )
             blobs[path] = blob
+
+        status = _git("status", "--porcelain=v1", "--untracked-files=all").splitlines()
+        expected_status = sorted(f" M {path}" for path in WINDOWS_CDM_PATHS)
+        if sorted(status) != expected_status:
+            raise RuntimeError(
+                "OmniDocBench v1.6 dirty state must contain exactly the tracked "
+                f"Windows CDM patch paths; found {status!r}"
+            )
+
+        worktree_patch = _git("diff", "--no-ext-diff", "--", *WINDOWS_CDM_PATHS)
+        expected_patch = WINDOWS_CDM_PATCH.read_text(encoding="utf-8").strip()
+        if worktree_patch != expected_patch:
+            raise RuntimeError(
+                "OmniDocBench v1.6 Windows CDM worktree diff does not match the "
+                "tracked patch"
+            )
     finally:
         _GIT_CHECKOUT.reset(token)
 
