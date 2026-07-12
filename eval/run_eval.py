@@ -210,7 +210,7 @@ def _validate_release_prediction_stats(args: argparse.Namespace, predictions_dir
             f"Prediction run stats not found: {stats_path}. Run full unbounded inference first."
         )
     run_stats = json.loads(stats_path.read_text(encoding="utf-8"))
-    if run_stats.get("limit_pages") is not None:
+    if "limit_pages" not in run_stats or run_stats["limit_pages"] is not None:
         raise SystemExit(
             "Refusing to publish/evaluate official evidence from limited predictions: "
             f"{stats_path}. "

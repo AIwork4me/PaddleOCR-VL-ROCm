@@ -193,8 +193,10 @@ def test_release_prediction_stats_reject_missing_dataset_images(tmp_path):
         )
 
 
-@pytest.mark.parametrize("missing_fields", [("count",), ("ok",), ("count", "ok")])
-def test_release_prediction_stats_reject_missing_count_or_ok_fields(
+@pytest.mark.parametrize(
+    "missing_fields", [("count",), ("ok",), ("count", "ok"), ("limit_pages",)]
+)
+def test_release_prediction_stats_reject_missing_required_fields(
     tmp_path, monkeypatch, missing_fields
 ):
     mod = _load_run_eval()
