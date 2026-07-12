@@ -8,7 +8,11 @@
 
 ## Global Constraints
 
-- Do not claim fresh release evidence until official inference is `count=1651`, `ok=1651`, `fail=0`, `fallback=0`.
+- Fresh official-local release evidence requires `count=1651`, `ok=1650`,
+  `fail=1`, `fallback=0`, and `limit_pages=null`, with only the approved issue
+  #18248 `peg-native` failure and no failed-page prediction; scoring retains all
+  1,651 GT pages.
+- This contract admits 1,650 successful predictions and the sole approved failure.
 - Formula uses `display_formula.page.CDM.ALL * 100`; Table uses `table.page.TEDS.ALL * 100`.
 - Text page score is `sum(Edit_num) / sum(upper_len)`; Formula CDM and Table TEDS use equal sample means within each GT page and equal page means.
 - Round Text, Formula, and Table to three decimals before computing Overall.

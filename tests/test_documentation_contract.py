@@ -171,3 +171,17 @@ def test_windows_validation_distinguishes_cached_install_from_network_setup() ->
         "not a clean network-download acceptance",
     ):
         assert evidence in text
+
+
+def test_active_release_documents_use_approved_v16_exception() -> None:
+    active = [
+        ROOT / "docs/superpowers/plans/2026-07-12-accuracy-inference-fixes.md",
+        ROOT / "docs/releases/0.1.0-readiness.md",
+        ROOT / "eval/README.md",
+    ]
+    for path in active:
+        text = path.read_text(encoding="utf-8")
+        assert "ok=1651`, `fail=0" not in text
+        assert "1,650" in text
+        assert "1,651" in text
+        assert "peg-native" in text

@@ -6,6 +6,13 @@
 - Target repository: `https://github.com/AIwork4me/PaddleOCR-VL-ROCm`
 - Benchmark standard: OmniDocBench v1.6 only
 
+> **Superseded G0 requirement (2026-07-13):** The project owner approved the
+> immutable issue #18248 exception defined in
+> `docs/superpowers/specs/2026-07-13-release-gate-recovery-design.md`.
+> Release evidence now requires 1,650 successful predictions plus the sole
+> approved `peg-native` failure while scoring all 1,651 GT pages. The original
+> 1,651-success text below is retained only as historical plan context.
+
 ## 1. Objective
 
 Turn PaddleOCR-VL-ROCm into a top-tier open-source project for Windows users
