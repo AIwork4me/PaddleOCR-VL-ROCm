@@ -1,0 +1,150 @@
+diff --git a/src/metrics/cdm/modules/latex2bbox_color.py b/src/metrics/cdm/modules/latex2bbox_color.py
+index dbadeb0..d67807c 100644
+--- a/src/metrics/cdm/modules/latex2bbox_color.py
++++ b/src/metrics/cdm/modules/latex2bbox_color.py
+@@ -105,8 +105,16 @@ formular_template_zh = r"""
+ def run_cmd(cmd, timeout_sec=30):
+     proc = None
+     try:
++        shell = isinstance(cmd, str)
+         preexec_fn = os.setsid if hasattr(os, "setsid") else None
+-        proc = subprocess.Popen(cmd, shell=True, preexec_fn=preexec_fn, env=build_tex_env())
++        proc = subprocess.Popen(
++            cmd,
++            shell=shell,
++            preexec_fn=preexec_fn,
++            env=build_tex_env(),
++            stdout=subprocess.DEVNULL,
++            stderr=subprocess.DEVNULL,
++        )
+         proc.communicate(timeout=timeout_sec)
+         return int(proc.returncode or 0)
+     except subprocess.TimeoutExpired:
+@@ -204,14 +212,12 @@ def convert_pdf2img(pdf_filename, png_filename, timeout_sec=30, all_pages=False)
+     """
+     root, ext = os.path.splitext(png_filename)
+     tmp_png = f"{root}.tmp.{os.getpid()}.{time.time_ns()}{ext}"
++    magick_bin = shutil.which("magick") or "magick"
+     if all_pages:
+-        cmd = "magick -density 200 -quality 100 %s -append %s" % (
+-            shlex.quote(pdf_filename),
+-            shlex.quote(tmp_png),
+-        )
++        cmd = [magick_bin, "-density", "200", "-quality", "100", pdf_filename, "-append", tmp_png]
+     else:
+         pdf_spec = f"{pdf_filename}[0]"
+-        cmd = "magick -density 200 -quality 100 %s %s" % (shlex.quote(pdf_spec), shlex.quote(tmp_png))
++        cmd = [magick_bin, "-density", "200", "-quality", "100", pdf_spec, tmp_png]
+     ret = run_cmd(cmd, timeout_sec=timeout_sec)
+     if ret != 0:
+         _safe_remove(tmp_png)
+@@ -567,7 +573,12 @@ def collapse_cjk_text_groups(tokens):
+             out.extend(tokens[i : j + 1])
+         i = j + 1
+     return out
+-    
++def _safe_temp_prefix(output_path: str, basename: str) -> str:
++    normalized = os.path.normpath(os.fspath(output_path))
++    safe_output = re.sub(r"[^0-9A-Za-z_.-]+", "_", os.path.basename(normalized)).strip("_.")
++    if not safe_output:
++        safe_output = "cdm"
++    return f"{safe_output}_{basename}"
+ def latex2bbox_color(input_arg):
+     latex, basename, output_path, temp_dir, total_color_list = input_arg
+     if "tabular" in latex:
+@@ -582,14 +593,14 @@ def latex2bbox_color(input_arg):
+     output_bbox_path = os.path.join(output_path, "bbox", basename + ".jsonl")
+     output_vis_path = os.path.join(output_path, "vis", basename + ".png")
+     output_base_path = os.path.join(output_path, "vis", basename + "_base.png")
+-    
++
+     if os.path.exists(output_bbox_path) and os.path.exists(output_vis_path) and os.path.exists(output_base_path):
+         if _is_image_readable(output_base_path):
+             return
+         _safe_remove(output_bbox_path)
+         _safe_remove(output_vis_path)
+         _safe_remove(output_base_path)
+-    
++
+     try:
+         latex = latex.replace("\n", " ")
+         latex = latex.replace("\\%", "<PERCENTAGETOKEN>")
+@@ -639,17 +650,16 @@ def latex2bbox_color(input_arg):
+         paper_size_guess = paper_size
+         rgb_latex_final = rgb_latex
+         template_final = template
+-        
++
+     except Exception as e:
+         log = f"ERROR, Preprocess latex failed: {basename}; {e}."
+         logging.info(log)
+         return
+-    
+-    pre_name = output_path.replace('/', '_').replace('.','_') + '_' + basename
++    pre_name = _safe_temp_prefix(output_path, basename)
+     tex_filename = os.path.join(temp_dir, pre_name+'.tex')
+     log_filename = os.path.join(temp_dir, pre_name+'.log')
+     aux_filename = os.path.join(temp_dir, pre_name+'.aux')
+-    
++
+     pdf_filename = tex_filename[:-4] + ".pdf"
+     page_count = None
+     has_overfull = False
+@@ -668,11 +678,19 @@ def latex2bbox_color(input_arg):
+ 
+     for ps in paper_candidates:
+         final_latex = template_final.replace("<PaperSize>", str(ps)) % rgb_latex_final
++        os.makedirs(os.path.dirname(tex_filename), exist_ok=True)
+         with open(tex_filename, "w") as w:
+             print(final_latex, file=w)
+-        pdflatex_bin = shlex.quote(resolve_tex_binary("pdflatex"))
++        pdflatex_bin = resolve_tex_binary("pdflatex")
++        tex_arg = os.path.abspath(tex_filename).replace(os.sep, "/")
++        output_dir_arg = os.path.abspath(temp_dir).replace(os.sep, "/")
+         run_cmd(
+-            f"{pdflatex_bin} -interaction=nonstopmode -output-directory={shlex.quote(temp_dir)} {shlex.quote(tex_filename)} >/dev/null"
++            [
++                pdflatex_bin,
++                "-interaction=nonstopmode",
++                f"-output-directory={output_dir_arg}",
++                tex_arg,
++            ]
+         )
+         page_count, has_overfull = _parse_pdflatex_log(log_filename)
+         if not os.path.exists(pdf_filename):
+diff --git a/src/metrics/cdm/modules/texlive_env.py b/src/metrics/cdm/modules/texlive_env.py
+index f3a929e..fc6831e 100644
+--- a/src/metrics/cdm/modules/texlive_env.py
++++ b/src/metrics/cdm/modules/texlive_env.py
+@@ -290,14 +290,29 @@ def build_tex_env() -> dict:
+ 
+     if path_items:
+         env["PATH"] = os.pathsep.join(path_items)
+-
+     texlive_root = layout.get("root", "") if layout else _guess_texlive_root_from_bin_dir(texlive_bin_dir)
++    if texlive_root:
++        tlgs_bin_dir = os.path.join(texlive_root, "tlpkg", "tlgs", "bin")
++        if os.path.isdir(tlgs_bin_dir):
++            env["PATH"] = os.pathsep.join([tlgs_bin_dir, env["PATH"]])
+     texmfcnf = env.get("TEXMFCNF", "").strip()
+     if texlive_root and not texmfcnf:
+         web2c_dir = os.path.join(texlive_root, _TEXLIVE_WEB2C_SUFFIX)
+         if os.path.isdir(web2c_dir):
+             env["TEXMFCNF"] = os.pathsep.join([texlive_root, web2c_dir])
+-
++    if texlive_root and not env.get("GS_LIB", "").strip():
++        tlgs_root = os.path.join(texlive_root, "tlpkg", "tlgs")
++        tlgs_resource = os.path.join(tlgs_root, "Resource")
++        tlgs_lib = os.path.join(tlgs_root, "lib")
++        gs_lib_paths = [
++            os.path.join(tlgs_resource, "Init"),
++            tlgs_resource,
++            tlgs_lib,
++            os.path.join(tlgs_root, "kanji"),
++        ]
++        gs_lib_paths = [path for path in gs_lib_paths if os.path.isdir(path)]
++        if gs_lib_paths:
++            env["GS_LIB"] = os.pathsep.join(gs_lib_paths)
+     if texlive_bin_dir:
+         env.setdefault("CDM_TEXLIVE_BIN", texlive_bin_dir)
+     if texlive_root:
