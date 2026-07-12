@@ -9,6 +9,7 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 
 
@@ -18,6 +19,10 @@ def _load_run_eval():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def _allow_test_checkout(mod, monkeypatch):
+    monkeypatch.setattr(mod, "_validate_scorer_checkout", lambda checkout: None)
 
 
 def test_report_path_under_checkout(tmp_path):
@@ -65,6 +70,124 @@ def test_artifact_profile_sets_official_predictions_dir():
     assert args.predictions_dir == "predictions/paddleocr_official_local_llamacpp_gguf_v16"
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("fail", 1),
+        ("fallback", 1),
+        ("ok", 1650),
+        ("limit_pages", 16),
+    ],
+)
+def test_release_prediction_stats_reject_incomplete_runs(tmp_path, field, value):
+    mod = _load_run_eval()
+    dataset = tmp_path / "dataset"
+    images = dataset / "images"
+    predictions = tmp_path / "predictions"
+    images.mkdir(parents=True)
+    predictions.mkdir()
+    for index in range(1651):
+        (images / f"{index}.png").touch()
+    stats = {
+        "count": 1651,
+        "ok": 1651,
+        "fail": 0,
+        "fallback": 0,
+        "limit_pages": None,
+        "engine": "official",
+        "stats": [],
+    }
+    stats[field] = value
+    (predictions / "_run_stats.json").write_text(json.dumps(stats), encoding="utf-8")
+    args = type(
+        "Args",
+        (),
+        {
+            "version": "v16",
+            "dataset_dir": str(dataset),
+            "copy_report": "metric.json",
+            "run_summary": None,
+            "cdm": False,
+        },
+    )()
+
+    with pytest.raises(SystemExit):
+        mod._validate_release_prediction_stats(args, predictions)
+
+
+def test_release_prediction_stats_accept_complete_clean_run(tmp_path):
+    mod = _load_run_eval()
+    dataset = tmp_path / "dataset"
+    images = dataset / "images"
+    predictions = tmp_path / "predictions"
+    images.mkdir(parents=True)
+    predictions.mkdir()
+    for index in range(1651):
+        (images / f"{index}.png").touch()
+    stats = {
+        "count": 1651,
+        "ok": 1651,
+        "fail": 0,
+        "fallback": 0,
+        "limit_pages": None,
+        "engine": "official",
+        "stats": [],
+    }
+    (predictions / "_run_stats.json").write_text(json.dumps(stats), encoding="utf-8")
+    args = type(
+        "Args",
+        (),
+        {
+            "version": "v16",
+            "dataset_dir": str(dataset),
+            "copy_report": "metric.json",
+            "run_summary": None,
+            "cdm": False,
+        },
+    )()
+
+    mod._validate_release_prediction_stats(args, predictions)
+
+
+def test_stage_eval_validates_checkout_before_rendering_config(tmp_path, monkeypatch):
+    mod = _load_run_eval()
+    checkout = tmp_path / "checkout"
+    predictions = tmp_path / "predictions"
+    predictions.mkdir()
+    calls = []
+
+    class BenchmarkContract:
+        @staticmethod
+        def validate_checkout(candidate):
+            calls.append(("validate", candidate))
+
+    monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    monkeypatch.setattr(mod, "_load_script_module", lambda name, path: BenchmarkContract)
+
+    def stop_at_render(*args, **kwargs):
+        assert calls == [("validate", checkout)]
+        raise RuntimeError("stop after checkout validation")
+
+    monkeypatch.setattr(mod, "_render_eval_config", stop_at_render)
+    args = type(
+        "Args",
+        (),
+        {
+            "config": "eval/configs/omnidocbench_v16.yaml",
+            "version": "v16",
+            "dataset_dir": None,
+            "predictions_dir": str(predictions),
+            "match_method": "quick_match",
+            "copy_report": None,
+            "run_summary": None,
+            "cdm": False,
+        },
+    )()
+
+    with pytest.raises(RuntimeError, match="stop after checkout validation"):
+        mod.stage_eval(args)
+
+
 def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
     mod = _load_run_eval()
     checkout = tmp_path / "checkout"
@@ -89,6 +212,7 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
     summary = tmp_path / "results" / "summary.json"
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    _allow_test_checkout(mod, monkeypatch)
     monkeypatch.setitem(mod.VERSION_DATASET_DIRS, "v16", dataset)
 
     def fake_run(*args, **kwargs):
@@ -142,6 +266,7 @@ def test_stage_eval_refuses_to_publish_limited_predictions(tmp_path, monkeypatch
     copied = tmp_path / "results" / "metric.json"
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    _allow_test_checkout(mod, monkeypatch)
 
     args = type(
         "Args",
@@ -192,6 +317,7 @@ def test_stage_eval_refuses_to_publish_when_dataset_count_mismatches(tmp_path, m
     )
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    _allow_test_checkout(mod, monkeypatch)
 
     args = type(
         "Args",
@@ -242,6 +368,7 @@ def test_stage_eval_uses_version_dataset_count_without_dataset_override(tmp_path
     )
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    _allow_test_checkout(mod, monkeypatch)
     monkeypatch.setitem(mod.VERSION_DATASET_DIRS, "v16", dataset)
 
     args = type(
@@ -278,6 +405,7 @@ def test_stage_eval_fails_when_expected_report_is_missing(tmp_path, monkeypatch)
     )
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    _allow_test_checkout(mod, monkeypatch)
     monkeypatch.setattr(
         mod.subprocess, "run", lambda *args, **kwargs: type("R", (), {"returncode": 0})()
     )
@@ -324,6 +452,7 @@ def test_stage_eval_removes_stale_report_before_scoring(tmp_path, monkeypatch):
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    _allow_test_checkout(mod, monkeypatch)
     monkeypatch.setattr(mod.subprocess, "run", fake_run)
 
     args = type(
@@ -370,6 +499,7 @@ def test_stage_eval_passes_rendered_config_for_selected_predictions_without_cdm(
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    _allow_test_checkout(mod, monkeypatch)
     monkeypatch.setitem(mod.VERSION_DATASET_DIRS, "v16", dataset)
     monkeypatch.setattr(mod.subprocess, "run", fake_run)
 
@@ -423,6 +553,7 @@ def test_stage_eval_passes_rendered_config_with_cdm_when_requested(tmp_path, mon
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    _allow_test_checkout(mod, monkeypatch)
     monkeypatch.setitem(mod.VERSION_DATASET_DIRS, "v16", dataset)
     monkeypatch.setattr(mod.subprocess, "run", fake_run)
 
@@ -467,6 +598,7 @@ def test_stage_eval_uses_checkout_venv_python_when_available(tmp_path, monkeypat
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    _allow_test_checkout(mod, monkeypatch)
     monkeypatch.setattr(mod.subprocess, "run", fake_run)
 
     args = type(
@@ -504,6 +636,7 @@ def test_stage_eval_sets_pythonutf8_for_windows_omnidocbench_subprocess(tmp_path
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
+    _allow_test_checkout(mod, monkeypatch)
     monkeypatch.setattr(mod.subprocess, "run", fake_run)
 
     args = type(

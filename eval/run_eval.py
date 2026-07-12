@@ -201,7 +201,7 @@ def _dataset_image_count(args: argparse.Namespace) -> int | None:
     return sum(1 for path in images_dir.iterdir() if path.suffix.lower() in IMAGE_EXTENSIONS)
 
 
-def _validate_full_prediction_stats(args: argparse.Namespace, predictions_dir: Path) -> None:
+def _validate_release_prediction_stats(args: argparse.Namespace, predictions_dir: Path) -> None:
     if not _requires_full_prediction_stats(args):
         return
     stats_path = predictions_dir / "_run_stats.json"
@@ -223,6 +223,12 @@ def _validate_full_prediction_stats(args: argparse.Namespace, predictions_dir: P
             f"Prediction count {actual_count} does not match dataset image count "
             f"{expected_count}. Run full unbounded inference before scoring."
         )
+    if run_stats.get("ok") != actual_count:
+        raise SystemExit(f"Release evidence requires ok={actual_count}: {stats_path}")
+    if run_stats.get("fail") != 0:
+        raise SystemExit(f"Release evidence requires fail=0: {stats_path}")
+    if run_stats.get("fallback") != 0:
+        raise SystemExit(f"Release evidence requires fallback=0: {stats_path}")
 
 
 def _render_eval_config(
@@ -268,8 +274,16 @@ def _resolve_eval_python(checkout: Path) -> str:
     return sys.executable
 
 
+def _validate_scorer_checkout(checkout: Path) -> None:
+    benchmark_contract = _load_script_module(
+        "benchmark_contract", Path("eval/benchmark_contract.py")
+    )
+    benchmark_contract.validate_checkout(checkout)
+
+
 def stage_eval(args: argparse.Namespace) -> None:
     checkout = _ensure_omnidocbench_checkout()
+    _validate_scorer_checkout(checkout)
     config = Path(args.config or VERSION_CONFIGS[args.version])
     if not config.is_file():
         raise SystemExit(f"OmniDocBench config not found: {config}")
@@ -279,7 +293,7 @@ def stage_eval(args: argparse.Namespace) -> None:
         raise SystemExit(
             f"Predictions dir not found: {predictions_dir}. Run the 'infer' stage first."
         )
-    _validate_full_prediction_stats(args, predictions_dir)
+    _validate_release_prediction_stats(args, predictions_dir)
     match_method = args.match_method
     report = _resolve_report_path(checkout, predictions_dir, match_method)
     if report.exists():
