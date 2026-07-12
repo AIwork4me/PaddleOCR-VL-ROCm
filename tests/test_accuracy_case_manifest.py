@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import re
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).parent / "fixtures" / "accuracy" / "v16-root-cause-cases.json"
@@ -58,6 +60,86 @@ EXPECTED_FORMULA_IDENTITIES = {
         "895c8f562a8cb3ced41db058e51e16b95d03d9205a8efb62b35dda635ed8c130",
     ),
 }
+EXPECTED_CASE_IDENTITIES = {
+    **{("formula_cdm", page): identity for page, identity in EXPECTED_FORMULA_IDENTITIES.items()},
+    ("table_teds", "yanbaor2_yanbaoPPT_2098.jpg"): (
+        [1],
+        "23ffc5b34c9ee1ff3309a40548949a11e3dbef5081e2beffef6a2cf39693ed69",
+    ),
+    (
+        "table_teds",
+        "yanbaor2_3e1be78252e2fdfe1adf12bba38ec2a7b30699e152d61269aa6e5827f5adcc35.pdf_13.jpg",
+    ): ([4], "8d4aa75b0bc094c65dc5b74e2e5c9d63c475778f2a4abd7fd91d819a9eb1abfd"),
+    ("table_teds", "docstructbench_llm-raw-the-eye-o.O-TraneGuide.pdf_7.jpg"): (
+        [1],
+        "d78b2d89582d518b731f43d3a6cde495a1cddeceda1a0139af710b01c66f4a7c",
+    ),
+    (
+        "table_teds",
+        "eastmoney_ea59610b9b1a8f0df46f7a89da1116cbf256c772e1148f26017991e28c8bca21.pdf_18.jpg",
+    ): ([3], "88865964d0b7d99d756c5f6190121cb60fbaed70a7e69943543677c101bdc871"),
+    ("table_teds", "docstructbench_enbook-zlib-o.O-17761417.pdf_894.jpg"): (
+        [12],
+        "9645f2a786a6461a1b154424ab9508b38a74ee1a627123f6f40ef103a4066f7e",
+    ),
+    ("text_edit", "jiaocaineedrop_jiaocai_needrop_en_349.jpg"): (
+        [57],
+        "15fb723bc8818e037bab6ec80be4c171efa39dbe1c8e0ec96300f14c293bb069",
+    ),
+    ("text_edit", "PPT_lecture1_page_005.png"): (
+        [4],
+        "c8c025666a0cbc5cbe62cb27b4b677841001c0d66c8fcd83dbafa6e844d19832",
+    ),
+    ("text_edit", "magazine_TheEconomist.2023.12.09_page_048.png"): (
+        [20],
+        "60e839d400f5cb7eca0b31920a9b0cef815e5e8f755d6e1a16a917662ec6df33",
+    ),
+    ("text_edit", "page-2329f04a-41b3-435b-993a-a0652294b07d.png"): (
+        [4],
+        "80fab0c28f3d24ed95ca3267477e215af5f5fe1ef96a23c95963b26c25fd36d5",
+    ),
+    (
+        "text_edit",
+        "docstructbench_llm-raw-the-eye-o.O-Player%27s%20Options%20-%20Halflings.pdf_11.jpg",
+    ): ([10], "f70f7923ce19f43703c1e2ace719c20c720ff7bd7a15088a4d79837b842ede80"),
+    ("reading_order", "page-2329f04a-41b3-435b-993a-a0652294b07d.png"): (
+        [],
+        "c7136c8c22b6359af65a758ee1690117bc8a81bbb288e26bd57969157a5c45f4",
+    ),
+    ("reading_order", "page-21967f5d-667d-488e-a5b3-76b9d6f53656.png"): (
+        [],
+        "819a96a922c4cbdbcdb6bd97912b650c0c3512309ef476fee8ef579817a5d1a8",
+    ),
+    ("reading_order", "page-268266af-56c0-4b3b-9d07-73c6e50feb58.png"): (
+        [],
+        "177058ec0d2c019bac7aec5cf242db94bd714cddaef9695c871580fe35890749",
+    ),
+    ("reading_order", "page-4319d401-c9e8-4326-9869-7572cf2e0e96.png"): (
+        [],
+        "823afc90ba02222b0999d713e476b47b96e650fc69c8e3502148dc51f7f609d7",
+    ),
+    (
+        "reading_order",
+        "color_textbook_\u6559\u6750\u5168\u89e31+1\u4e8c\u5e74\u7ea7\u4e0b\u518c\u82f1\u8bed\u4e0a\u6d77\u725b\u6d25\u7248_page_006.png",
+    ): ([], "27bed167feebda34670629d51900ab3d188ea591d93893360ef5203342374ef2"),
+}
+SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+MANIFEST_KEYS = {"schema", "trace_contract", "cases"}
+TRACE_CONTRACT_KEYS = {"layout_providers_active_first", "allow_cpu_fallback"}
+CASE_KEYS = {
+    "case_id",
+    "component",
+    "page",
+    "source_identity",
+    "metadata",
+    "official_score",
+    "lightweight_score",
+    "page_delta",
+    "required_boundaries",
+}
+SOURCE_IDENTITY_KEYS = {"gt_position", "gt_sha256"}
+METADATA_KEYS = {"gt_idx"}
+GT_IDX_KEYS = {"official", "lightweight"}
 
 
 def _load_manifest() -> dict[str, object]:
@@ -79,6 +161,57 @@ def _case_id(case: dict[str, object]) -> str:
         )
     )
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _assert_index(value: object, *, nullable: bool = False) -> None:
+    if nullable and value is None:
+        return
+    assert isinstance(value, list)
+    assert all(type(item) is int and item >= 0 for item in value)
+
+
+def _assert_manifest_schema(manifest: object) -> None:
+    assert isinstance(manifest, dict)
+    assert set(manifest) == MANIFEST_KEYS
+    assert type(manifest["schema"]) is int and manifest["schema"] == 1
+
+    contract = manifest["trace_contract"]
+    assert isinstance(contract, dict)
+    assert set(contract) == TRACE_CONTRACT_KEYS
+    assert contract["layout_providers_active_first"] == "DmlExecutionProvider"
+    assert type(contract["allow_cpu_fallback"]) is bool
+
+    cases = manifest["cases"]
+    assert isinstance(cases, list)
+    for case in cases:
+        assert isinstance(case, dict)
+        assert set(case) == CASE_KEYS
+        assert isinstance(case["case_id"], str) and SHA256_PATTERN.fullmatch(case["case_id"])
+        assert case["component"] in EXPECTED_DELTAS
+        assert isinstance(case["page"], str) and case["page"]
+
+        identity = case["source_identity"]
+        assert isinstance(identity, dict)
+        assert set(identity) == SOURCE_IDENTITY_KEYS
+        _assert_index(identity["gt_position"])
+        assert isinstance(identity["gt_sha256"], str)
+        assert SHA256_PATTERN.fullmatch(identity["gt_sha256"])
+
+        metadata = case["metadata"]
+        assert isinstance(metadata, dict) and set(metadata) == METADATA_KEYS
+        gt_idx = metadata["gt_idx"]
+        assert isinstance(gt_idx, dict) and set(gt_idx) == GT_IDX_KEYS
+        _assert_index(gt_idx["official"], nullable=True)
+        _assert_index(gt_idx["lightweight"], nullable=True)
+
+        for key in ("official_score", "lightweight_score", "page_delta"):
+            value = case[key]
+            assert type(value) in (int, float)
+            assert math.isfinite(value) and 0 <= value <= 1
+        boundaries = case["required_boundaries"]
+        assert isinstance(boundaries, list)
+        assert boundaries == REQUIRED_BOUNDARIES
+        assert all(isinstance(boundary, str) for boundary in boundaries)
 
 
 def test_manifest_locks_five_distinct_scalar_cases_per_component() -> None:
@@ -105,34 +238,21 @@ def test_manifest_locks_five_distinct_scalar_cases_per_component() -> None:
         assert set(case["metadata"]["gt_idx"]) == {"official", "lightweight"}
 
 
-def test_manifest_uses_canonical_formula_source_identity() -> None:
+def test_manifest_locks_every_canonical_source_identity() -> None:
     cases = _load_manifest()["cases"]
-    formula_cases = {
-        case["page"]: (
+    identities = {
+        (case["component"], case["page"]): (
             case["source_identity"]["gt_position"],
             case["source_identity"]["gt_sha256"],
         )
         for case in cases
-        if case["component"] == "formula_cdm"
     }
 
-    assert formula_cases == EXPECTED_FORMULA_IDENTITIES
+    assert identities == EXPECTED_CASE_IDENTITIES
 
 
-def test_manifest_contains_no_raw_evidence() -> None:
-    manifest = _load_manifest()
-    forbidden_keys = {"gt", "prediction", "pred", "response", "trace", "raw"}
-
-    def visit(value: object) -> None:
-        if isinstance(value, dict):
-            assert forbidden_keys.isdisjoint(value)
-            for child in value.values():
-                visit(child)
-        elif isinstance(value, list):
-            for child in value:
-                visit(child)
-
-    visit(manifest)
+def test_manifest_is_scalar_only_strict_schema() -> None:
+    _assert_manifest_schema(_load_manifest())
 
 
 def test_manifest_requires_directml_first_without_cpu_fallback() -> None:
