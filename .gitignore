@@ -12,6 +12,7 @@ outputs/
 *.log
 .env
 .env.local
+.worktrees/
 
 tests/fixtures/_tmp_record/
 
