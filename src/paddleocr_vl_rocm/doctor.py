@@ -426,7 +426,12 @@ def run_doctor(
     config_value, root = _load_config(config)
     context = DoctorContext(config=config_value, root=root, server_url=server_url)
     results: list[CheckResult] = []
-    for spec in DOCTOR_CHECKS:
+    specs = (
+        tuple(spec for spec in DOCTOR_CHECKS if spec.name == "server")
+        if config is None and server_url is not None
+        else DOCTOR_CHECKS
+    )
+    for spec in specs:
         try:
             result = spec.check(context)
         except Exception as exc:

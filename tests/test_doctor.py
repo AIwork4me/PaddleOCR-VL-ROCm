@@ -46,6 +46,21 @@ def test_run_doctor_continues_after_check_error_and_adds_remediation(monkeypatch
     assert results[1].status == "PASS"
 
 
+def test_external_server_doctor_does_not_require_managed_assets(monkeypatch):
+    monkeypatch.setattr(
+        doctor,
+        "DOCTOR_CHECKS",
+        (
+            CheckSpec("config", lambda _context: pytest.fail("managed check"), "fix"),
+            CheckSpec("server", lambda _context: CheckResult("server", "PASS", "ready"), "fix"),
+        ),
+    )
+
+    results = run_doctor(None, server_url="http://127.0.0.1:8111/v1")
+
+    assert [result.name for result in results] == ["server"]
+
+
 def test_amd_adapter_check_parses_compact_powershell_json(monkeypatch):
     completed = Mock(returncode=0, stdout='[{"Name":"AMD Radeon 8060S"}]', stderr="")
     monkeypatch.setattr(doctor.subprocess, "run", Mock(return_value=completed))

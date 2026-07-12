@@ -16,6 +16,10 @@ import requests
 from .resources import Resource, download_resource, load_runtime_manifest, verify_resource
 
 
+class SetupDownloadError(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True)
 class SetupOptions:
     root: Path | None = None
@@ -199,16 +203,19 @@ def setup_managed_runtime(options: SetupOptions | None = None) -> SetupResult:
     if not options.force and _existing_install(result, resources, manifest):
         return result
 
-    runtime_archive = download_resource(
-        resources["llama-cpp-hip-runtime"], root / "cache"
-    )
-    for name in (
-        "paddleocr-vl-main-gguf",
-        "paddleocr-vl-mmproj",
-        "pp-doclayout-v3-onnx",
-        "pp-doclayout-v3-config",
-    ):
-        download_resource(resources[name], root)
+    try:
+        runtime_archive = download_resource(
+            resources["llama-cpp-hip-runtime"], root / "cache"
+        )
+        for name in (
+            "paddleocr-vl-main-gguf",
+            "paddleocr-vl-mmproj",
+            "pp-doclayout-v3-onnx",
+            "pp-doclayout-v3-config",
+        ):
+            download_resource(resources[name], root)
+    except Exception as exc:
+        raise SetupDownloadError(f"Managed resource download failed: {exc}") from exc
 
     staging = root / f".runtime-staging-{uuid.uuid4().hex}"
     try:

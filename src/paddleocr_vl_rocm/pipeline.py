@@ -24,6 +24,7 @@ class PaddleOCRVLROCm:
         threshold: float = 0.3,
         vlm_max_workers: int = 1,
         layout_provider: str = "auto",
+        skip_server_check: bool = False,
     ) -> None:
         self.layout_model_dir = Path(layout_model_dir)
         self.vlm_server_url = vlm_server_url
@@ -35,6 +36,7 @@ class PaddleOCRVLROCm:
         self.threshold = threshold
         self.vlm_max_workers = vlm_max_workers
         self.layout_provider = layout_provider
+        self.skip_server_check = skip_server_check
         self.layout_provider_requested = layout_provider
         self.layout_providers_active: list[str] = []
         self.active_layout_providers = self.layout_providers_active
@@ -82,6 +84,7 @@ class PaddleOCRVLROCm:
                 vlm_repeats=1,
                 vlm_max_workers=self.vlm_max_workers,
                 layout_model=layout,
+                skip_server_check=self.skip_server_check,
                 timing_events=timing_events,
                 layout_provider_requested=layout.layout_provider_requested,
                 layout_providers_active=layout.layout_providers_active,
