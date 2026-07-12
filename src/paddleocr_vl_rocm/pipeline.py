@@ -35,7 +35,9 @@ class PaddleOCRVLROCm:
         self.threshold = threshold
         self.vlm_max_workers = vlm_max_workers
         self.layout_provider = layout_provider
-        self.active_layout_providers: list[str] = []
+        self.layout_provider_requested = layout_provider
+        self.layout_providers_active: list[str] = []
+        self.active_layout_providers = self.layout_providers_active
         self._layout_model: PPDocLayoutV3Onnx | None = None
 
     def _layout(self) -> PPDocLayoutV3Onnx:
@@ -46,12 +48,20 @@ class PaddleOCRVLROCm:
             providers = resolve_layout_providers(
                 available, self.layout_provider, platform.system()
             )
-            self._layout_model = PPDocLayoutV3Onnx(self.layout_model_dir, providers=providers)
-            self.active_layout_providers = list(self._layout_model.active_providers)
+            self._layout_model = PPDocLayoutV3Onnx(
+                self.layout_model_dir,
+                providers=providers,
+                requested_provider=self.layout_provider_requested,
+            )
+            self.layout_providers_active = list(
+                self._layout_model.layout_providers_active
+            )
+            self.active_layout_providers = self.layout_providers_active
         return self._layout_model
 
     def predict(self, image_path: str | Path) -> PaddleOCRVLROCmResult:
         image = Path(image_path)
+        layout = self._layout()
         with tempfile.TemporaryDirectory(prefix="paddleocr_vl_rocm_") as tmp:
             tmp_dir = Path(tmp)
             json_path = run_light_parser(
@@ -72,7 +82,9 @@ class PaddleOCRVLROCm:
                 display_input_path=str(image),
                 vlm_repeats=1,
                 vlm_max_workers=self.vlm_max_workers,
-                layout_model=self._layout(),
+                layout_model=layout,
+                layout_provider_requested=layout.layout_provider_requested,
+                layout_providers_active=layout.layout_providers_active,
             )
             import json
 

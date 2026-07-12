@@ -180,6 +180,8 @@ def write_run_summary(
     summary = {
         "save_name": save_name,
         "engine": run_stats.get("engine"),
+        "layout_provider_requested": run_stats.get("layout_provider_requested"),
+        "layout_providers_active": list(run_stats.get("layout_providers_active") or []),
         "cdm": cdm,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "prediction_count": run_stats.get("count"),
@@ -222,6 +224,8 @@ def write_provenance(
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "git_commit": git_commit,
         "engine": engine,
+        "layout_provider_requested": run_stats.get("layout_provider_requested"),
+        "layout_providers_active": list(run_stats.get("layout_providers_active") or []),
         "vlm_server_url": server_url,
         "api_model_name": api_model_name,
         "adapter_command": adapter_command,

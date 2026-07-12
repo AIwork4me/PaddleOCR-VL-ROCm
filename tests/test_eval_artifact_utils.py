@@ -167,6 +167,11 @@ def test_write_run_summary_and_provenance(tmp_path):
                 "fail": 1,
                 "fallback": 1,
                 "engine": "official",
+                "layout_provider_requested": "auto",
+                "layout_providers_active": [
+                    "DmlExecutionProvider",
+                    "CPUExecutionProvider",
+                ],
                 "stats": [
                     {
                         "image": "bad.png",
@@ -254,9 +259,16 @@ def test_write_run_summary_and_provenance(tmp_path):
     }
     assert summary["metric_result_path"] == str(metric_path)
     assert summary["notebook_metrics"]["overall"] == 95.78033333333333
+    assert summary["layout_provider_requested"] == "auto"
+    assert summary["layout_providers_active"][0] == "DmlExecutionProvider"
     assert provenance["git_commit"] == "abc123"
     assert provenance["ok_pages"] == 2
     assert provenance["fallback_pages"] == 1
+    assert provenance["layout_provider_requested"] == "auto"
+    assert provenance["layout_providers_active"] == [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider",
+    ]
     assert provenance["omnidocbench"]["commit"] == benchmark_contract.OMNIDOCBENCH_V16_COMMIT
     assert len(provenance["dataset_sha256"]) == 64
     assert len(provenance["config_sha256"]) == 64

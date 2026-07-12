@@ -69,6 +69,8 @@ def test_layout_session_disables_fallback_and_records_active_provider(tmp_path, 
 
     assert model.session.fallback_disabled is True
     assert model.active_providers == ["DmlExecutionProvider"]
+    assert model.layout_provider_requested == "directml"
+    assert model.layout_providers_active == ["DmlExecutionProvider"]
 
 
 def test_layout_session_rejects_directml_activation_mismatch(tmp_path, monkeypatch):
@@ -98,8 +100,10 @@ def test_layout_session_rejects_directml_activation_mismatch(tmp_path, monkeypat
 
 def test_pipeline_stores_requested_and_active_layout_providers(monkeypatch):
     class FakeLayout:
-        def __init__(self, _model_dir, providers):
+        def __init__(self, _model_dir, providers, requested_provider):
             self.active_providers = list(providers)
+            self.layout_provider_requested = requested_provider
+            self.layout_providers_active = list(providers)
 
     monkeypatch.setattr(platform, "system", lambda: "Windows")
     monkeypatch.setattr(
@@ -113,3 +117,31 @@ def test_pipeline_stores_requested_and_active_layout_providers(monkeypatch):
 
     assert pipeline.layout_provider == "auto"
     assert pipeline.active_layout_providers == ["DmlExecutionProvider"]
+    assert pipeline.layout_provider_requested == "auto"
+    assert pipeline.layout_providers_active == ["DmlExecutionProvider"]
+
+
+def test_pipeline_passes_layout_provider_metadata_to_trace(tmp_path, monkeypatch):
+    captured = {}
+
+    class FakeLayout:
+        layout_provider_requested = "auto"
+        layout_providers_active = ["DmlExecutionProvider", "CPUExecutionProvider"]
+
+    def fake_run_light_parser(**kwargs):
+        captured.update(kwargs)
+        path = kwargs["output_dir"] / "result.json"
+        path.write_text('{"input_path": "input.png"}', encoding="utf-8")
+        return path
+
+    pipeline = PaddleOCRVLROCm(layout_provider="auto")
+    monkeypatch.setattr(pipeline, "_layout", lambda: FakeLayout())
+    monkeypatch.setattr("paddleocr_vl_rocm.pipeline.run_light_parser", fake_run_light_parser)
+
+    pipeline.predict(tmp_path / "input.png")
+
+    assert captured["layout_provider_requested"] == "auto"
+    assert captured["layout_providers_active"] == [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider",
+    ]

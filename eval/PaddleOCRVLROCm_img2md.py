@@ -141,6 +141,9 @@ def run_lightweight_folder(
         api_model_name=api_model_name,
         vlm_backend=vlm_backend,
     )
+    pipeline._layout()
+    layout_provider_requested = pipeline.layout_provider_requested
+    layout_providers_active = list(pipeline.layout_providers_active)
     out_dir.mkdir(parents=True, exist_ok=True)
     errors_path = out_dir / "_errors.log"
     errors_path.unlink(missing_ok=True)
@@ -176,6 +179,8 @@ def run_lightweight_folder(
         "fail": len(images) - ok_count,
         "fallback": 0,
         "engine": "lightweight",
+        "layout_provider_requested": layout_provider_requested,
+        "layout_providers_active": layout_providers_active,
         "limit_pages": limit_pages,
         "stats": stats,
     }

@@ -751,6 +751,7 @@ class PPDocLayoutV3Onnx:
         model_dir: Path,
         providers: list[str] | None = None,
         intra_op_threads: int | None = None,
+        requested_provider: str | None = None,
     ) -> None:
         import onnxruntime as ort
 
@@ -771,9 +772,15 @@ class PPDocLayoutV3Onnx:
         disable_fallback = getattr(self.session, "disable_fallback", None)
         if disable_fallback is not None:
             disable_fallback()
-        self.active_providers = list(self.session.get_providers())
+        requested = providers or ["CPUExecutionProvider"]
+        self.layout_provider_requested = requested_provider or (
+            "directml" if requested[0] == "DmlExecutionProvider" else "cpu"
+        )
+        self.layout_providers_active = list(self.session.get_providers())
+        self.active_providers = self.layout_providers_active
         if providers and providers[0] == "DmlExecutionProvider" and (
-            not self.active_providers or self.active_providers[0] != "DmlExecutionProvider"
+            not self.layout_providers_active
+            or self.layout_providers_active[0] != "DmlExecutionProvider"
         ):
             raise RuntimeError(
                 "DmlExecutionProvider failed to activate; refusing CPU fallback for "

@@ -58,6 +58,8 @@ def run_light_parser(
     layout_model: PPDocLayoutV3Onnx | None = None,
     skip_server_check: bool = False,
     vlm_trace_events: list[dict[str, Any]] | None = None,
+    layout_provider_requested: str | None = None,
+    layout_providers_active: list[str] | None = None,
 ) -> Path:
     compat_cache = _load_vlm_compat_cache(compat_cache_path)
     if not compat_cache and not skip_server_check:
@@ -157,6 +159,8 @@ def run_light_parser(
                     "request_order": len(vlm_trace_events),
                     "block_label": block.label,
                     "block_bbox": block.bbox,
+                    "layout_provider_requested": layout_provider_requested,
+                    "layout_providers_active": list(layout_providers_active or []),
                 }
                 vlm_trace_events.append(trace_event)
             vlm_tasks.append((block, prompt, image_for_vlm, trace_event))

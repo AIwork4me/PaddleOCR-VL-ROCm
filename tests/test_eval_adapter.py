@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import types
 from pathlib import Path
@@ -188,8 +189,19 @@ def test_lightweight_folder_writes_run_stats_and_error_log(tmp_path, monkeypatch
     class FakePipeline:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
+            self.initialized = False
+            self.layout_provider_requested = "auto"
+            self.layout_providers_active = []
+
+        def _layout(self):
+            self.initialized = True
+            self.layout_providers_active = [
+                "DmlExecutionProvider",
+                "CPUExecutionProvider",
+            ]
 
         def predict(self, image_path):
+            assert self.initialized
             if image_path.name == "bad.png":
                 raise RuntimeError("controlled failure")
             return FakeResult()
@@ -209,12 +221,19 @@ def test_lightweight_folder_writes_run_stats_and_error_log(tmp_path, monkeypatch
     assert summary["ok"] == 1
     assert summary["fail"] == 1
     assert summary["fallback"] == 0
+    assert summary["layout_provider_requested"] == "auto"
+    assert summary["layout_providers_active"] == [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider",
+    ]
     assert (out_dir / "ok.md").read_text(encoding="utf-8") == "recognized"
     assert not (out_dir / "bad.md").exists()
     assert "controlled failure" in (out_dir / "_errors.log").read_text(encoding="utf-8")
-    stats = (out_dir / "_run_stats.json").read_text(encoding="utf-8")
-    assert '"engine": "lightweight"' in stats
-    assert '"fallback": 0' in stats
+    stats = json.loads((out_dir / "_run_stats.json").read_text(encoding="utf-8"))
+    assert stats["engine"] == "lightweight"
+    assert stats["fallback"] == 0
+    assert stats["layout_provider_requested"] == "auto"
+    assert stats["layout_providers_active"][0] == "DmlExecutionProvider"
 
 
 def test_official_folder_materializes_generator_results(tmp_path, monkeypatch):

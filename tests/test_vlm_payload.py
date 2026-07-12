@@ -160,6 +160,9 @@ def test_parallel_pipeline_observers_populate_their_own_trace_events(
     formula_observed = Event()
 
     class FakeLayout:
+        layout_provider_requested = "auto"
+        layout_providers_active = ["DmlExecutionProvider", "CPUExecutionProvider"]
+
         def predict(self, *args, **kwargs):
             return (
                 [
@@ -218,15 +221,24 @@ def test_parallel_pipeline_observers_populate_their_own_trace_events(
         skip_server_check=True,
         vlm_max_workers=2,
         vlm_trace_events=trace_events,
+        layout_provider_requested=FakeLayout.layout_provider_requested,
+        layout_providers_active=FakeLayout.layout_providers_active,
     )
 
     assert [event["request_order"] for event in trace_events] == [0, 1]
     assert trace_events[0]["block_label"] == "text"
     assert trace_events[0]["prompt"] == "OCR:"
     assert trace_events[0]["image_sha256"] == "sha-OCR:"
+    assert trace_events[0]["layout_provider_requested"] == "auto"
+    assert trace_events[0]["layout_providers_active"] == [
+        "DmlExecutionProvider",
+        "CPUExecutionProvider",
+    ]
     assert trace_events[1]["block_label"] == "formula"
     assert trace_events[1]["prompt"] == "Formula Recognition:"
     assert trace_events[1]["image_sha256"] == "sha-Formula Recognition:"
+    assert trace_events[1]["layout_provider_requested"] == "auto"
+    assert trace_events[1]["layout_providers_active"][0] == "DmlExecutionProvider"
 
 
 def test_vllm_payload_matches_openai_compatible_shape():
