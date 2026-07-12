@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 
@@ -11,40 +12,53 @@ def normalize_server_url(server_url: str) -> str:
     return server_url.rstrip("/")
 
 
+def _models_url(server_url: str) -> str:
+    parsed = urlsplit(normalize_server_url(server_url))
+    path = parsed.path.rstrip("/")
+    if not path.endswith("/models"):
+        path = f"{path}/models"
+    return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, ""))
+
+
+def _redacted_url(url: str) -> str:
+    parsed = urlsplit(url)
+    host = parsed.hostname or "<host>"
+    if ":" in host:
+        host = f"[{host}]"
+    if parsed.port is not None:
+        host = f"{host}:{parsed.port}"
+    return urlunsplit((parsed.scheme or "http", host, parsed.path, "", ""))
+
+
 def check_openai_compatible_server(server_url: str, timeout: float = 10.0) -> dict[str, Any]:
-    base = normalize_server_url(server_url)
-    models_url = f"{base}/models"
+    models_url = _models_url(server_url)
+    display_url = _redacted_url(models_url)
     console = get_console()
 
     try:
         response = requests.get(models_url, timeout=timeout)
-    except requests.RequestException as exc:
+    except requests.RequestException:
         raise RuntimeError(
-            f"Failed to connect to OpenAI-compatible server at {models_url}: {exc}"
-        ) from exc
-
-    if response.status_code >= 400:
-        body = response.text[:2000]
-        raise RuntimeError(
-            f"Server health check failed: GET {models_url} -> HTTP {response.status_code}\n{body}"
-        )
+            f"Failed to connect to OpenAI-compatible server at {display_url}"
+        ) from None
 
     try:
-        payload = response.json()
-    except ValueError as exc:
-        raise RuntimeError(
-            f"Server returned non-JSON response from {models_url}: {response.text[:1000]}"
-        ) from exc
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"Server health check failed: GET {display_url} -> HTTP {response.status_code}"
+            )
 
-    models = payload.get("data") if isinstance(payload, dict) else None
-    if isinstance(models, list):
-        console.print("[green]/v1/models: PASS[/green]")
-        for item in models:
-            model_id = item.get("id") if isinstance(item, dict) else str(item)
-            console.print(f"  - {model_id}")
-    else:
-        console.print("[green]/v1/models: PASS[/green]")
-        console.print(payload)
+        try:
+            payload = response.json()
+        except ValueError:
+            raise RuntimeError(f"Server returned non-JSON response from {display_url}") from None
+
+        models = payload.get("data") if isinstance(payload, dict) else None
+        if not isinstance(models, list):
+            raise RuntimeError(f"Server returned an invalid /v1/models payload from {display_url}")
+        console.print(f"[green]/v1/models: PASS[/green] ({len(models)} model(s))")
+    finally:
+        response.close()
 
     return payload
 
