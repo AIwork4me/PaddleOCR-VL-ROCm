@@ -25,6 +25,10 @@ def _allow_test_checkout(mod, monkeypatch):
     monkeypatch.setattr(mod, "_validate_scorer_checkout", lambda checkout: None)
 
 
+def _allow_test_release_stats(mod, monkeypatch):
+    monkeypatch.setattr(mod, "_validate_release_prediction_stats", lambda args, path: None)
+
+
 def test_report_path_under_checkout(tmp_path):
     mod = _load_run_eval()
     pred = tmp_path / "predictions" / "paddleocrvl_rocm"  # basename -> paddleocrvl_rocm
@@ -149,6 +153,93 @@ def test_release_prediction_stats_accept_complete_clean_run(tmp_path):
     mod._validate_release_prediction_stats(args, predictions)
 
 
+def _release_stats_args(dataset_dir):
+    return type(
+        "Args",
+        (),
+        {
+            "version": "v16",
+            "dataset_dir": str(dataset_dir),
+            "copy_report": "metric.json",
+            "run_summary": None,
+            "cdm": False,
+        },
+    )()
+
+
+def _write_release_stats(predictions, **overrides):
+    stats = {
+        "count": 1651,
+        "ok": 1651,
+        "fail": 0,
+        "fallback": 0,
+        "limit_pages": None,
+        "engine": "official",
+        "stats": [],
+    }
+    stats.update(overrides)
+    predictions.mkdir()
+    (predictions / "_run_stats.json").write_text(json.dumps(stats), encoding="utf-8")
+
+
+def test_release_prediction_stats_reject_missing_dataset_images(tmp_path):
+    mod = _load_run_eval()
+    predictions = tmp_path / "predictions"
+    _write_release_stats(predictions)
+
+    with pytest.raises(SystemExit, match="dataset image count"):
+        mod._validate_release_prediction_stats(
+            _release_stats_args(tmp_path / "missing-dataset"), predictions
+        )
+
+
+@pytest.mark.parametrize("missing_fields", [("count",), ("ok",), ("count", "ok")])
+def test_release_prediction_stats_reject_missing_count_or_ok_fields(
+    tmp_path, monkeypatch, missing_fields
+):
+    mod = _load_run_eval()
+    predictions = tmp_path / "predictions"
+    _write_release_stats(predictions)
+    stats_path = predictions / "_run_stats.json"
+    stats = json.loads(stats_path.read_text(encoding="utf-8"))
+    for field in missing_fields:
+        stats.pop(field)
+    stats_path.write_text(json.dumps(stats), encoding="utf-8")
+    monkeypatch.setattr(mod, "_dataset_image_count", lambda args: 1651)
+
+    with pytest.raises(SystemExit):
+        mod._validate_release_prediction_stats(_release_stats_args(tmp_path), predictions)
+
+
+def test_release_prediction_stats_reject_wrong_v16_count_even_when_dataset_matches(
+    tmp_path, monkeypatch
+):
+    mod = _load_run_eval()
+    predictions = tmp_path / "predictions"
+    _write_release_stats(predictions, count=1650, ok=1650)
+    monkeypatch.setattr(mod, "_dataset_image_count", lambda args: 1650)
+
+    with pytest.raises(SystemExit, match="1651"):
+        mod._validate_release_prediction_stats(_release_stats_args(tmp_path), predictions)
+
+
+def test_non_release_eval_preserves_missing_dataset_behavior(tmp_path):
+    mod = _load_run_eval()
+    args = type(
+        "Args",
+        (),
+        {
+            "version": "v16",
+            "dataset_dir": str(tmp_path / "missing-dataset"),
+            "copy_report": None,
+            "run_summary": None,
+            "cdm": False,
+        },
+    )()
+
+    mod._validate_release_prediction_stats(args, tmp_path / "missing-predictions")
+
+
 def test_stage_eval_validates_checkout_before_rendering_config(tmp_path, monkeypatch):
     mod = _load_run_eval()
     checkout = tmp_path / "checkout"
@@ -213,6 +304,7 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
     _allow_test_checkout(mod, monkeypatch)
+    _allow_test_release_stats(mod, monkeypatch)
     monkeypatch.setitem(mod.VERSION_DATASET_DIRS, "v16", dataset)
 
     def fake_run(*args, **kwargs):
@@ -554,6 +646,7 @@ def test_stage_eval_passes_rendered_config_with_cdm_when_requested(tmp_path, mon
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
     _allow_test_checkout(mod, monkeypatch)
+    _allow_test_release_stats(mod, monkeypatch)
     monkeypatch.setitem(mod.VERSION_DATASET_DIRS, "v16", dataset)
     monkeypatch.setattr(mod.subprocess, "run", fake_run)
 

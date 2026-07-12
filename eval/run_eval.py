@@ -218,11 +218,18 @@ def _validate_release_prediction_stats(args: argparse.Namespace, predictions_dir
         )
     expected_count = _dataset_image_count(args)
     actual_count = run_stats.get("count")
-    if expected_count is not None and actual_count != expected_count:
+    if expected_count is None:
+        raise SystemExit(
+            "Release evidence requires an available dataset image count: "
+            f"{stats_path}"
+        )
+    if actual_count != expected_count:
         raise SystemExit(
             f"Prediction count {actual_count} does not match dataset image count "
             f"{expected_count}. Run full unbounded inference before scoring."
         )
+    if args.version == "v16" and actual_count != 1651:
+        raise SystemExit(f"OmniDocBench v1.6 release evidence requires count=1651: {stats_path}")
     if run_stats.get("ok") != actual_count:
         raise SystemExit(f"Release evidence requires ok={actual_count}: {stats_path}")
     if run_stats.get("fail") != 0:
