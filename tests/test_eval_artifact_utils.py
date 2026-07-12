@@ -4,7 +4,10 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 from eval import benchmark_contract
+from eval.release_contract import KNOWN_V16_OFFICIAL_FAILURE
 
 
 def _load_artifacts():
@@ -62,6 +65,51 @@ def test_extract_notebook_metrics_uses_official_page_fields_and_rounding():
         "reading_order_edit_dist": 0.129,
         "overall": 95.78033333333333,
     }
+
+
+def test_approved_known_failures_recognizes_exact_adapter_run_stats(tmp_path):
+    mod = _load_artifacts()
+    stats = {
+        "count": 1651,
+        "ok": 1650,
+        "fail": 1,
+        "fallback": 0,
+        "limit_pages": None,
+        "engine": "official",
+        "stats": [{"image": f"page-{index:04d}.png", "status": "ok"} for index in range(1650)]
+        + [
+            {
+                "image": KNOWN_V16_OFFICIAL_FAILURE["image"],
+                "status": "failed: expected peg-native format",
+            }
+        ],
+    }
+
+    assert mod.approved_known_failures(stats, tmp_path) == [KNOWN_V16_OFFICIAL_FAILURE]
+
+
+def test_approved_known_failures_rejects_residual_prediction(tmp_path):
+    mod = _load_artifacts()
+    stats = {
+        "count": 1651,
+        "ok": 1650,
+        "fail": 1,
+        "fallback": 0,
+        "limit_pages": None,
+        "engine": "official",
+        "stats": [{"image": f"page-{index:04d}.png", "status": "ok"} for index in range(1650)]
+        + [
+            {
+                "image": KNOWN_V16_OFFICIAL_FAILURE["image"],
+                "status": "failed: expected peg-native format",
+            }
+        ],
+    }
+    residual = tmp_path / f"{Path(KNOWN_V16_OFFICIAL_FAILURE['image']).stem}.md"
+    residual.write_text("synthetic fallback", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must not exist"):
+        mod.approved_known_failures(stats, tmp_path)
 
 
 def test_extract_notebook_metrics_matches_tracked_official_local_artifact():
@@ -257,6 +305,7 @@ def test_write_run_summary_and_provenance(tmp_path):
         "limit_pages": None,
         "failure_samples": [{"image": "bad.png", "status": "fail: controlled", "error": "x" * 200}],
     }
+    assert summary["approved_known_failures"] == []
     assert summary["metric_result_path"] == str(metric_path)
     assert summary["notebook_metrics"]["overall"] == 95.78033333333333
     assert summary["layout_provider_requested"] == "auto"
@@ -264,6 +313,7 @@ def test_write_run_summary_and_provenance(tmp_path):
     assert provenance["git_commit"] == "abc123"
     assert provenance["ok_pages"] == 2
     assert provenance["fallback_pages"] == 1
+    assert provenance["approved_known_failures"] == []
     assert provenance["layout_provider_requested"] == "auto"
     assert provenance["layout_providers_active"] == [
         "DmlExecutionProvider",

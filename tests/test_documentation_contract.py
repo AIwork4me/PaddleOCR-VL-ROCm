@@ -95,6 +95,26 @@ def test_readmes_label_demo_and_benchmarks_as_non_release_evidence() -> None:
     assert "G3" in chinese and "G4" in chinese
 
 
+def test_bilingual_readmes_document_the_single_page_exception_without_score_inflation() -> None:
+    issue = "https://github.com/PaddlePaddle/PaddleOCR/issues/18248"
+    filename = "newspaper_The Times UK_0801@magazinesclubnew_page_031.png"
+    english = _read(README_EN)
+    chinese = _read(README_ZH)
+
+    for text in (english, chinese):
+        assert issue in text
+        assert filename in text
+        assert "peg-native" in text
+    assert "1,650" in english and "1,651" in english
+    assert "1,650" in chinese and "1,651" in chinese
+    assert "all 1,651 ground-truth pages" in english
+    assert "empty prediction" in english
+    assert "全部 1,651 个 GT 页面" in chinese
+    assert "空预测" in chinese
+    assert "PaddlePaddle maintainer confirmed" not in english
+    assert "PaddlePaddle 维护者已确认" not in chinese
+
+
 def test_offline_ci_covers_supported_python_matrix_and_quality_gates() -> None:
     workflow = _read(CI)
 
@@ -122,7 +142,8 @@ def test_release_readiness_fails_closed_until_all_gates_pass() -> None:
     for gate in ("G0", "G1", "G2", "G3", "G4", "G5"):
         assert gate in text
     for evidence in (
-        "1650/1651",
+        "1,650 successes",
+        "1,651 GT pages",
         "20/20",
         "95.9480",
         "96.13",

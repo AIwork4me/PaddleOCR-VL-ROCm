@@ -13,7 +13,7 @@ This historical evidence contains reconstructed OmniDocBench v1.6 results, not a
 | Official local | 0.034 | 96.502 | 94.239 | 95.7803 |
 | Lightweight ROCm | 0.034 | 96.922 | 94.322 | 95.9480 |
 
-The provenance and reconstruction are recorded in [`docs/accuracy-root-cause-v16.md`](docs/accuracy-root-cause-v16.md). A fresh official run is blocked at 1650/1651 by a deterministic upstream PEG parser HTTP 500. G3 accuracy and G4 performance have not passed, so this project does not claim an accepted release score or latency. Pre-G3 timing is diagnostic.
+The provenance and reconstruction are recorded in [`docs/accuracy-root-cause-v16.md`](docs/accuracy-root-cause-v16.md). Official inference currently has 1,650 successful pages and one deterministic `peg-native` HTTP 500 for `newspaper_The Times UK_0801@magazinesclubnew_page_031.png`, tracked in [PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248). The project owner approved this single, immutable known failure. Scoring still includes all 1,651 ground-truth pages and treats that page as an empty prediction, so the exception cannot inflate the score. The issue remains open and is not described as a PaddlePaddle maintainer resolution. G3 accuracy and G4 performance have not passed; pre-G3 timing remains diagnostic.
 
 ## Compatibility demo
 

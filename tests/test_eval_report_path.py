@@ -202,6 +202,47 @@ def test_release_prediction_stats_accept_exact_known_official_failure(tmp_path):
     mod._validate_release_prediction_stats(args, predictions)
 
 
+def test_release_prediction_stats_reject_known_failure_with_residual_markdown(tmp_path):
+    mod = _load_run_eval()
+    dataset = tmp_path / "dataset"
+    images = dataset / "images"
+    predictions = tmp_path / "predictions"
+    images.mkdir(parents=True)
+    predictions.mkdir()
+    for index in range(1651):
+        (images / f"{index}.png").touch()
+    failed_image = "newspaper_The Times UK_0801@magazinesclubnew_page_031.png"
+    stats = {
+        "count": 1651,
+        "ok": 1650,
+        "fail": 1,
+        "fallback": 0,
+        "limit_pages": None,
+        "engine": "official",
+        "stats": [{"image": f"page-{index:04d}.png", "status": "ok"} for index in range(1650)]
+        + [{"image": failed_image, "status": "failed: peg-native"}],
+    }
+    (predictions / "_run_stats.json").write_text(json.dumps(stats), encoding="utf-8")
+    (predictions / f"{Path(failed_image).stem}.md").write_text(
+        "synthetic fallback", encoding="utf-8"
+    )
+    args = type(
+        "Args",
+        (),
+        {
+            "version": "v16",
+            "dataset_dir": str(dataset),
+            "copy_report": "metric.json",
+            "run_summary": None,
+            "cdm": False,
+            "engine": "official",
+        },
+    )()
+
+    with pytest.raises(SystemExit, match="must not exist"):
+        mod._validate_release_prediction_stats(args, predictions)
+
+
 def _release_stats_args(dataset_dir):
     return type(
         "Args",

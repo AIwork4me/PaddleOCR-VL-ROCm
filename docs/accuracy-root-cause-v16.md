@@ -6,13 +6,15 @@
 
 ## Executive finding
 
-The fresh corrected 1,651-page comparison does not exist. The sole missing
-official page, `newspaper_The Times UK_0801@magazinesclubnew_page_031.png`,
-reliably reaches llama.cpp inference and then fails the official engine at the
-PEG chat-output parser with HTTP 500. Builds 9884 and 9637, including the
-publisher's minimal launch, reproduced the failure. The official run remains
-`count=1651`, `ok=1650`, `fail=1`, `fallback=0`; no lightweight fallback was
-used. Therefore none of the numbers below is fresh release evidence.
+The fresh corrected comparison must be regenerated under the approved known
+failure contract. The sole missing official page,
+`newspaper_The Times UK_0801@magazinesclubnew_page_031.png`, reliably reaches
+llama.cpp inference and then fails the official engine at the PEG chat-output
+parser with HTTP 500. Builds 9884 and 9637 reproduced the failure, now publicly
+tracked in PaddleOCR issue #18248. The accepted operational shape is exactly
+`count=1651`, `ok=1650`, `fail=1`, `fallback=0`; no fallback or synthetic output
+is allowed. Scoring retains all 1,651 GT pages and treats this page as empty.
+The historical numbers below are still not fresh release evidence.
 
 Authentic historical scorer artifacts do show enough candidate page-level
 loss to cover the 0.182-point target gap: Formula CDM loss pages contain at
@@ -209,7 +211,7 @@ post-processing deletion.
 
 | Boundary | Classified count | Evidence conclusion |
 |---|---:|---|
-| Dataset/coverage | 1 official failed page | Fresh release comparison blocked. |
+| Dataset/coverage | 1 approved official PEG failure | Full 1,651-page scoring denominator retained; fresh comparison must be regenerated. |
 | Formula CDM final output | 56 matched loss samples | Measured; two source-identity keys per side remain unmatched. |
 | Table TEDS final output | 32 matched loss samples | Measured with complete 665-key alignment. |
 | Text final output | 190 matched loss samples | Measured on stable keys. |

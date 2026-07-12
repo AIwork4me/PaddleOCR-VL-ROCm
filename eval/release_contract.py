@@ -81,6 +81,17 @@ def validate_release_run_stats(
     return [KNOWN_V16_OFFICIAL_FAILURE]
 
 
+def validate_approved_failure_predictions(
+    predictions_dir: Path, approved_failures: list[dict[str, str]]
+) -> None:
+    for failure in approved_failures:
+        prediction = predictions_dir / f"{Path(failure['image']).stem}.md"
+        if prediction.exists():
+            raise ValueError(
+                f"Approved failed-page prediction must not exist in scorer input: {prediction}"
+            )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate release-grade inference run stats.")
     parser.add_argument("--stats", type=Path, required=True)
@@ -90,6 +101,7 @@ def main(argv: list[str] | None = None) -> int:
     run_stats = json.loads(args.stats.read_text(encoding="utf-8"))
     try:
         exceptions = validate_release_run_stats(run_stats, version=args.version, engine=args.engine)
+        validate_approved_failure_predictions(args.stats.parent, exceptions)
     except ValueError as exc:
         parser.error(str(exc))
     if exceptions:

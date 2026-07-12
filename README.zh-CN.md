@@ -13,7 +13,7 @@
 | 官方本地路径 | 0.034 | 96.502 | 94.239 | 95.7803 |
 | 轻量 ROCm 路径 | 0.034 | 96.922 | 94.322 | 95.9480 |
 
-证据来源和重算过程见 [`docs/accuracy-root-cause-v16.md`](docs/accuracy-root-cause-v16.md)。新鲜官方运行因上游 PEG parser 的确定性 HTTP 500 停在 1650/1651。G3 精度与 G4 性能尚未通过，因此项目不宣称已经获得发布验收分数或延迟；G3 前计时仅用于诊断。
+证据来源和重算过程见 [`docs/accuracy-root-cause-v16.md`](docs/accuracy-root-cause-v16.md)。官方推理当前成功 1,650 页，`newspaper_The Times UK_0801@magazinesclubnew_page_031.png` 稳定触发一次 `peg-native` HTTP 500，公开记录在 [PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248)。项目负责人批准了这个唯一且不可扩大的已知失败。评分仍包含全部 1,651 个 GT 页面，并把该页作为空预测处理，因此例外不会抬高分数。issue 仍为 open，本文不把它描述成 PaddlePaddle 维护者已解决。G3 精度与 G4 性能尚未通过；G3 前计时仍仅用于诊断。
 
 ## 兼容性演示
 

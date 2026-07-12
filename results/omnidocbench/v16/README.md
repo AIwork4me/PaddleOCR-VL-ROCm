@@ -22,8 +22,10 @@ Formula **96.502**, and Overall **95.7803**. Reading-order Edit-distance
 **0.128238** is reported separately and does not enter Overall.
 
 These are reconstructed historical values, not fresh release evidence. See
-`docs/accuracy-root-cause-v16.md` for provenance and the incomplete 1650/1651
-official rerun status.
+`docs/accuracy-root-cause-v16.md` for provenance. The official path has 1,650
+successful pages plus one project-approved known `peg-native` failure linked to
+PaddleOCR issue #18248. Scoring retains all 1,651 GT pages and treats that page
+as an empty prediction.
 
 The lower-level raw all-values from `metric_result` are retained for audit:
 Table TEDS **93.1345** and Formula CDM **96.7129**. These values are not

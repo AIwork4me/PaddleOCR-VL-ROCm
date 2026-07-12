@@ -6,6 +6,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from eval.release_contract import (
+    validate_approved_failure_predictions,
+    validate_release_run_stats,
+)
+
 OFFICIAL_LOCAL_STEM = "paddleocr_official_local_llamacpp_gguf"
 
 
@@ -146,6 +151,19 @@ def extract_readme_metrics(metric: dict[str, Any]) -> dict[str, float | None]:
     return values
 
 
+def approved_known_failures(
+    run_stats: dict[str, Any], predictions_dir: Path
+) -> list[dict[str, str]]:
+    if run_stats.get("count") != 1651 or run_stats.get("engine") != "official":
+        return []
+    try:
+        failures = validate_release_run_stats(run_stats, version="v16", engine="official")
+    except ValueError:
+        return []
+    validate_approved_failure_predictions(predictions_dir, failures)
+    return failures
+
+
 def write_run_summary(
     *,
     save_name: str,
@@ -184,6 +202,7 @@ def write_run_summary(
         "ok_pages": run_stats.get("ok"),
         "failed_pages": run_stats.get("fail"),
         "fallback_pages": run_stats.get("fallback"),
+        "approved_known_failures": approved_known_failures(run_stats, run_stats_path.parent),
         "metric_result_path": str(metric_result_path),
         "run_stats_path": str(run_stats_path),
         "notebook_metrics": extract_notebook_metrics(metric_result),
@@ -236,6 +255,7 @@ def write_provenance(
         "ok_pages": run_stats.get("ok"),
         "failed_pages": run_stats.get("fail"),
         "fallback_pages": run_stats.get("fallback"),
+        "approved_known_failures": approved_known_failures(run_stats, predictions_dir),
         "metric_result_paths": [str(path) for path in metric_result_paths],
         "run_summary_paths": [str(path) for path in run_summary_paths],
         "run_stats_path": str(run_stats_path),

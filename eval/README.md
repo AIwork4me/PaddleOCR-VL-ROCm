@@ -290,7 +290,10 @@ artifact separately when you want it in history.)
 
 Historical reconstructed evidence is documented in
 `results/omnidocbench/v16/README.md` and `docs/accuracy-root-cause-v16.md`. It is
-not fresh release evidence. The current fresh official run is incomplete at
-1650/1651 because one page deterministically fails in the upstream PEG parser;
-G3 accuracy and G4 performance remain pending. CI validates this integration
-offline and never downloads datasets/models or contacts a server.
+not fresh release evidence. The release contract accepts exactly 1,650
+successful official pages plus the single `peg-native` failure documented in
+<https://github.com/PaddlePaddle/PaddleOCR/issues/18248>. All 1,651 GT pages
+remain in scoring and the failed page is an empty prediction. Any second or
+different failure is rejected. G3 accuracy and G4 performance remain pending.
+CI validates this integration offline and never downloads datasets/models or
+contacts a server.

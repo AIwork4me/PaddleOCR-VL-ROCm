@@ -7,6 +7,7 @@ import pytest
 
 from eval.release_contract import (
     KNOWN_V16_OFFICIAL_FAILURE,
+    validate_approved_failure_predictions,
     validate_release_run_stats,
 )
 
@@ -138,3 +139,13 @@ def test_cli_validates_stats_file(tmp_path: Path) -> None:
 
     assert completed.returncode == 0, completed.stderr
     assert "approved known failure" in completed.stdout
+
+
+def test_approved_failure_requires_missing_prediction_markdown(tmp_path: Path) -> None:
+    validate_approved_failure_predictions(tmp_path, [KNOWN_V16_OFFICIAL_FAILURE])
+
+    prediction = tmp_path / f"{Path(KNOWN_V16_OFFICIAL_FAILURE['image']).stem}.md"
+    prediction.write_text("synthetic fallback", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must not exist"):
+        validate_approved_failure_predictions(tmp_path, [KNOWN_V16_OFFICIAL_FAILURE])
