@@ -1,3 +1,4 @@
+import hashlib
 import json
 import shutil
 from dataclasses import dataclass
@@ -29,6 +30,22 @@ def official_local_paths(version: str, *, cdm: bool = False) -> ArtifactPaths:
 
 def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def prediction_manifest_sha256(predictions_dir: Path) -> str:
+    rows = [
+        f"{path.name}\t{sha256_file(path)}"
+        for path in sorted(predictions_dir.glob("*.md"), key=lambda item: item.name)
+    ]
+    return hashlib.sha256("\n".join(rows).encode("utf-8")).hexdigest()
 
 
 def copy_metric_report(source: Path, destination: Path) -> Path:
@@ -171,6 +188,7 @@ def write_run_summary(
         "fallback_pages": run_stats.get("fallback"),
         "metric_result_path": str(metric_result_path),
         "run_stats_path": str(run_stats_path),
+        "notebook_metrics": extract_notebook_metrics(metric_result),
         "readme_metrics": extract_readme_metrics(metric_result),
         "metric_quality": analyze_metric_quality(metric_result),
         "run_stats_summary": run_stats_summary,
@@ -194,6 +212,10 @@ def write_provenance(
     metric_result_paths: list[Path],
     run_summary_paths: list[Path],
     run_stats_path: Path,
+    omnidocbench: dict[str, Any],
+    dataset_sha256: str,
+    config_sha256: str,
+    prediction_manifest_sha256: str,
 ) -> Path:
     run_stats = load_json(run_stats_path)
     provenance = {
@@ -203,9 +225,13 @@ def write_provenance(
         "vlm_server_url": server_url,
         "api_model_name": api_model_name,
         "adapter_command": adapter_command,
+        "omnidocbench": omnidocbench,
         "scoring_config_path": str(scoring_config_path),
+        "config_sha256": config_sha256,
         "dataset_manifest_path": str(dataset_manifest_path),
+        "dataset_sha256": dataset_sha256,
         "prediction_dir": str(predictions_dir),
+        "prediction_manifest_sha256": prediction_manifest_sha256,
         "page_count": run_stats.get("count"),
         "ok_pages": run_stats.get("ok"),
         "failed_pages": run_stats.get("fail"),

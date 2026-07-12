@@ -88,6 +88,8 @@ def apply_artifact_profile_defaults(args: argparse.Namespace) -> None:
         args.copy_report = paths.metric_result.as_posix()
     if getattr(args, "run_summary", None) is None:
         args.run_summary = paths.run_summary.as_posix()
+    if getattr(args, "provenance", None) is None:
+        args.provenance = paths.provenance.as_posix()
 
 
 # --- stages --------------------------------------------------------------------
@@ -281,16 +283,16 @@ def _resolve_eval_python(checkout: Path) -> str:
     return sys.executable
 
 
-def _validate_scorer_checkout(checkout: Path) -> None:
+def _validate_scorer_checkout(checkout: Path) -> dict[str, object]:
     benchmark_contract = _load_script_module(
         "benchmark_contract", Path("eval/benchmark_contract.py")
     )
-    benchmark_contract.validate_checkout(checkout)
+    return benchmark_contract.validate_checkout(checkout)
 
 
 def stage_eval(args: argparse.Namespace) -> None:
     checkout = _ensure_omnidocbench_checkout()
-    _validate_scorer_checkout(checkout)
+    checkout_contract = _validate_scorer_checkout(checkout)
     config = Path(args.config or VERSION_CONFIGS[args.version])
     if not config.is_file():
         raise SystemExit(f"OmniDocBench config not found: {config}")
@@ -330,6 +332,8 @@ def stage_eval(args: argparse.Namespace) -> None:
 
     if report.exists():
         print(f"[eval] Report ready: {report}")
+        copied = None
+        summary = None
         if getattr(args, "copy_report", None):
             artifacts = _load_artifact_utils()
             copied = artifacts.copy_metric_report(report, Path(args.copy_report))
@@ -344,6 +348,46 @@ def stage_eval(args: argparse.Namespace) -> None:
                     cdm=bool(getattr(args, "cdm", False)),
                 )
                 print(f"[eval] Run summary ready: {summary}")
+        if getattr(args, "provenance", None):
+            if copied is None:
+                raise SystemExit("Writing provenance requires --copy-report.")
+            artifacts = _load_artifact_utils()
+            dataset_root = Path(
+                getattr(args, "dataset_dir", None) or VERSION_DATASET_DIRS[args.version]
+            )
+            dataset_manifest = dataset_root / "OmniDocBench.json"
+            if not dataset_manifest.is_file():
+                raise SystemExit(f"Dataset manifest not found: {dataset_manifest}")
+            git_commit = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], text=True
+            ).strip()
+            provenance = artifacts.write_provenance(
+                destination=Path(args.provenance),
+                git_commit=git_commit,
+                engine=getattr(args, "engine", ""),
+                server_url=getattr(args, "server_url", DEFAULT_SERVER_URL),
+                api_model_name=getattr(args, "api_model_name", DEFAULT_API_MODEL_NAME),
+                adapter_command=(
+                    "python eval/run_eval.py --stage infer "
+                    f"--version {args.version} --engine {getattr(args, 'engine', '')} "
+                    "--artifact-profile official-local "
+                    f"--server-url {getattr(args, 'server_url', DEFAULT_SERVER_URL)} "
+                    f"--api-model-name {getattr(args, 'api_model_name', DEFAULT_API_MODEL_NAME)}"
+                ),
+                scoring_config_path=config,
+                dataset_manifest_path=dataset_manifest,
+                predictions_dir=predictions_dir,
+                metric_result_paths=[copied],
+                run_summary_paths=[] if summary is None else [summary],
+                run_stats_path=predictions_dir / "_run_stats.json",
+                omnidocbench=checkout_contract,
+                dataset_sha256=artifacts.sha256_file(dataset_manifest),
+                config_sha256=artifacts.sha256_file(config),
+                prediction_manifest_sha256=artifacts.prediction_manifest_sha256(
+                    predictions_dir
+                ),
+            )
+            print(f"[eval] Provenance ready: {provenance}")
     else:
         raise SystemExit(
             f"pdf_validation completed but expected report not found at {report}; "
@@ -415,6 +459,7 @@ def main() -> None:
     parser.add_argument("--limit-pages", type=int, default=None)
     parser.add_argument("--copy-report", default=None)
     parser.add_argument("--run-summary", default=None)
+    parser.add_argument("--provenance", default=None)
     parser.add_argument("--cdm", action="store_true")
     args = parser.parse_args()
     apply_artifact_profile_defaults(args)

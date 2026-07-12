@@ -22,7 +22,11 @@ def _load_run_eval():
 
 
 def _allow_test_checkout(mod, monkeypatch):
-    monkeypatch.setattr(mod, "_validate_scorer_checkout", lambda checkout: None)
+    monkeypatch.setattr(
+        mod,
+        "_validate_scorer_checkout",
+        lambda checkout: {"commit": "pinned", "blobs": {"metrics.py": "blob"}},
+    )
 
 
 def _allow_test_release_stats(mod, monkeypatch):
@@ -66,12 +70,17 @@ def test_artifact_profile_sets_official_predictions_dir():
             "predictions_dir": str(mod.DEFAULT_PREDICTIONS_DIR),
             "engine": "official",
             "cdm": False,
+            "provenance": None,
         },
     )()
 
     mod.apply_artifact_profile_defaults(args)
 
     assert args.predictions_dir == "predictions/paddleocr_official_local_llamacpp_gguf_v16"
+    assert args.provenance == (
+        "results/omnidocbench/v16/"
+        "paddleocr_official_local_llamacpp_gguf_provenance.json"
+    )
 
 
 @pytest.mark.parametrize(
@@ -296,13 +305,17 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
     images = dataset / "images"
     images.mkdir(parents=True)
     (images / "page.png").write_bytes(b"image")
+    dataset_manifest = dataset / "OmniDocBench.json"
+    dataset_manifest.write_text('{"pages": ["page.png"]}', encoding="utf-8")
     predictions.mkdir(parents=True)
+    (predictions / "page.md").write_text("prediction", encoding="utf-8")
     (predictions / "_run_stats.json").write_text(
         '{"count": 1, "ok": 1, "fail": 0, "fallback": 0, "engine": "official", "stats": []}',
         encoding="utf-8",
     )
     copied = tmp_path / "results" / "metric.json"
     summary = tmp_path / "results" / "summary.json"
+    provenance = tmp_path / "results" / "provenance.json"
 
     monkeypatch.setattr(mod, "_ensure_omnidocbench_checkout", lambda: checkout)
     _allow_test_checkout(mod, monkeypatch)
@@ -314,6 +327,7 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
         return type("R", (), {"returncode": 0})()
 
     monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.subprocess, "check_output", lambda *args, **kwargs: "repo-head\n")
     monkeypatch.setattr(
         mod, "_resolve_report_path", lambda checkout, predictions_dir, match_method: report
     )
@@ -329,6 +343,11 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
             "copy_report": str(copied),
             "run_summary": str(summary),
             "cdm": False,
+            "dataset_dir": str(dataset),
+            "provenance": str(provenance),
+            "server_url": "http://127.0.0.1:8111/v1",
+            "api_model_name": "PaddleOCR-VL-1.6-GGUF.gguf",
+            "engine": "official",
         },
     )()
 
@@ -336,6 +355,11 @@ def test_stage_eval_copies_official_metric_report(tmp_path, monkeypatch):
 
     assert copied.read_text(encoding="utf-8").startswith('{"text_block"')
     assert summary.is_file()
+    written_provenance = json.loads(provenance.read_text(encoding="utf-8"))
+    assert written_provenance["omnidocbench"]["commit"] == "pinned"
+    assert len(written_provenance["dataset_sha256"]) == 64
+    assert len(written_provenance["config_sha256"]) == 64
+    assert len(written_provenance["prediction_manifest_sha256"]) == 64
 
 
 def test_stage_eval_refuses_to_publish_limited_predictions(tmp_path, monkeypatch):

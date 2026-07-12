@@ -4,6 +4,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+from eval import benchmark_contract
+
 
 def _load_artifacts():
     script = Path("eval/artifact_utils.py")
@@ -149,8 +151,14 @@ def test_write_run_summary_and_provenance(tmp_path):
     predictions = tmp_path / "predictions"
     results_dir = tmp_path / "results"
     predictions.mkdir()
+    (predictions / "page-2.md").write_text("second", encoding="utf-8")
+    (predictions / "page-1.md").write_text("first", encoding="utf-8")
     stats_path = predictions / "_run_stats.json"
     metric_path = results_dir / "metric.json"
+    config_path = tmp_path / "config.yaml"
+    dataset_path = tmp_path / "OmniDocBench.json"
+    config_path.write_text("metrics: [TEDS, CDM]\n", encoding="utf-8")
+    dataset_path.write_text('{"pages": [1, 2, 3]}', encoding="utf-8")
     stats_path.write_text(
         json.dumps(
             {
@@ -172,7 +180,36 @@ def test_write_run_summary_and_provenance(tmp_path):
     )
     metric_path.parent.mkdir(parents=True)
     metric_path.write_text(
-        json.dumps({"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}), encoding="utf-8"
+        json.dumps(
+            {
+                "text_block": {"all": {"Edit_dist": {"ALL_page_avg": 0.0344448}}},
+                "display_formula": {
+                    "page": {"CDM": {"ALL": 0.96502201}},
+                    "metric_debug": {
+                        "CDM": {
+                            "sample_count": 2,
+                            "timeout_case_count": 0,
+                            "exception_case_count": 0,
+                        }
+                    },
+                },
+                "table": {
+                    "page": {
+                        "TEDS": {"ALL": 0.94239317},
+                        "TEDS_structure_only": {"ALL": 0.955},
+                    },
+                    "metric_debug": {
+                        "TEDS": {
+                            "sample_count": 1,
+                            "timeout_case_count": 0,
+                            "error_case_count": 0,
+                        }
+                    },
+                },
+                "reading_order": {"all": {"Edit_dist": {"ALL_page_avg": 0.1294874}}},
+            }
+        ),
+        encoding="utf-8",
     )
 
     summary_path = mod.write_run_summary(
@@ -189,12 +226,19 @@ def test_write_run_summary_and_provenance(tmp_path):
         server_url="http://127.0.0.1:8111/v1",
         api_model_name="PaddleOCR-VL-1.6-GGUF.gguf",
         adapter_command="python eval/run_eval.py --stage infer --engine official",
-        scoring_config_path=Path("eval/configs/omnidocbench_v16.yaml"),
-        dataset_manifest_path=Path("data/omnidocbench/v16/OmniDocBench.json"),
+        scoring_config_path=config_path,
+        dataset_manifest_path=dataset_path,
         predictions_dir=predictions,
         metric_result_paths=[metric_path],
         run_summary_paths=[summary_path],
         run_stats_path=stats_path,
+        omnidocbench={
+            "commit": benchmark_contract.OMNIDOCBENCH_V16_COMMIT,
+            "blobs": benchmark_contract.SCORING_BLOBS,
+        },
+        dataset_sha256=mod.sha256_file(dataset_path),
+        config_sha256=mod.sha256_file(config_path),
+        prediction_manifest_sha256=mod.prediction_manifest_sha256(predictions),
     )
 
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -209,9 +253,14 @@ def test_write_run_summary_and_provenance(tmp_path):
         "failure_samples": [{"image": "bad.png", "status": "fail: controlled", "error": "x" * 200}],
     }
     assert summary["metric_result_path"] == str(metric_path)
+    assert summary["notebook_metrics"]["overall"] == 95.78033333333333
     assert provenance["git_commit"] == "abc123"
     assert provenance["ok_pages"] == 2
     assert provenance["fallback_pages"] == 1
+    assert provenance["omnidocbench"]["commit"] == benchmark_contract.OMNIDOCBENCH_V16_COMMIT
+    assert len(provenance["dataset_sha256"]) == 64
+    assert len(provenance["config_sha256"]) == 64
+    assert len(provenance["prediction_manifest_sha256"]) == 64
 
 
 def test_cdm_all_exception_metric_is_marked_invalid(tmp_path):
