@@ -96,7 +96,61 @@ def test_cli_forwards_contract_seed_to_pipeline(monkeypatch, tmp_path):
     assert captured["seed"] == CONTRACT["defaults"]["seed"]
 
 
-def test_replayed_native_output_matches_v16_contract(tmp_path):
+def test_static_contract_check_cannot_skip_without_external_checkout(monkeypatch, tmp_path):
+    monkeypatch.setattr(Path, "exists", lambda _path: False)
+    skipped = False
+
+    try:
+        test_committed_golden_matches_static_v16_contract(tmp_path)
+    except pytest.skip.Exception:
+        skipped = True
+
+    assert skipped is False, "checkout-independent contract assertions must not skip"
+
+
+def test_committed_golden_matches_static_v16_contract(tmp_path):
+    golden = json.loads(GOLDEN_JSON.read_text(encoding="utf-8"))
+
+    for key in CONTRACT["json_keys"]:
+        assert key in golden
+        assert type(golden[key]) is JSON_TYPES[CONTRACT["json_types"][key]]
+    for key, expected in CONTRACT["model_settings"].items():
+        actual = golden["model_settings"][key]
+        if expected == "array":
+            assert isinstance(actual, list)
+        else:
+            assert actual is expected
+    assert hashlib.sha256(GOLDEN_MARKDOWN.read_bytes()).hexdigest() == CONTRACT["markdown_sha256"]
+
+    result = PaddleOCRVLROCmResult(golden, GOLDEN_MARKDOWN.read_text(encoding="utf-8"))
+    saved_json = result.save_to_json(tmp_path / "saved")
+    saved_markdown = result.save_to_markdown(tmp_path / "saved", pretty=False)
+    assert saved_json.name.endswith(CONTRACT["json_suffix"])
+    assert saved_markdown.name.endswith(CONTRACT["markdown_suffix"])
+    assert json.loads(saved_json.read_text(encoding="utf-8")) == golden
+    assert saved_markdown.read_bytes() == GOLDEN_MARKDOWN.read_bytes()
+
+
+def _assert_json_close(actual, expected, path="$"):
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict), f"{path}: expected object"
+        assert actual.keys() == expected.keys(), f"{path}: keys differ"
+        for key in expected:
+            _assert_json_close(actual[key], expected[key], f"{path}.{key}")
+        return
+    if isinstance(expected, list):
+        assert isinstance(actual, list), f"{path}: expected array"
+        assert len(actual) == len(expected), f"{path}: length differs"
+        for index, (actual_item, expected_item) in enumerate(zip(actual, expected, strict=True)):
+            _assert_json_close(actual_item, expected_item, f"{path}[{index}]")
+        return
+    if isinstance(expected, float) or isinstance(actual, float):
+        assert actual == pytest.approx(expected, abs=1e-4), path
+        return
+    assert actual == expected, path
+
+
+def test_native_replay_optionally_matches_committed_golden(tmp_path):
     golden = json.loads(GOLDEN_JSON.read_text(encoding="utf-8"))
     input_path = Path(golden["input_path"])
     recorded_root = input_path.parents[2]
@@ -126,24 +180,6 @@ def test_replayed_native_output_matches_v16_contract(tmp_path):
         skip_server_check=True,
         vlm_max_workers=CONTRACT["defaults"]["vlm_max_workers"],
     )
-    payload = json.loads(json_path.read_text(encoding="utf-8"))
-    markdown_path = replay_dir / "result.md"
-    markdown = markdown_path.read_text(encoding="utf-8")
 
-    for key in CONTRACT["json_keys"]:
-        assert key in payload
-        assert type(payload[key]) is JSON_TYPES[CONTRACT["json_types"][key]]
-    for key, expected in CONTRACT["model_settings"].items():
-        actual = payload["model_settings"][key]
-        if expected == "array":
-            assert isinstance(actual, list)
-        else:
-            assert actual is expected
-    assert hashlib.sha256(markdown_path.read_bytes()).hexdigest() == CONTRACT["markdown_sha256"]
-
-    result = PaddleOCRVLROCmResult(payload, markdown)
-    saved_json = result.save_to_json(tmp_path / "saved")
-    saved_markdown = result.save_to_markdown(tmp_path / "saved", pretty=False)
-    assert saved_json.name.endswith(CONTRACT["json_suffix"])
-    assert saved_markdown.name.endswith(CONTRACT["markdown_suffix"])
-    assert saved_markdown.read_bytes() == GOLDEN_MARKDOWN.read_bytes()
+    _assert_json_close(json.loads(json_path.read_text(encoding="utf-8")), golden)
+    assert (replay_dir / "result.md").read_bytes() == GOLDEN_MARKDOWN.read_bytes()
