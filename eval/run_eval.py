@@ -235,11 +235,12 @@ def _validate_release_prediction_stats(args: argparse.Namespace, predictions_dir
         )
     release_contract = _load_release_contract()
     try:
-        release_contract.validate_release_run_stats(
+        approved_failures = release_contract.validate_release_run_stats(
             run_stats,
             version=args.version,
             engine=getattr(args, "engine", run_stats.get("engine", "")),
         )
+        release_contract.validate_approved_failure_predictions(predictions_dir, approved_failures)
     except ValueError as exc:
         raise SystemExit(f"Release prediction contract failed for {stats_path}: {exc}") from exc
 
