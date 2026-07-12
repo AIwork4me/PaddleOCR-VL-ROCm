@@ -245,24 +245,26 @@ def test_lightweight_folder_writes_run_stats_and_error_log(tmp_path, monkeypatch
     assert stats["layout_providers_active"][0] == "DmlExecutionProvider"
     assert stats["timing"]["count"] == 1
     assert stats["stage_timing"] == {
-        "decode_seconds": {
-            "count": 1, "mean": 0.1, "p50": 0.1, "p95": 0.1, "p99": 0.1, "max": 0.1
-        },
-        "layout_seconds": {
-            "count": 1, "mean": 0.2, "p50": 0.2, "p95": 0.2, "p99": 0.2, "max": 0.2
-        },
+        "decode_seconds": {"count": 1, "mean": 0.1, "p50": 0.1, "p95": 0.1, "p99": 0.1, "max": 0.1},
+        "layout_seconds": {"count": 1, "mean": 0.2, "p50": 0.2, "p95": 0.2, "p99": 0.2, "max": 0.2},
         "crop_encode_seconds": {
-            "count": 1, "mean": 0.3, "p50": 0.3, "p95": 0.3, "p99": 0.3, "max": 0.3
+            "count": 1,
+            "mean": 0.3,
+            "p50": 0.3,
+            "p95": 0.3,
+            "p99": 0.3,
+            "max": 0.3,
         },
-        "vlm_seconds": {
-            "count": 1, "mean": 0.4, "p50": 0.4, "p95": 0.4, "p99": 0.4, "max": 0.4
-        },
+        "vlm_seconds": {"count": 1, "mean": 0.4, "p50": 0.4, "p95": 0.4, "p99": 0.4, "max": 0.4},
         "finalize_seconds": {
-            "count": 1, "mean": 0.5, "p50": 0.5, "p95": 0.5, "p99": 0.5, "max": 0.5
+            "count": 1,
+            "mean": 0.5,
+            "p50": 0.5,
+            "p95": 0.5,
+            "p99": 0.5,
+            "max": 0.5,
         },
-        "total_seconds": {
-            "count": 1, "mean": 1.5, "p50": 1.5, "p95": 1.5, "p99": 1.5, "max": 1.5
-        },
+        "total_seconds": {"count": 1, "mean": 1.5, "p50": 1.5, "p95": 1.5, "p99": 1.5, "max": 1.5},
     }
 
 

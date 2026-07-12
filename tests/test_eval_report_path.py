@@ -78,8 +78,7 @@ def test_artifact_profile_sets_official_predictions_dir():
 
     assert args.predictions_dir == "predictions/paddleocr_official_local_llamacpp_gguf_v16"
     assert args.provenance == (
-        "results/omnidocbench/v16/"
-        "paddleocr_official_local_llamacpp_gguf_provenance.json"
+        "results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_provenance.json"
     )
 
 
@@ -202,9 +201,7 @@ def test_release_prediction_stats_reject_missing_dataset_images(tmp_path):
         )
 
 
-@pytest.mark.parametrize(
-    "missing_fields", [("count",), ("ok",), ("count", "ok"), ("limit_pages",)]
-)
+@pytest.mark.parametrize("missing_fields", [("count",), ("ok",), ("count", "ok"), ("limit_pages",)])
 def test_release_prediction_stats_reject_missing_required_fields(
     tmp_path, monkeypatch, missing_fields
 ):

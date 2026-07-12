@@ -222,8 +222,7 @@ def _validate_release_prediction_stats(args: argparse.Namespace, predictions_dir
     actual_count = run_stats.get("count")
     if expected_count is None:
         raise SystemExit(
-            "Release evidence requires an available dataset image count: "
-            f"{stats_path}"
+            f"Release evidence requires an available dataset image count: {stats_path}"
         )
     if actual_count != expected_count:
         raise SystemExit(
@@ -358,9 +357,7 @@ def stage_eval(args: argparse.Namespace) -> None:
             dataset_manifest = dataset_root / "OmniDocBench.json"
             if not dataset_manifest.is_file():
                 raise SystemExit(f"Dataset manifest not found: {dataset_manifest}")
-            git_commit = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], text=True
-            ).strip()
+            git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
             provenance = artifacts.write_provenance(
                 destination=Path(args.provenance),
                 git_commit=git_commit,
@@ -383,9 +380,7 @@ def stage_eval(args: argparse.Namespace) -> None:
                 omnidocbench=checkout_contract,
                 dataset_sha256=artifacts.sha256_file(dataset_manifest),
                 config_sha256=artifacts.sha256_file(config),
-                prediction_manifest_sha256=artifacts.prediction_manifest_sha256(
-                    predictions_dir
-                ),
+                prediction_manifest_sha256=artifacts.prediction_manifest_sha256(predictions_dir),
             )
             print(f"[eval] Provenance ready: {provenance}")
     else:

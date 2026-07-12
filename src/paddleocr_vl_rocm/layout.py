@@ -778,9 +778,13 @@ class PPDocLayoutV3Onnx:
         )
         self.layout_providers_active = list(self.session.get_providers())
         self.active_providers = self.layout_providers_active
-        if providers and providers[0] == "DmlExecutionProvider" and (
-            not self.layout_providers_active
-            or self.layout_providers_active[0] != "DmlExecutionProvider"
+        if (
+            providers
+            and providers[0] == "DmlExecutionProvider"
+            and (
+                not self.layout_providers_active
+                or self.layout_providers_active[0] != "DmlExecutionProvider"
+            )
         ):
             raise RuntimeError(
                 "DmlExecutionProvider failed to activate; refusing CPU fallback for "

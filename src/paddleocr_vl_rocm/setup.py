@@ -204,9 +204,7 @@ def setup_managed_runtime(options: SetupOptions | None = None) -> SetupResult:
         return result
 
     try:
-        runtime_archive = download_resource(
-            resources["llama-cpp-hip-runtime"], root / "cache"
-        )
+        runtime_archive = download_resource(resources["llama-cpp-hip-runtime"], root / "cache")
         for name in (
             "paddleocr-vl-main-gguf",
             "paddleocr-vl-mmproj",
@@ -277,8 +275,7 @@ def start_managed_server(
                 return_code = process.poll()
                 if return_code is not None:
                     raise RuntimeError(
-                        f"Managed llama-server exited with code {return_code}; "
-                        f"inspect {log_path}"
+                        f"Managed llama-server exited with code {return_code}; inspect {log_path}"
                     )
                 return process
         except (requests.RequestException, ValueError):

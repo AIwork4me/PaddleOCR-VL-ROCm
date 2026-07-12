@@ -217,9 +217,7 @@ def run_light_parser(
                     for _ in range(vlm_repeats)
                 ]
                 counts = Counter(candidates)
-                content = max(
-                    candidates, key=lambda item: (counts[item], -candidates.index(item))
-                )
+                content = max(candidates, key=lambda item: (counts[item], -candidates.index(item)))
         finally:
             trace_context.event = None
             trace_context.timings = None
@@ -229,9 +227,7 @@ def run_light_parser(
     if vlm_tasks:
         max_workers = min(max(1, vlm_max_workers), len(vlm_tasks))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for block, content, trace_event, task_timings in executor.map(
-                _run_vlm_task, vlm_tasks
-            ):
+            for block, content, trace_event, task_timings in executor.map(_run_vlm_task, vlm_tasks):
                 if task_timings is not None:
                     vlm_timing_events.extend(task_timings)
                 if trace_event is not None:
@@ -251,16 +247,10 @@ def run_light_parser(
                     trace_event["final_result_sha256"] = _sha256_hex(content.encode("utf-8"))
                     trace_event["final_result_chars"] = len(content)
     encode_seconds = _covered_seconds(
-        [
-            (event["encode_started"], event["encode_finished"])
-            for event in vlm_timing_events
-        ]
+        [(event["encode_started"], event["encode_finished"]) for event in vlm_timing_events]
     )
     request_seconds = _covered_seconds(
-        [
-            (event["request_started"], event["request_finished"])
-            for event in vlm_timing_events
-        ]
+        [(event["request_started"], event["request_finished"]) for event in vlm_timing_events]
     )
     crop_encode_seconds = crop_prepare_seconds + encode_seconds
     vlm_seconds = request_seconds

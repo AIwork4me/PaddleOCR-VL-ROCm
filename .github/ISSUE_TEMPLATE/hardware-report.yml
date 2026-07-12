@@ -1,0 +1,36 @@
+name: Hardware report
+description: Report setup, provider, or inference failures on a specific machine
+title: "[Hardware]: "
+labels: [hardware]
+body:
+  - type: input
+    id: gpu
+    attributes: {label: GPU model}
+    validations: {required: true}
+  - type: input
+    id: driver
+    attributes: {label: AMD driver version}
+    validations: {required: true}
+  - type: input
+    id: windows
+    attributes: {label: Windows version and build}
+    validations: {required: true}
+  - type: input
+    id: runtime
+    attributes: {label: llama.cpp version and commit}
+    validations: {required: true}
+  - type: input
+    id: model_hash
+    attributes: {label: Model SHA-256}
+    validations: {required: true}
+  - type: textarea
+    id: command
+    attributes: {label: Exact command}
+    validations: {required: true}
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Redacted doctor JSON
+      description: Paste paddleocr-vl-rocm doctor --json output after removing private paths or identifiers.
+    validations: {required: true}
+

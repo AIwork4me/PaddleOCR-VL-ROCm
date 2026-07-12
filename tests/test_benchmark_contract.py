@@ -1,11 +1,10 @@
-from pathlib import Path
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
 from eval import benchmark_contract as contract
-
 
 REPO_ROOT = Path(__file__).parents[1]
 
@@ -20,9 +19,7 @@ def _run_git(checkout: Path, *args: str) -> str:
 
 
 @pytest.fixture
-def checkout_fixture(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> tuple[Path, Path]:
+def checkout_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
     _run_git(checkout, "init")
@@ -77,10 +74,7 @@ def _ensure_windows_patch(checkout: Path, patch: Path) -> subprocess.CompletedPr
     if powershell is None:
         pytest.skip("Windows PowerShell is required for preparation-script tests")
     script = REPO_ROOT / "scripts" / "prepare_omnidocbench_v16.ps1"
-    command = (
-        f". '{script}'; "
-        f"Ensure-WindowsCdmPatch -Checkout '{checkout}' -Patch '{patch}'"
-    )
+    command = f". '{script}'; Ensure-WindowsCdmPatch -Checkout '{checkout}' -Patch '{patch}'"
     return subprocess.run(
         [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
         cwd=REPO_ROOT,
@@ -196,9 +190,9 @@ def test_main_returns_two_when_contract_mismatches(
 
 
 def test_prepare_script_pins_and_validates_v16_checkout() -> None:
-    script = (
-        Path(__file__).parents[1] / "scripts" / "prepare_omnidocbench_v16.ps1"
-    ).read_text(encoding="utf-8")
+    script = (Path(__file__).parents[1] / "scripts" / "prepare_omnidocbench_v16.ps1").read_text(
+        encoding="utf-8"
+    )
 
     assert contract.OMNIDOCBENCH_V16_COMMIT in script
     assert '$Checkout = "eval/.omnidocbench"' in script

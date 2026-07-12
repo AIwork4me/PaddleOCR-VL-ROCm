@@ -386,7 +386,11 @@ def _check_server(context: DoctorContext) -> CheckResult:
     finally:
         if response is not None:
             response.close()
-    return _pass("server", "OpenAI-compatible /v1/models is reachable.", {"payload": payload})
+    return _pass(
+        "server",
+        "OpenAI-compatible /v1/models is reachable.",
+        {"url": _redacted_url(models_url), "model_count": len(models)},
+    )
 
 
 DOCTOR_CHECKS: tuple[CheckSpec, ...] = (

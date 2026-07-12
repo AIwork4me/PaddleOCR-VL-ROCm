@@ -88,7 +88,9 @@ def _debug_quality(
         "sample_count": sample_count,
         "timeout_case_count": timeout_count,
         error_key: error_count,
-        "reason": "" if valid else (
+        "reason": ""
+        if valid
+        else (
             f"{name} requires samples>0, timeouts=0, errors=0; "
             f"samples={sample_count}, timeouts={timeout_count}, errors={error_count}"
         ),
@@ -97,9 +99,7 @@ def _debug_quality(
 
 def analyze_metric_quality(metric: dict[str, Any]) -> dict[str, Any]:
     return {
-        "formula_cdm": _debug_quality(
-            metric, "display_formula", "CDM", "exception_case_count"
-        ),
+        "formula_cdm": _debug_quality(metric, "display_formula", "CDM", "exception_case_count"),
         "table_teds": _debug_quality(metric, "table", "TEDS", "error_case_count"),
     }
 
@@ -112,12 +112,8 @@ def extract_notebook_metrics(metric: dict[str, Any]) -> dict[str, float | None]:
     text = _nested_number(metric, "text_block", "all", "Edit_dist", "ALL_page_avg")
     formula_raw = _nested_number(metric, "display_formula", "page", "CDM", "ALL")
     table_raw = _nested_number(metric, "table", "page", "TEDS", "ALL")
-    table_s_raw = _nested_number(
-        metric, "table", "page", "TEDS_structure_only", "ALL"
-    )
-    reading = _nested_number(
-        metric, "reading_order", "all", "Edit_dist", "ALL_page_avg"
-    )
+    table_s_raw = _nested_number(metric, "table", "page", "TEDS_structure_only", "ALL")
+    reading = _nested_number(metric, "reading_order", "all", "Edit_dist", "ALL_page_avg")
 
     text_value = _rounded(text)
     formula_value = _rounded(None if formula_raw is None else formula_raw * 100.0)

@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import argparse
-from contextvars import ContextVar
 import hashlib
 import json
-from pathlib import Path
 import subprocess
 import sys
-from typing import Sequence
-
+from collections.abc import Sequence
+from contextvars import ContextVar
+from pathlib import Path
 
 OMNIDOCBENCH_V16_COMMIT = "147cd5ac9472002f5751221d390bf00abdbc0d2f"
 SCORING_BLOBS = {
@@ -92,8 +91,7 @@ def validate_checkout(checkout: Path) -> dict[str, object]:
         expected_patch = WINDOWS_CDM_PATCH.read_text(encoding="utf-8").strip()
         if worktree_patch != expected_patch:
             raise RuntimeError(
-                "OmniDocBench v1.6 Windows CDM worktree diff does not match the "
-                "tracked patch"
+                "OmniDocBench v1.6 Windows CDM worktree diff does not match the tracked patch"
             )
     finally:
         _GIT_CHECKOUT.reset(token)

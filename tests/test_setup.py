@@ -110,7 +110,11 @@ def test_setup_extraction_failure_preserves_previous_runtime(tmp_path, monkeypat
     runtime.mkdir()
     old_server = runtime / "llama-server.exe"
     old_server.write_bytes(b"old runtime")
-    monkeypatch.setattr(managed_setup, "_extract_runtime", lambda *_args: (_ for _ in ()).throw(RuntimeError("extract")))
+    monkeypatch.setattr(
+        managed_setup,
+        "_extract_runtime",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("extract")),
+    )
 
     with pytest.raises(RuntimeError, match="extract"):
         setup_managed_runtime(SetupOptions(root=tmp_path, force=True))
@@ -298,9 +302,7 @@ def test_start_managed_server_preserves_diagnostic_when_terminate_races(tmp_path
         start_managed_server(result, timeout=1.0)
 
 
-def test_start_managed_server_preserves_diagnostic_when_kill_wait_times_out(
-    tmp_path, monkeypatch
-):
+def test_start_managed_server_preserves_diagnostic_when_kill_wait_times_out(tmp_path, monkeypatch):
     result = managed_setup.SetupResult(
         root=tmp_path,
         runtime_dir=tmp_path / "runtime",

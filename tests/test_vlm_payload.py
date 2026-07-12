@@ -184,9 +184,7 @@ def test_vllm_observer_receives_jpeg_metadata_and_exact_payload():
     }
 
 
-def test_parallel_pipeline_observers_populate_their_own_trace_events(
-    tmp_path, monkeypatch
-):
+def test_parallel_pipeline_observers_populate_their_own_trace_events(tmp_path, monkeypatch):
     formula_observed = Event()
 
     class FakeLayout:

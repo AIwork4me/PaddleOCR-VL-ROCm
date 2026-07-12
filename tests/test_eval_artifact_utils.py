@@ -326,6 +326,5 @@ def test_cdm_all_exception_metric_is_marked_invalid(tmp_path):
     assert summary["readme_metrics"]["formula_cdm_percent"] is None
     assert summary["metric_quality"]["formula_cdm"]["valid"] is False
     assert summary["metric_quality"]["formula_cdm"]["reason"] == (
-        "CDM requires samples>0, timeouts=0, errors=0; "
-        "samples=2, timeouts=0, errors=2"
+        "CDM requires samples>0, timeouts=0, errors=0; samples=2, timeouts=0, errors=2"
     )

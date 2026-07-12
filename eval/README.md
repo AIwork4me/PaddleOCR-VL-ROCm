@@ -47,6 +47,10 @@ Before running any stage, you need all of the following:
 
 2. **The PP-DocLayoutV3 ONNX layout model downloaded.**
 
+   English users should download it directly from
+   <https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx>. Chinese users can
+   use <https://modelscope.cn/models/PaddlePaddle/PP-DocLayoutV3_onnx>.
+
    ```powershell
    pip install -e .[download]
    python scripts/download_ppdoclayoutv3_onnx.py
@@ -195,7 +199,7 @@ vendor OmniDocBench or its dependencies (see the note under
 ```bash
 git clone https://github.com/opendatalab/OmniDocBench.git eval/.omnidocbench
 cd eval/.omnidocbench
-git checkout <pinned-commit-or-branch>   # master = v1.6
+git checkout 147cd5ac9472002f5751221d390bf00abdbc0d2f
 pip install -e .
 ```
 
@@ -222,7 +226,8 @@ v1.5 and v1.6 are **different OmniDocBench git branches plus different
 datasets**, sharing the same config schema but using a different matching
 algorithm. They are not a config flag.
 
-- **v1.6** — OmniDocBench repo `master` branch, ~1,651 pages. Matching =
+- **v1.6** — OmniDocBench commit
+  `147cd5ac9472002f5751221d390bf00abdbc0d2f`, 1,651 pages. Matching =
   Multi-Granularity Adaptive Matching (MGAM); CDM rewritten from Node.js to
   Python.
 - **v1.5** — earlier git branch, ~1,355 pages. Different matching algorithm.
@@ -237,7 +242,7 @@ To score **both** versions:
 
    ```bash
    # v1.6
-   (cd eval/.omnidocbench && git checkout master)
+   (cd eval/.omnidocbench && git checkout 147cd5ac9472002f5751221d390bf00abdbc0d2f)
    python eval/run_eval.py --stage eval --version v16
 
    # v1.5
@@ -283,7 +288,9 @@ artifact separately when you want it in history.)
 
 ## Status
 
-This integration is verified **structurally** (imports, naming logic, config YAML
-validity, runner `--help`). A live end-to-end run with recorded scores is
-**PENDING** until a VLM server and an OmniDocBench environment are available in
-this repo's CI.
+Historical reconstructed evidence is documented in
+`results/omnidocbench/v16/README.md` and `docs/accuracy-root-cause-v16.md`. It is
+not fresh release evidence. The current fresh official run is incomplete at
+1650/1651 because one page deterministically fails in the upstream PEG parser;
+G3 accuracy and G4 performance remain pending. CI validates this integration
+offline and never downloads datasets/models or contacts a server.

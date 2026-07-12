@@ -160,6 +160,27 @@ def test_server_check_rejects_non_models_json_and_closes_response(monkeypatch):
     response.close.assert_called_once()
 
 
+def test_server_check_does_not_expose_model_paths_in_success_details(monkeypatch):
+    response = Mock(status_code=200)
+    response.json.return_value = {
+        "data": [{"id": r"C:\Users\private\models\secret.gguf"}],
+        "models": [{"name": r"C:\Users\private\models\secret.gguf"}],
+    }
+    monkeypatch.setattr(doctor.requests, "get", Mock(return_value=response))
+
+    result = doctor._check_server(
+        DoctorContext(config={}, root=Path.cwd(), server_url="http://127.0.0.1:8111/v1")
+    )
+
+    assert result.status == "PASS"
+    assert result.details == {
+        "url": "http://127.0.0.1:8111/v1/models",
+        "model_count": 1,
+    }
+    assert "private" not in json.dumps(result.details)
+    response.close.assert_called_once()
+
+
 def test_disk_check_uses_nearest_existing_parent(tmp_path, monkeypatch):
     missing = tmp_path / "not-created" / "managed-root"
     disk_usage = Mock(return_value=SimpleNamespace(free=10 * 1024**3, total=20 * 1024**3))
