@@ -13,7 +13,9 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
+from paddleocr_vl_rocm.contracts import fingerprint, redact
 from paddleocr_vl_rocm.encoding import _jpeg_bytes, _png_bytes, _sha256_hex
 from paddleocr_vl_rocm.pipeline_core import run_light_parser
 from paddleocr_vl_rocm.vlm import client
@@ -25,20 +27,44 @@ FIXTURES = REPO / "tests" / "fixtures"
 GOLDEN = FIXTURES / "golden"
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-url", default="http://127.0.0.1:8000/v1")
-    parser.add_argument("--api-model-name", default="PaddleOCR-VL-1.5-0.9B")
+    parser.add_argument("--api-model-name", default="PaddleOCR-VL-1.6-GGUF.gguf")
     parser.add_argument(
-        "--vlm-backend", default="vllm-server", choices=["vllm-server", "llama-cpp-server"]
+        "--vlm-backend",
+        default="llama-cpp-server",
+        choices=["vllm-server", "llama-cpp-server"],
     )
     parser.add_argument("--layout-model", default="models/PP-DocLayoutV3-onnx")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--trace-jsonl",
+        type=Path,
+        help="Write one redacted canonical JSON event per VLM block",
+    )
+    return parser
+
+
+def write_trace_jsonl(trace_path: Path, trace_events: list[dict[str, Any]]) -> None:
+    trace_path.parent.mkdir(parents=True, exist_ok=True)
+    with trace_path.open("w", encoding="utf-8") as stream:
+        for event in trace_events:
+            redacted_event = redact(event)
+            if "payload" in redacted_event:
+                redacted_event.setdefault(
+                    "payload_fingerprint", fingerprint(redacted_event["payload"])
+                )
+            stream.write(json.dumps(redacted_event, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def main() -> None:
+    args = build_parser().parse_args()
 
     FIXTURES.mkdir(parents=True, exist_ok=True)
     GOLDEN.mkdir(parents=True, exist_ok=True)
 
     recorded: dict[str, str] = {}
+    trace_events: list[dict[str, Any]] = []
     original = client.OpenAICompatibleVLMClient.complete_image
 
     def recording(
@@ -97,6 +123,7 @@ def main() -> None:
                 threshold=0.3,
                 display_input_path=str(img),
                 skip_server_check=False,
+                vlm_trace_events=trace_events if args.trace_jsonl is not None else None,
             )
             stem = img.stem
             (GOLDEN / f"{stem}.json").write_text(
@@ -112,6 +139,8 @@ def main() -> None:
     (FIXTURES / "compat_cache.json").write_text(
         json.dumps({"entries": recorded}, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    if args.trace_jsonl is not None:
+        write_trace_jsonl(args.trace_jsonl, trace_events)
     # Self-describing metadata so the replay test uses the SAME backend / model / layout path
     # used to record (the cache key's image-sha depends on backend-specific image encoding).
     (FIXTURES / "record_meta.json").write_text(
