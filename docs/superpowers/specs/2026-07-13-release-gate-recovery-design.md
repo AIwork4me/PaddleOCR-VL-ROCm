@@ -87,7 +87,9 @@ Notebook statistics are reconstructed exactly:
   equal mean across all Formula GT pages;
 - Table is the equal mean of sample TEDS values within each GT page, then the
   equal mean across all Table GT pages;
-- Text, Formula, and Table are rounded to three decimals before Overall;
+- Text Edit distance, Formula percent, and Table percent are rounded to three
+  decimals before Overall, which is
+  `((1 - TextEdit) * 100 + FormulaPercent + TablePercent) / 3`;
 - reading order is reported separately and does not enter Overall.
 
 Exit decisions:
