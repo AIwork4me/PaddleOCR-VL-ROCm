@@ -130,6 +130,16 @@ def test_pipeline_passes_layout_provider_metadata_to_trace(tmp_path, monkeypatch
 
     def fake_run_light_parser(**kwargs):
         captured.update(kwargs)
+        kwargs["timing_events"].append(
+            {
+                "decode_seconds": 0.1,
+                "layout_seconds": 0.2,
+                "crop_encode_seconds": 0.3,
+                "vlm_seconds": 0.4,
+                "finalize_seconds": 0.5,
+                "total_seconds": 1.5,
+            }
+        )
         path = kwargs["output_dir"] / "result.json"
         path.write_text('{"input_path": "input.png"}', encoding="utf-8")
         return path
@@ -145,3 +155,11 @@ def test_pipeline_passes_layout_provider_metadata_to_trace(tmp_path, monkeypatch
         "DmlExecutionProvider",
         "CPUExecutionProvider",
     ]
+    assert pipeline.last_timing == {
+        "decode_seconds": 0.1,
+        "layout_seconds": 0.2,
+        "crop_encode_seconds": 0.3,
+        "vlm_seconds": 0.4,
+        "finalize_seconds": 0.5,
+        "total_seconds": 1.5,
+    }

@@ -39,6 +39,7 @@ class PaddleOCRVLROCm:
         self.layout_providers_active: list[str] = []
         self.active_layout_providers = self.layout_providers_active
         self._layout_model: PPDocLayoutV3Onnx | None = None
+        self.last_timing: dict[str, float] | None = None
 
     def _layout(self) -> PPDocLayoutV3Onnx:
         if self._layout_model is None:
@@ -56,8 +57,10 @@ class PaddleOCRVLROCm:
         return self._layout_model
 
     def predict(self, image_path: str | Path) -> PaddleOCRVLROCmResult:
+        self.last_timing = None
         image = Path(image_path)
         layout = self._layout()
+        timing_events: list[dict[str, float]] = []
         with tempfile.TemporaryDirectory(prefix="paddleocr_vl_rocm_") as tmp:
             tmp_dir = Path(tmp)
             json_path = run_light_parser(
@@ -79,6 +82,7 @@ class PaddleOCRVLROCm:
                 vlm_repeats=1,
                 vlm_max_workers=self.vlm_max_workers,
                 layout_model=layout,
+                timing_events=timing_events,
                 layout_provider_requested=layout.layout_provider_requested,
                 layout_providers_active=layout.layout_providers_active,
             )
@@ -90,4 +94,5 @@ class PaddleOCRVLROCm:
                 if (tmp_dir / "result.md").exists()
                 else ""
             )
+        self.last_timing = timing_events[-1] if timing_events else None
         return PaddleOCRVLROCmResult(payload, markdown)

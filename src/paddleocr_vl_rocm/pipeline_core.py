@@ -4,6 +4,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import local
+from time import perf_counter
 from typing import Any
 
 from PIL import Image
@@ -32,6 +33,7 @@ from .preprocess import (
 from .serialize import _result_payload
 from .server import check_openai_compatible_server
 from .table import _convert_otsl_to_html
+from .timing import _covered_seconds
 from .utils import write_json
 from .vlm.client import LlamaCppClient, _load_vlm_compat_cache, _prompt_for_label
 
@@ -60,7 +62,10 @@ def run_light_parser(
     vlm_trace_events: list[dict[str, Any]] | None = None,
     layout_provider_requested: str | None = None,
     layout_providers_active: list[str] | None = None,
+    timing_events: list[dict[str, float]] | None = None,
 ) -> Path:
+    timing_enabled = timing_events is not None
+    total_started = perf_counter() if timing_enabled else 0.0
     compat_cache = _load_vlm_compat_cache(compat_cache_path)
     if not compat_cache and not skip_server_check:
         check_openai_compatible_server(server_url)
@@ -89,6 +94,11 @@ def run_light_parser(
             }
         )
 
+    def _observe_vlm_timing(event: dict[str, float]) -> None:
+        task_timings = getattr(trace_context, "timings", None)
+        if task_timings is not None:
+            task_timings.append(event)
+
     client = LlamaCppClient(
         server_url,
         api_model_name,
@@ -97,11 +107,15 @@ def run_light_parser(
         seed=seed,
         compat_cache=compat_cache,
         request_observer=_observe_vlm_request if vlm_trace_events is not None else None,
+        timing_observer=_observe_vlm_timing if timing_enabled else None,
     )
+    decode_started = perf_counter() if timing_enabled else 0.0
     full_image = _open_crop_source(input_path)
     bgr_image = _open_crop_source_bgr(input_path)
     width, height = full_image.size
+    decode_seconds = perf_counter() - decode_started if timing_enabled else 0.0
 
+    layout_started = perf_counter() if timing_enabled else 0.0
     if use_layout_detection:
         layout = layout_model or PPDocLayoutV3Onnx(model_dir)
         boxes, _ = layout.predict(
@@ -123,7 +137,9 @@ def run_light_parser(
             )
         ]
         figures_in_doc = []
+    layout_seconds = perf_counter() - layout_started if timing_enabled else 0.0
 
+    crop_encode_started = perf_counter() if timing_enabled else 0.0
     if use_layout_detection:
         blocks = _merge_blocks(
             _make_blocks(full_image, _filter_overlap_boxes(boxes), bgr_image=bgr_image),
@@ -163,13 +179,22 @@ def run_light_parser(
                     "layout_providers_active": list(layout_providers_active or []),
                 }
                 vlm_trace_events.append(trace_event)
-            vlm_tasks.append((block, prompt, image_for_vlm, trace_event))
+            task_timings: list[dict[str, float]] | None = [] if timing_enabled else None
+            vlm_tasks.append((block, prompt, image_for_vlm, trace_event, task_timings))
+    crop_prepare_seconds = perf_counter() - crop_encode_started if timing_enabled else 0.0
 
     def _run_vlm_task(
-        task: tuple[LightBlock, str, Image.Image, dict[str, Any] | None],
-    ) -> tuple[LightBlock, str, dict[str, Any] | None]:
-        block, prompt, image_for_vlm, trace_event = task
+        task: tuple[
+            LightBlock,
+            str,
+            Image.Image,
+            dict[str, Any] | None,
+            list[dict[str, float]] | None,
+        ],
+    ) -> tuple[LightBlock, str, dict[str, Any] | None, list[dict[str, float]] | None]:
+        block, prompt, image_for_vlm, trace_event, task_timings = task
         trace_context.event = trace_event
+        trace_context.timings = task_timings
         try:
             if vlm_repeats <= 1:
                 content = client.complete_image(
@@ -197,12 +222,18 @@ def run_light_parser(
                 )
         finally:
             trace_context.event = None
-        return block, content, trace_event
+            trace_context.timings = None
+        return block, content, trace_event, task_timings
 
+    vlm_timing_events: list[dict[str, float]] = []
     if vlm_tasks:
         max_workers = min(max(1, vlm_max_workers), len(vlm_tasks))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for block, content, trace_event in executor.map(_run_vlm_task, vlm_tasks):
+            for block, content, trace_event, task_timings in executor.map(
+                _run_vlm_task, vlm_tasks
+            ):
+                if task_timings is not None:
+                    vlm_timing_events.extend(task_timings)
                 if trace_event is not None:
                     trace_event["raw_result_sha256"] = _sha256_hex(content.encode("utf-8"))
                     trace_event["raw_result_chars"] = len(content)
@@ -219,7 +250,22 @@ def run_light_parser(
                 if trace_event is not None:
                     trace_event["final_result_sha256"] = _sha256_hex(content.encode("utf-8"))
                     trace_event["final_result_chars"] = len(content)
+    encode_seconds = _covered_seconds(
+        [
+            (event["encode_started"], event["encode_finished"])
+            for event in vlm_timing_events
+        ]
+    )
+    request_seconds = _covered_seconds(
+        [
+            (event["request_started"], event["request_finished"])
+            for event in vlm_timing_events
+        ]
+    )
+    crop_encode_seconds = crop_prepare_seconds + encode_seconds
+    vlm_seconds = request_seconds
 
+    finalize_started = perf_counter() if timing_enabled else 0.0
     if drop_figures_set:
         blocks = [
             block
@@ -244,4 +290,16 @@ def run_light_parser(
     markdown = _markdown_from_blocks(blocks, width)
     if markdown:
         (output_dir / "result.md").write_text(markdown, encoding="utf-8")
+    finalize_seconds = perf_counter() - finalize_started if timing_enabled else 0.0
+    if timing_events is not None:
+        timing_events.append(
+            {
+                "decode_seconds": decode_seconds,
+                "layout_seconds": layout_seconds,
+                "crop_encode_seconds": crop_encode_seconds,
+                "vlm_seconds": vlm_seconds,
+                "finalize_seconds": finalize_seconds,
+                "total_seconds": perf_counter() - total_started,
+            }
+        )
     return json_path

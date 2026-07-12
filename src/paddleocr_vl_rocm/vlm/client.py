@@ -128,6 +128,7 @@ class OpenAICompatibleVLMClient:
         seed: int = 1,
         compat_cache: dict[str, str] | None = None,
         request_observer: Callable[[VLMRequestContract], None] | None = None,
+        timing_observer: Callable[[dict[str, float]], None] | None = None,
     ) -> None:
         if backend not in {"llama-cpp-server", "vllm-server"}:
             raise ValueError(
@@ -142,6 +143,7 @@ class OpenAICompatibleVLMClient:
         self._cache: dict[str, str] = {}
         self._compat_cache = compat_cache or {}
         self._request_observer = request_observer
+        self._timing_observer = timing_observer
 
     def complete_image(
         self,
@@ -161,6 +163,7 @@ class OpenAICompatibleVLMClient:
         """
         if image is None and image_path is None:
             raise ValueError("Either image or image_path is required.")
+        encode_started = time.perf_counter() if self._timing_observer is not None else None
         if image is not None:
             if self.backend == "vllm-server":
                 image_bytes = _jpeg_bytes(image)
@@ -190,6 +193,7 @@ class OpenAICompatibleVLMClient:
             min_pixels=min_pixels,
             max_pixels=max_pixels,
         )
+        encode_finished = time.perf_counter() if encode_started is not None else None
         if self._request_observer is not None:
             self._request_observer(
                 VLMRequestContract(
@@ -203,11 +207,38 @@ class OpenAICompatibleVLMClient:
                 )
             )
         if use_client_cache and cache_key in self._cache:
+            if (
+                self._timing_observer is not None
+                and encode_started is not None
+                and encode_finished is not None
+            ):
+                self._timing_observer(
+                    {
+                        "encode_started": encode_started,
+                        "encode_finished": encode_finished,
+                        "request_started": encode_finished,
+                        "request_finished": encode_finished,
+                    }
+                )
             return self._cache[cache_key]
         if use_client_cache and cache_key in self._compat_cache:
             text = self._compat_cache[cache_key]
             self._cache[cache_key] = text
+            if (
+                self._timing_observer is not None
+                and encode_started is not None
+                and encode_finished is not None
+            ):
+                self._timing_observer(
+                    {
+                        "encode_started": encode_started,
+                        "encode_finished": encode_finished,
+                        "request_started": encode_finished,
+                        "request_finished": encode_finished,
+                    }
+                )
             return text
+        request_started = time.perf_counter() if self._timing_observer is not None else None
         last_error: Exception | None = None
         for attempt in range(4):
             try:
@@ -238,6 +269,20 @@ class OpenAICompatibleVLMClient:
                 raise last_error
             raise RuntimeError("VLM request failed without a response.")
         text = _content_from_response(response.json())
+        if (
+            self._timing_observer is not None
+            and encode_started is not None
+            and encode_finished is not None
+            and request_started is not None
+        ):
+            self._timing_observer(
+                {
+                    "encode_started": encode_started,
+                    "encode_finished": encode_finished,
+                    "request_started": request_started,
+                    "request_finished": time.perf_counter(),
+                }
+            )
         if use_client_cache:
             self._cache[cache_key] = text
         return text

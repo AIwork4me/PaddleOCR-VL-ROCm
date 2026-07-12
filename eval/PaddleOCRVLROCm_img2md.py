@@ -13,6 +13,8 @@ import traceback
 from collections.abc import Iterable
 from pathlib import Path
 
+from paddleocr_vl_rocm.timing import summarize_seconds
+
 ADAPTER_DIR = Path(__file__).resolve().parent
 REPO_ROOT = ADAPTER_DIR.parent
 DEFAULT_ENGINE = "lightweight"
@@ -156,9 +158,14 @@ def run_lightweight_folder(
         try:
             result = pipeline.predict(img)
             destination.write_text(result.markdown_text, encoding="utf-8")
-            stats.append(
-                {"image": img.name, "status": "ok", "seconds": round(time.time() - start, 2)}
-            )
+            page_stats = {
+                "image": img.name,
+                "status": "ok",
+                "seconds": round(time.time() - start, 2),
+            }
+            if pipeline.last_timing is not None:
+                page_stats["timing"] = dict(pipeline.last_timing)
+            stats.append(page_stats)
         except Exception as exc:  # noqa: BLE001 - record failure, continue
             tb = traceback.format_exc()
             with open(out_dir / "_errors.log", "a", encoding="utf-8") as fh:
@@ -173,6 +180,15 @@ def run_lightweight_folder(
             )
 
     ok_count = sum(1 for s in stats if s["status"] == "ok")
+    successful_stats = [item for item in stats if item["status"] == "ok"]
+    stage_names = (
+        "decode_seconds",
+        "layout_seconds",
+        "crop_encode_seconds",
+        "vlm_seconds",
+        "finalize_seconds",
+        "total_seconds",
+    )
     summary = {
         "count": len(images),
         "ok": ok_count,
@@ -182,8 +198,15 @@ def run_lightweight_folder(
         "layout_provider_requested": layout_provider_requested,
         "layout_providers_active": layout_providers_active,
         "limit_pages": limit_pages,
+        "timing": summarize_seconds([float(item["seconds"]) for item in successful_stats]),
         "stats": stats,
     }
+    stage_events = [item["timing"] for item in successful_stats if "timing" in item]
+    if stage_events:
+        summary["stage_timing"] = {
+            stage: summarize_seconds([float(event[stage]) for event in stage_events])
+            for stage in stage_names
+        }
     (out_dir / "_run_stats.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
         encoding="utf-8",

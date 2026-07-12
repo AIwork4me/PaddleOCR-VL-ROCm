@@ -53,6 +53,36 @@ def test_complete_image_observer_receives_exact_llama_cpp_payload():
     assert request.payload["max_tokens"] == 4096
 
 
+def test_complete_image_timing_observer_separates_encoding_and_request_time():
+    observed = []
+    response = Mock(status_code=200)
+    response.json.return_value = {"choices": [{"message": {"content": "result"}}]}
+    client = OpenAICompatibleVLMClient(
+        "http://localhost:8080",
+        "model.gguf",
+        timeout=30.0,
+        timing_observer=observed.append,
+    )
+
+    with (
+        patch(
+            "paddleocr_vl_rocm.vlm.client.time.perf_counter",
+            side_effect=[1.0, 1.25, 2.0, 2.75],
+        ),
+        patch("paddleocr_vl_rocm.vlm.client.requests.post", return_value=response),
+    ):
+        client.complete_image("OCR:", image=Image.new("RGB", (3, 2), "white"))
+
+    assert observed == [
+        {
+            "encode_started": 1.0,
+            "encode_finished": 1.25,
+            "request_started": 2.0,
+            "request_finished": 2.75,
+        }
+    ]
+
+
 def test_complete_image_observes_logical_request_on_memory_cache_hit():
     observed = []
     response = Mock(status_code=200)
