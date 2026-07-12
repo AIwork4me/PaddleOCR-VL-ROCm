@@ -153,6 +153,12 @@ class OpenAICompatibleVLMClient:
         max_pixels: int | None = None,
         use_client_cache: bool = True,
     ) -> str:
+        """Complete one logical image request.
+
+        The request observer receives the complete canonical request contract for
+        every invocation, including invocations whose response is served from the
+        in-memory or compatibility cache. Cache hits still perform no HTTP request.
+        """
         if image is None and image_path is None:
             raise ValueError("Either image or image_path is required.")
         if image is not None:
@@ -174,12 +180,6 @@ class OpenAICompatibleVLMClient:
             max_new_tokens=max_new_tokens,
             seed=self.seed,
         )
-        if use_client_cache and cache_key in self._cache:
-            return self._cache[cache_key]
-        if use_client_cache and cache_key in self._compat_cache:
-            text = self._compat_cache[cache_key]
-            self._cache[cache_key] = text
-            return text
         payload = _completion_payload(
             self.backend,
             self.model,
@@ -202,6 +202,12 @@ class OpenAICompatibleVLMClient:
                     payload=redact(payload),
                 )
             )
+        if use_client_cache and cache_key in self._cache:
+            return self._cache[cache_key]
+        if use_client_cache and cache_key in self._compat_cache:
+            text = self._compat_cache[cache_key]
+            self._cache[cache_key] = text
+            return text
         last_error: Exception | None = None
         for attempt in range(4):
             try:
