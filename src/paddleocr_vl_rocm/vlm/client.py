@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,7 @@ import requests
 from PIL import Image
 
 from ..constants import IMAGE_LABELS, PROMPTS
+from ..contracts import VLMRequestContract, redact
 from ..encoding import _data_url_from_bytes, _image_data_url, _jpeg_bytes, _png_bytes, _sha256_hex
 from ..server import normalize_server_url
 from ..utils import get_logger
@@ -125,6 +127,7 @@ class OpenAICompatibleVLMClient:
         backend: str = "llama-cpp-server",
         seed: int = 1,
         compat_cache: dict[str, str] | None = None,
+        request_observer: Callable[[VLMRequestContract], None] | None = None,
     ) -> None:
         if backend not in {"llama-cpp-server", "vllm-server"}:
             raise ValueError(
@@ -138,6 +141,7 @@ class OpenAICompatibleVLMClient:
         self.seed = seed
         self._cache: dict[str, str] = {}
         self._compat_cache = compat_cache or {}
+        self._request_observer = request_observer
 
     def complete_image(
         self,
@@ -186,6 +190,18 @@ class OpenAICompatibleVLMClient:
             min_pixels=min_pixels,
             max_pixels=max_pixels,
         )
+        if self._request_observer is not None:
+            self._request_observer(
+                VLMRequestContract(
+                    backend=self.backend,
+                    model=self.model,
+                    prompt=prompt,
+                    image_format="JPEG" if self.backend == "vllm-server" else "PNG",
+                    image_sha256=image_sha256,
+                    image_size=image.size if image is not None else (0, 0),
+                    payload=redact(payload),
+                )
+            )
         last_error: Exception | None = None
         for attempt in range(4):
             try:

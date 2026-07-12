@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import local
 from typing import Any
 
 from PIL import Image
@@ -13,7 +14,8 @@ from .constants import (
     NON_MERGE_LABELS,
 )
 from .content import _normalize_vlm_result, _truncate_repetitive_content
-from .encoding import _jpeg_bytes, _png_bytes, _sha256_hex
+from .contracts import VLMRequestContract
+from .encoding import _sha256_hex
 from .geometry import _filter_overlap_boxes
 from .imageio import _crop_margin, _open_crop_source, _open_crop_source_bgr
 from .layout import PADDLEOCR_VL_LAYOUT_MERGE_MODE, LayoutBox, PPDocLayoutV3Onnx
@@ -60,6 +62,31 @@ def run_light_parser(
     compat_cache = _load_vlm_compat_cache(compat_cache_path)
     if not compat_cache and not skip_server_check:
         check_openai_compatible_server(server_url)
+    trace_context = local()
+
+    def _observe_vlm_request(request: VLMRequestContract) -> None:
+        trace_event = getattr(trace_context, "event", None)
+        if trace_event is None:
+            return
+        mm_processor_kwargs = request.payload.get("mm_processor_kwargs", {})
+        trace_event.update(
+            {
+                "backend": request.backend,
+                "model": request.model,
+                "prompt": request.prompt,
+                "image_format": request.image_format,
+                "image_sha256": request.image_sha256,
+                "image_size": list(request.image_size),
+                "max_new_tokens": request.payload.get(
+                    "max_tokens", request.payload.get("max_completion_tokens")
+                ),
+                "min_pixels": mm_processor_kwargs.get("min_pixels"),
+                "max_pixels": mm_processor_kwargs.get("max_pixels"),
+                "skip_special_tokens": request.payload.get("skip_special_tokens"),
+                "payload": request.payload,
+            }
+        )
+
     client = LlamaCppClient(
         server_url,
         api_model_name,
@@ -67,6 +94,7 @@ def run_light_parser(
         backend=vlm_backend,
         seed=seed,
         compat_cache=compat_cache,
+        request_observer=_observe_vlm_request if vlm_trace_events is not None else None,
     )
     full_image = _open_crop_source(input_path)
     bgr_image = _open_crop_source_bgr(input_path)
@@ -125,25 +153,10 @@ def run_light_parser(
                 image_for_vlm = _crop_margin(image_for_vlm)
             trace_event: dict[str, Any] | None = None
             if vlm_trace_events is not None:
-                image_bytes = (
-                    _jpeg_bytes(image_for_vlm)
-                    if vlm_backend == "vllm-server"
-                    else _png_bytes(image_for_vlm)
-                )
                 trace_event = {
-                    "backend": vlm_backend,
-                    "model": api_model_name,
                     "request_order": len(vlm_trace_events),
                     "block_label": block.label,
                     "block_bbox": block.bbox,
-                    "prompt": prompt,
-                    "image_format": "JPEG" if vlm_backend == "vllm-server" else "PNG",
-                    "image_sha256": _sha256_hex(image_bytes),
-                    "image_size": list(image_for_vlm.size),
-                    "max_new_tokens": max_new_tokens,
-                    "min_pixels": DEFAULT_MIN_PIXELS,
-                    "max_pixels": DEFAULT_MAX_PIXELS,
-                    "skip_special_tokens": True,
                 }
                 vlm_trace_events.append(trace_event)
             vlm_tasks.append((block, prompt, image_for_vlm, trace_event))
@@ -152,28 +165,34 @@ def run_light_parser(
         task: tuple[LightBlock, str, Image.Image, dict[str, Any] | None],
     ) -> tuple[LightBlock, str, dict[str, Any] | None]:
         block, prompt, image_for_vlm, trace_event = task
-        if vlm_repeats <= 1:
-            content = client.complete_image(
-                prompt,
-                image=image_for_vlm,
-                max_new_tokens=max_new_tokens,
-                min_pixels=DEFAULT_MIN_PIXELS,
-                max_pixels=DEFAULT_MAX_PIXELS,
-            )
-        else:
-            candidates = [
-                client.complete_image(
+        trace_context.event = trace_event
+        try:
+            if vlm_repeats <= 1:
+                content = client.complete_image(
                     prompt,
                     image=image_for_vlm,
                     max_new_tokens=max_new_tokens,
                     min_pixels=DEFAULT_MIN_PIXELS,
                     max_pixels=DEFAULT_MAX_PIXELS,
-                    use_client_cache=False,
                 )
-                for _ in range(vlm_repeats)
-            ]
-            counts = Counter(candidates)
-            content = max(candidates, key=lambda item: (counts[item], -candidates.index(item)))
+            else:
+                candidates = [
+                    client.complete_image(
+                        prompt,
+                        image=image_for_vlm,
+                        max_new_tokens=max_new_tokens,
+                        min_pixels=DEFAULT_MIN_PIXELS,
+                        max_pixels=DEFAULT_MAX_PIXELS,
+                        use_client_cache=False,
+                    )
+                    for _ in range(vlm_repeats)
+                ]
+                counts = Counter(candidates)
+                content = max(
+                    candidates, key=lambda item: (counts[item], -candidates.index(item))
+                )
+        finally:
+            trace_context.event = None
         return block, content, trace_event
 
     if vlm_tasks:
