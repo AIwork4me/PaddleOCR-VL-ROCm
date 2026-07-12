@@ -2,7 +2,7 @@
 
 - Date: 2026-07-12
 - Benchmark contract: OmniDocBench v1.6, commit `147cd5ac9472002f5751221d390bf00abdbc0d2f`
-- Status: historical diagnosis complete; fresh release evidence blocked
+- Status: scorer prioritization available; trace diagnosis blocked/incomplete
 
 ## Executive finding
 
@@ -14,7 +14,7 @@ publisher's minimal launch, reproduced the failure. The official run remains
 `count=1651`, `ok=1650`, `fail=1`, `fallback=0`; no lightweight fallback was
 used. Therefore none of the numbers below is fresh release evidence.
 
-Authentic historical scorer artifacts do show enough recoverable page-level
+Authentic historical scorer artifacts do show enough candidate page-level
 loss to cover the 0.182-point target gap: Formula CDM loss pages contain at
 most 0.2020 Overall points of historical headroom, Table TEDS loss pages
 0.0618, and text loss pages 0.0285. Their sum, 0.2924, is an upper bound that
@@ -22,7 +22,8 @@ assumes every loss is recovered with no regression on the more numerous gains.
 It is not a forecast. The current historical lightweight result is already
 0.1677 Overall points better than the historical official result.
 
-No authentic canonical official/lightweight inference traces were found.
+No authentic canonical official/lightweight inference traces were found, so
+Task 5 root-cause diagnosis is incomplete.
 Consequently the scorer records prove final matched-output differences, but
 they do not prove whether the first inference divergence is layout, crop,
 payload, raw VLM output, or post-processing. Those causes remain unproven and
@@ -89,20 +90,28 @@ records. All four reconstructions reproduce the metric JSON fields.
 
 ## Current delta analyzer result
 
-The current `scripts/analyze_omnidocbench_deltas.py` was run on isolated copies
+The corrected `scripts/analyze_omnidocbench_deltas.py` was run on isolated copies
 of the selected Formula CDM and Table TEDS artifacts with `--top 100`. It
-reported 2,945 stable matched sample keys: 2,280 formulas and all 665 tables.
-Formula matching also reported 72 official-only and 72 lightweight-only keys;
+reported 3,015 stable matched sample keys: 2,350 formulas and all 665 tables.
+Formula identity is `(img_id, canonical gt_position, SHA-256(raw gt))`, not the
+scorer-local `gt_idx`. Formula matching reported two official-only and two
+lightweight-only keys;
 these are excluded from paired sample attribution. Because the analyzer's
 component mean covers only matched keys, authoritative component values above
 come from full official v1.6 page reconstruction, not the analyzer's subset.
 On that matched subset, its signed `official_score - lightweight_score` page
-means were -0.0044675 for Formula CDM and -0.0008284 for Table TEDS (negative
+means were -0.0037960 for Formula CDM and -0.0008284 for Table TEDS (negative
 means the lightweight side was better).
+
+Before ranking, the analyzer now fails closed unless each side contains exactly
+2,352 Formula samples over 313 pages and 665 Table samples over 458 pages, and
+unless those fixed-denominator page reconstructions equal the companion metric
+fields within `1e-12`. A consistently incomplete sample file plus a matching
+incomplete metric can no longer pass.
 
 | Component | Matched samples | Prediction differs | Loss samples | Gain samples | Equal samples |
 |---|---:|---:|---:|---:|---:|
-| Formula CDM | 2,280 | 295 | 49 | 104 | 2,127 |
+| Formula CDM | 2,350 | 294 | 56 | 102 | 2,192 |
 | Table TEDS | 665 | 77 | 32 | 39 | 594 |
 | Text Edit | 19,657 | 983 | 190 | 180 | 19,287 |
 | Reading-order Edit | 1,638 | 82 | 28 | 32 | 1,578 |
@@ -111,7 +120,7 @@ The text and reading-order rows were reconstructed with the same v1.6
 statistics after stable `(img_id, gt_idx)` alignment; they are not emitted by
 the current Formula/Table analyzer CLI.
 
-## Ranked findings
+## Prioritized scorer observables (not diagnosed inference root causes)
 
 ### 0. Evidence pairing can manufacture a false CDM regression
 
@@ -133,16 +142,17 @@ the current Formula/Table analyzer CLI.
 
 Representative paired cases:
 
-| Page / GT index | Official CDM | Lightweight CDM | Page delta | Observation |
+| Page / official GT index / source position | Official CDM | Lightweight CDM | Page delta | Observation |
 |---|---:|---:|---:|---|
-| `page-7dfc88d8-6d95-446c-b910-2410e8552f76.png` / 1 | 0.965 | 0.061 | 0.9040 | Both predictions non-empty and differ. |
-| `page-21967f5d-667d-488e-a5b3-76b9d6f53656.png` / 21 | 1.000 | 0.000 | 0.2531 | Lightweight matched prediction is empty for this sample. |
-| `page-dad0f4e5-290f-496f-bbdd-099ad75c6ff0.png` / 15 | 1.000 | 0.000 | 0.2000 | Both predictions non-empty and differ. |
-| `page-05746fc5-2045-4dea-94e7-4bbab648d702.png` / 12 | 0.981 | 0.000 | 0.1635 | Both predictions non-empty and differ. |
-| `book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0451.png` / 7 | 0.956 | 0.000 | 0.0797 | Both predictions non-empty and differ. |
+| `page-7dfc88d8-6d95-446c-b910-2410e8552f76.png` / 1 / `[1]` | 0.965 | 0.061 | 0.9040 | Both predictions non-empty and differ. |
+| `page-dad0f4e5-290f-496f-bbdd-099ad75c6ff0.png` / 15 / `[15]` | 1.000 | 0.000 | 0.2000 | Both predictions non-empty and differ. |
+| `page-05746fc5-2045-4dea-94e7-4bbab648d702.png` / 12 / `[12]` | 0.981 | 0.000 | 0.1635 | Both predictions non-empty and differ. |
+| `book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0451.png` / 7 / `[6]` | 0.956 | 0.000 | 0.0797 | Both predictions non-empty and differ. |
+| `yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg` / 26 / `[52]` | 0.788 | 0.381 | 0.0139 | Both predictions non-empty and differ. |
 
-The two empty lightweight loss samples are observations, not proof of
-truncation, layout loss, or post-processing deletion.
+Three of the 56 aligned Formula loss samples have empty lightweight matched
+predictions. That is an observation, not proof of truncation, layout loss, or
+post-processing deletion.
 
 ### 2. Table structure/content losses form a smaller recovery pool
 
@@ -194,7 +204,7 @@ truncation, layout loss, or post-processing deletion.
 | Boundary | Classified count | Evidence conclusion |
 |---|---:|---|
 | Dataset/coverage | 1 official failed page | Fresh release comparison blocked. |
-| Formula CDM final output | 49 matched loss samples | Measured; 72 keys per side remain unmatched. |
+| Formula CDM final output | 56 matched loss samples | Measured; two source-identity keys per side remain unmatched. |
 | Table TEDS final output | 32 matched loss samples | Measured with complete 665-key alignment. |
 | Text final output | 190 matched loss samples | Measured on stable keys. |
 | Reading-order final output | 28 matched loss samples | Measured; excluded from Overall. |
@@ -208,9 +218,10 @@ observable does not exist.
 
 ## Decision
 
-The next work must first make evidence pairing fail closed, capture canonical
+The next work is evidence completion and root-cause investigation: capture canonical
 traces for the named cases with `DmlExecutionProvider` active on every Windows
 lightweight trace, and perform crop/payload/raw/final oracle swaps. Only a
 subsequent evidence-specific plan may change inference behavior. The current
 historical loss pools are suitable for prioritization and fixtures, not for
-claiming a production root cause or a fresh 96.13 acceptance result.
+claiming that Task 5 diagnosis is complete, a production root cause, or a fresh
+96.13 acceptance result.

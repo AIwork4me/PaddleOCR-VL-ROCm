@@ -1,10 +1,10 @@
-# Accuracy Root-Cause Evidence Fixes Implementation Plan
+# Accuracy Evidence Completion And Root-Cause Investigation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make historical/fresh v1.6 artifact pairing fail closed and produce DirectML-qualified canonical evidence that identifies the earliest divergence for the exact Formula, Table, Text, and reading-order loss fixtures before any production inference change.
+**Goal:** Complete the blocked Task 5 diagnosis by making v1.6 artifact pairing fail closed and producing DirectML-qualified canonical evidence that identifies the earliest divergence for exact Formula, Table, Text, and reading-order fixtures.
 
-**Architecture:** Extend the diagnostic analyzer with an artifact-consistency gate, keep a small manifest of exact case identifiers and expected score deltas, then use the existing recorder/comparator for paired capture and boundary-oracle attribution. This plan deliberately makes no prompt, crop, normalization, model, or serializer change because the available scorer records observe only final output.
+**Architecture:** Validate immutable GT identity and fixed v1.6 corpus coverage before ranking, keep a small manifest of exact source-position/fingerprint case identifiers, then use the existing recorder/comparator for paired capture and boundary-oracle attribution. This is an evidence-completion/root-cause investigation plan, not a post-diagnosis production-fix plan; it deliberately makes no prompt, crop, normalization, model, or serializer change.
 
 **Tech Stack:** Python 3.10+, JSON, SHA-256, pytest, OmniDocBench v1.6 at `147cd5ac9472002f5751221d390bf00abdbc0d2f`, ONNX Runtime DirectML.
 
@@ -22,56 +22,66 @@
 
 ## File Structure
 
-- Modify `scripts/analyze_omnidocbench_deltas.py`: validate per-sample reconstruction against companion metric fields and emit full-page loss summaries.
-- Modify `tests/test_analyze_omnidocbench_deltas.py`: stale/mispaired CDM rejection and official v1.6 aggregation tests.
-- Create `tests/fixtures/accuracy/v16-root-cause-cases.json`: exact page/GT-index manifest, historical expected deltas, and required trace boundaries.
+- Modify `scripts/analyze_omnidocbench_deltas.py`: key samples by immutable source identity and validate fixed v1.6 coverage/reconstruction.
+- Modify `tests/test_analyze_omnidocbench_deltas.py`: source-identity alignment, missing-page, stale/mispaired CDM, and official v1.6 aggregation tests.
+- Create `tests/fixtures/accuracy/v16-root-cause-cases.json`: exact page/source-position/GT-fingerprint manifest, historical expected deltas, and required trace boundaries.
 - Create `tests/test_accuracy_case_manifest.py`: manifest schema, uniqueness, thresholds, and DirectML trace contract tests.
 - Create `scripts/attribute_accuracy_deltas.py`: run deterministic crop/payload/raw/final oracle comparisons over trace pairs.
 - Create `tests/test_attribute_accuracy_deltas.py`: first-divergence and oracle-contribution tests.
 - Modify `docs/accuracy-root-cause-v16.md`: replace unproven boundaries only when authenticated traces support them.
 - Create `docs/superpowers/plans/2026-07-12-accuracy-inference-fixes.md` only after attribution: separate TDD plan for proven production fixes.
 
-### Task 1: Reject inconsistent Formula CDM evidence
+### Task 1: Reject misaligned or incomplete v1.6 evidence
 
 **Files:**
 - Modify: `scripts/analyze_omnidocbench_deltas.py`
 - Modify: `tests/test_analyze_omnidocbench_deltas.py`
 
 **Interfaces:**
-- Produces: `validate_component_metrics(result_dir: Path, samples: list[dict[str, object]]) -> dict[str, object]`.
+- Produces: `validate_v16_component_coverage(result_dir: Path, samples: list[dict[str, object]]) -> dict[str, object]`.
 - The CLI exits non-zero when reconstructed Formula CDM or Table TEDS differs from the companion official metric by more than `1e-12`.
+- Formula pairing uses `(component, img_id, canonical gt_position, SHA-256(raw gt))`; `gt_idx` remains display metadata only.
 
-- [ ] **Step 1: Write the failing stale-CDM fixture test**
+- [ ] **Step 1: Write the failing alignment and fixed-coverage tests**
 
-Add a test directory containing two formula samples with CDM `0.0` and a
-companion metric whose `display_formula.page.CDM.ALL` is `0.75`:
+Add one alignment test whose official and lightweight rows have different
+`gt_idx` but identical `img_id`, `gt_position`, and raw GT. Assert one match.
+Add a coverage test containing one Formula page and one Table page with
+self-consistent metrics:
 
 ```python
-def test_rejects_per_sample_cdm_that_does_not_reconstruct_metric(tmp_path: Path):
-    result_dir = tmp_path / "stale"
-    result_dir.mkdir()
-    _write_formula_rows(result_dir, [("a.png", 0, 0.0), ("b.png", 0, 0.0)])
-    _write_metric(result_dir, formula_page_cdm=0.75, table_page_teds=None)
-
-    with pytest.raises(ValueError, match="Formula CDM reconstruction mismatch"):
-        validate_component_metrics(result_dir, load_component_samples(result_dir))
+def test_v16_coverage_rejects_consistently_incomplete_sample_and_metric(tmp_path: Path):
+    result_dir = _write_one_page_per_component_with_matching_metric(tmp_path)
+    with pytest.raises(ValueError, match="Formula CDM coverage mismatch"):
+        validate_v16_component_coverage(result_dir, load_component_samples(result_dir))
 ```
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
-Run: `python -m pytest tests/test_analyze_omnidocbench_deltas.py::test_rejects_per_sample_cdm_that_does_not_reconstruct_metric -q`
+Run:
 
-Expected: FAIL because `validate_component_metrics` is undefined.
+```powershell
+python -m pytest tests/test_analyze_omnidocbench_deltas.py::test_rank_deltas_aligns_changed_scorer_indices_by_source_identity -q
+python -m pytest tests/test_analyze_omnidocbench_deltas.py::test_v16_coverage_rejects_consistently_incomplete_sample_and_metric -q
+```
+
+Expected: FAIL because immutable source identity and fixed coverage validation are absent.
 
 - [ ] **Step 3: Implement strict v1.6 reconstruction**
 
-Group Formula CDM and Table TEDS samples by page, take the equal sample mean
-within each page, then the equal mean across pages. Read only
+Require exactly 2,352 Formula samples across 313 pages and 665 Table samples
+across 458 pages before reading the companion metric. This rejects a missing
+page even when the incomplete sample and metric files agree. Group Formula CDM
+and Table TEDS samples by page, take the equal sample mean within each page,
+then the equal mean across pages. Read only
 `display_formula.page.CDM.ALL` and `table.page.TEDS.ALL` from the companion
 metric. Raise with the component, reconstructed value, metric value, and
 artifact paths when `abs(reconstructed - recorded) > 1e-12`.
 
 - [ ] **Step 4: Test the authentic inconsistency and selected pair**
+
+Run the validator on a 2,352-sample Formula fixture spanning only 312 pages.
+Expected: non-zero exit containing `pages=312, expected 313`.
 
 Run the validator on the excluded all-zero lightweight intermediate plus the
 later 96.922 metric. Expected: non-zero exit with reconstruction `0.0` versus
@@ -127,16 +137,28 @@ Expected: FAIL because the manifest does not exist.
 
 - [ ] **Step 3: Add the exact case manifest**
 
-Use the twenty cases listed in `docs/accuracy-root-cause-v16.md`. Store only
-identifiers and scalar scores/deltas, never GT text or predictions. Exact
-Formula page deltas are `0.9040`, `0.25309090909090914`, `0.2`, `0.1635`, and
-`0.07966666666666655`. Exact Table page deltas are
+Use the twenty cases listed in `docs/accuracy-root-cause-v16.md`. Store page,
+canonical source `gt_position`, GT SHA-256, scorer indices as non-identity
+metadata, and scalar scores/deltas; never store GT text or predictions. Exact
+Formula page deltas are `0.9040`, `0.2`, `0.1635`,
+`0.07966666666666655`, and `0.013930555555555557`. Exact Table page deltas are
 `0.3409420289855073`, `0.15384615384615397`, `0.14681114064407297`,
 `0.03286526420581071`, and `0.030612244897959218`. Exact Text page losses are
 `0.2251210600925081`, `0.12666666666666668`, `0.07355387174274626`,
 `0.06564501150780636`, and `0.06352941176470588`. Exact reading-order losses
 are `0.2857142857142857`, `0.18518518518518517`, `0.16666666666666666`,
 `0.14285714285714285`, and `0.13333333333333336`.
+
+The five Formula source identities are fixed as follows; these values, rather
+than scorer-local indices, are the manifest keys:
+
+| Page | `gt_position` | GT SHA-256 |
+|---|---|---|
+| `page-7dfc88d8-6d95-446c-b910-2410e8552f76.png` | `[1]` | `472997a99cd7471e82aa3781aca9f04ba48e9ed4f1514a4742884eaa0a03cce6` |
+| `page-dad0f4e5-290f-496f-bbdd-099ad75c6ff0.png` | `[15]` | `3127eff1948cabfc4ca288b0e2e02771987311ff57878c7f1ebc29462b578a03` |
+| `page-05746fc5-2045-4dea-94e7-4bbab648d702.png` | `[12]` | `5c43e0e70103cb48cb999db06912b97b8ed3d186ae7ba4c903e620185134e983` |
+| `book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0451.png` | `[6]` | `dbe2694121056e76d1dd1d4b4dddf5348a8641dc0dbb68764558bd79ba3a9113` |
+| `yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg` | `[52]` | `895c8f562a8cb3ced41db058e51e16b95d03d9205a8efb62b35dda635ed8c130` |
 
 - [ ] **Step 4: Verify and commit**
 
@@ -245,7 +267,7 @@ scores from content-aware TEDS.
 Run the focused tests, the complete analyzer/manifest suite, Ruff, mypy, and
 `git diff --check`. Commit with `feat(eval): attribute v16 losses by trace boundary`.
 
-### Task 5: Write the first production-fix plan only from proven attribution
+### Task 5: Gate any future production-fix plan on completed attribution
 
 **Files:**
 - Modify: `docs/accuracy-root-cause-v16.md`

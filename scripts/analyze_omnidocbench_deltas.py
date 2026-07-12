@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections import defaultdict
 from collections.abc import Iterable
@@ -11,6 +12,10 @@ COMPONENTS = (
     ("Table TEDS", "table", "TEDS", "*_table_result.json"),
 )
 DELTA_DEFINITION = "official_score - lightweight_score"
+V16_COVERAGE = {
+    "Formula CDM": {"sample_count": 2352, "page_count": 313},
+    "Table TEDS": {"sample_count": 665, "page_count": 458},
+}
 
 
 def _gt_idx(value: object) -> object:
@@ -29,7 +34,36 @@ def _sort_gt_idx(value: object) -> tuple[int, object]:
     return (1, str(value))
 
 
-def _case_key(component: str, img_id: object, gt_idx: object) -> tuple[str, str, object]:
+def _canonical_value(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _gt_fingerprint(value: object) -> str:
+    return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
+
+
+def _number(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"Expected numeric metric, got {value!r}")
+    return float(value)
+
+
+def _integer(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"Expected integer count, got {value!r}")
+    return value
+
+
+def _case_key(row: dict[str, object]) -> tuple[str, str, str, str]:
+    return (
+        str(row["component"]),
+        str(row["img_id"]),
+        _canonical_value(row.get("gt_position", "")),
+        str(row.get("gt_fingerprint") or _gt_fingerprint(row.get("gt", ""))),
+    )
+
+
+def _error_key(component: str, img_id: object, gt_idx: object) -> tuple[str, str, object]:
     return component, str(img_id), _gt_idx(gt_idx)
 
 
@@ -61,7 +95,7 @@ def _load_error_metadata(
                     if not isinstance(case, dict) or not case.get("img_id"):
                         continue
                     metadata = {"kind": kind, **case}
-                    key = _case_key(component, case["img_id"], case.get("gt_idx", ""))
+                    key = _error_key(component, case["img_id"], case.get("gt_idx", ""))
                     errors[key].append(metadata)
     return errors
 
@@ -69,7 +103,7 @@ def _load_error_metadata(
 def load_component_samples(result_dir: Path) -> list[dict[str, object]]:
     """Load v1.6 Formula CDM and Table TEDS samples from a result directory."""
     error_metadata = _load_error_metadata(result_dir)
-    samples: dict[tuple[str, str, object], dict[str, object]] = {}
+    samples: dict[tuple[str, str, str, str], dict[str, object]] = {}
     for component, _, metric_name, pattern in COMPONENTS:
         for path in sorted(result_dir.glob(pattern)):
             payload = json.loads(path.read_text(encoding="utf-8"))
@@ -81,26 +115,100 @@ def load_component_samples(result_dir: Path) -> list[dict[str, object]]:
                 metric = row.get("metric")
                 if not isinstance(metric, dict) or metric_name not in metric:
                     continue
-                key = _case_key(component, row.get("img_id", ""), row.get("gt_idx", ""))
-                if key in samples:
-                    raise ValueError(f"Duplicate sample key {key!r} in {result_dir}")
-                samples[key] = {
+                normalized = {
                     "component": component,
-                    "img_id": key[1],
-                    "gt_idx": key[2],
+                    "img_id": str(row.get("img_id", "")),
+                    "gt_idx": _gt_idx(row.get("gt_idx", "")),
+                    "gt_position": row.get("gt_position", ""),
+                    "gt_fingerprint": _gt_fingerprint(row.get("gt", "")),
                     "score": float(metric[metric_name]),
                     "gt": row.get("gt", ""),
                     "pred": row.get("pred", ""),
-                    "error_metadata": error_metadata.get(key, []),
+                    "error_metadata": error_metadata.get(
+                        _error_key(component, row.get("img_id", ""), row.get("gt_idx", "")), []
+                    ),
                 }
+                key = _case_key(normalized)
+                if key in samples:
+                    raise ValueError(f"Duplicate sample key {key!r} in {result_dir}")
+                samples[key] = normalized
     return sorted(
         samples.values(),
         key=lambda row: (
             str(row["component"]),
             str(row["img_id"]),
-            _sort_gt_idx(row["gt_idx"]),
+            str(row["gt_position"]),
+            str(row["gt_fingerprint"]),
         ),
     )
+
+
+def _metric_value(payload: dict[str, object], component: str) -> float:
+    if component == "Formula CDM":
+        path = ("display_formula", "page", "CDM", "ALL")
+    else:
+        path = ("table", "page", "TEDS", "ALL")
+    value: object = payload
+    for field in path:
+        if not isinstance(value, dict) or field not in value:
+            raise ValueError(f"Missing {'/'.join(path)} in companion metric")
+        value = value[field]
+    return _number(value)
+
+
+def validate_v16_component_coverage(
+    result_dir: Path, samples: list[dict[str, object]]
+) -> dict[str, object]:
+    """Fail closed unless samples cover the fixed OmniDocBench v1.6 corpus."""
+    by_component: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for sample in samples:
+        by_component[str(sample["component"])].append(sample)
+
+    reconstructed: dict[str, float] = {}
+    for component, expected in V16_COVERAGE.items():
+        component_samples = by_component.get(component, [])
+        pages = {str(row["img_id"]) for row in component_samples}
+        if (
+            len(component_samples) != expected["sample_count"]
+            or len(pages) != expected["page_count"]
+        ):
+            raise ValueError(
+                f"{component} coverage mismatch: samples={len(component_samples)}, "
+                f"expected {expected['sample_count']}; pages={len(pages)}, "
+                f"expected {expected['page_count']}"
+            )
+        scores_by_page: dict[str, list[float]] = defaultdict(list)
+        for row in component_samples:
+            scores_by_page[str(row["img_id"])].append(_number(row["score"]))
+        reconstructed[component] = _mean(_mean(scores) for scores in scores_by_page.values())
+
+    metric_paths = sorted(result_dir.glob("*_metric_result*.json"))
+    metric_payloads = []
+    for path in metric_paths:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(payload, dict):
+            metric_payloads.append((path, payload))
+    if len(metric_payloads) != 1:
+        raise ValueError(
+            f"Expected exactly one companion metric result in {result_dir}, "
+            f"found {len(metric_payloads)}"
+        )
+    metric_path, metric_payload = metric_payloads[0]
+    for component, actual in reconstructed.items():
+        recorded = _metric_value(metric_payload, component)
+        if abs(actual - recorded) > 1e-12:
+            raise ValueError(
+                f"{component} reconstruction mismatch in {metric_path}: "
+                f"reconstructed={actual}, recorded={recorded}"
+            )
+    return {
+        component: {
+            "sample_count": V16_COVERAGE[component]["sample_count"],
+            "page_count": V16_COVERAGE[component]["page_count"],
+            "reconstructed": reconstructed[component],
+        }
+        for component in V16_COVERAGE
+    }
 
 
 def _mean(values: Iterable[float]) -> float:
@@ -114,7 +222,7 @@ def _stable_float(value: float) -> float:
 
 def _loss_sort_key(row: dict[str, object]) -> tuple[float, str, tuple[int, object], str]:
     return (
-        -float(row["delta"]),
+        -_number(row["delta"]),
         str(row["page"]),
         _sort_gt_idx(row.get("gt_idx", "")),
         str(row["component"]),
@@ -125,12 +233,8 @@ def rank_deltas(
     reference: list[dict[str, object]], candidate: list[dict[str, object]]
 ) -> dict[str, object]:
     """Rank positive lightweight losses, with equal sample means within each page."""
-    reference_by_key = {
-        _case_key(row["component"], row["img_id"], row["gt_idx"]): row for row in reference
-    }
-    candidate_by_key = {
-        _case_key(row["component"], row["img_id"], row["gt_idx"]): row for row in candidate
-    }
+    reference_by_key = {_case_key(row): row for row in reference}
+    candidate_by_key = {_case_key(row): row for row in candidate}
     reference_only = sorted(set(reference_by_key) - set(candidate_by_key), key=_key_sort)
     candidate_only = sorted(set(candidate_by_key) - set(reference_by_key), key=_key_sort)
 
@@ -142,10 +246,13 @@ def rank_deltas(
             {
                 "component": key[0],
                 "page": key[1],
-                "gt_idx": key[2],
-                "official_score": float(official["score"]),
-                "lightweight_score": float(lightweight["score"]),
-                "delta": _stable_float(float(official["score"]) - float(lightweight["score"])),
+                "gt_idx": official.get("gt_idx", ""),
+                "lightweight_gt_idx": lightweight.get("gt_idx", ""),
+                "gt_position": official.get("gt_position", ""),
+                "gt_fingerprint": key[3],
+                "official_score": _number(official["score"]),
+                "lightweight_score": _number(lightweight["score"]),
+                "delta": _stable_float(_number(official["score"]) - _number(lightweight["score"])),
                 "gt": official.get("gt", lightweight.get("gt", "")),
                 "official_prediction": official.get("pred", ""),
                 "lightweight_prediction": lightweight.get("pred", ""),
@@ -162,7 +269,7 @@ def rank_deltas(
         {
             "component": component,
             "page": page,
-            "delta": _mean(float(row["delta"]) for row in rows),
+            "delta": _mean(_number(row["delta"]) for row in rows),
             "sample_count": len(rows),
         }
         for (component, page), rows in samples_by_page.items()
@@ -175,9 +282,9 @@ def rank_deltas(
     components = [
         {
             "component": component,
-            "delta": _mean(float(row["delta"]) for row in pages),
+            "delta": _mean(_number(row["delta"]) for row in pages),
             "page_count": len(pages),
-            "sample_count": sum(int(row["sample_count"]) for row in pages),
+            "sample_count": sum(_integer(row["sample_count"]) for row in pages),
         }
         for component, pages in sorted(pages_by_component.items())
     ]
@@ -192,18 +299,27 @@ def rank_deltas(
     }
 
 
-def _key_sort(key: tuple[str, str, object]) -> tuple[str, str, tuple[int, object]]:
-    return key[0], key[1], _sort_gt_idx(key[2])
+def _key_sort(key: tuple[str, str, str, str]) -> tuple[str, str, str, str]:
+    return key
 
 
-def _key_record(key: tuple[str, str, object]) -> dict[str, object]:
-    return {"component": key[0], "page": key[1], "gt_idx": key[2]}
+def _key_record(key: tuple[str, str, str, str]) -> dict[str, object]:
+    return {
+        "component": key[0],
+        "page": key[1],
+        "gt_position": json.loads(key[2]),
+        "gt_fingerprint": key[3],
+    }
 
 
 def _limit_report(report: dict[str, object], top: int) -> dict[str, object]:
     limited = dict(report)
-    limited["ranked_pages"] = list(report["ranked_pages"])[:top]
-    limited["ranked_samples"] = list(report["ranked_samples"])[:top]
+    ranked_pages = report["ranked_pages"]
+    ranked_samples = report["ranked_samples"]
+    if not isinstance(ranked_pages, list) or not isinstance(ranked_samples, list):
+        raise ValueError("Ranked report must contain page and sample lists")
+    limited["ranked_pages"] = ranked_pages[:top]
+    limited["ranked_samples"] = ranked_samples[:top]
     limited["top"] = top
     return limited
 
@@ -223,10 +339,11 @@ def main() -> int:
     if args.top < 1:
         parser.error("--top must be at least 1")
 
-    report = rank_deltas(
-        load_component_samples(args.official_result_dir),
-        load_component_samples(args.lightweight_result_dir),
-    )
+    official_samples = load_component_samples(args.official_result_dir)
+    lightweight_samples = load_component_samples(args.lightweight_result_dir)
+    validate_v16_component_coverage(args.official_result_dir, official_samples)
+    validate_v16_component_coverage(args.lightweight_result_dir, lightweight_samples)
+    report = rank_deltas(official_samples, lightweight_samples)
     output = _limit_report(report, args.top)
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
     args.out_json.write_text(
