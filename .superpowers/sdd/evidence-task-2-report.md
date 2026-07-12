@@ -102,14 +102,6 @@ that external tree and other unrelated legacy files); repository-wide format
 check lists 89 pre-existing files. Focused Ruff check and format check for the
 only changed test file both pass. No Ruff fixes were applied outside Task 2.
 
-The repository-wide `python -m pytest -q` check remains blocked by five
-pre-existing collection errors outside Task 2: missing
-`paddleocr_vl_rocm.contracts` imports and missing
-`resolve_layout_providers` exports. Repository-wide Ruff also reports an
-unrelated import-order issue in `tests/test_benchmark_contract.py` and six
-pre-existing files needing formatting. These out-of-scope files were not
-changed.
-
 ## File hashes
 
 - `tests/fixtures/accuracy/v16-root-cause-cases.json`:

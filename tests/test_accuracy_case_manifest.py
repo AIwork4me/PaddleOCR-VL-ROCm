@@ -4,7 +4,10 @@ import hashlib
 import json
 import math
 import re
+from copy import deepcopy
 from pathlib import Path
+
+import pytest
 
 MANIFEST_PATH = Path(__file__).parent / "fixtures" / "accuracy" / "v16-root-cause-cases.json"
 REQUIRED_BOUNDARIES = ["layout", "crop", "payload", "raw_vlm", "final_output"]
@@ -214,6 +217,68 @@ def _assert_manifest_schema(manifest: object) -> None:
         assert all(isinstance(boundary, str) for boundary in boundaries)
 
 
+def _assert_no_credentials(value: object) -> None:
+    credential_names = {"api_key", "authorization", "password", "secret", "token"}
+    if isinstance(value, dict):
+        assert not credential_names.intersection(key.casefold() for key in value)
+        for child in value.values():
+            _assert_no_credentials(child)
+    elif isinstance(value, list):
+        for child in value:
+            _assert_no_credentials(child)
+
+
+def _assert_boundary_fingerprints(boundaries: object, *, allow_unobservable: bool) -> None:
+    assert isinstance(boundaries, dict)
+    assert set(boundaries) == set(REQUIRED_BOUNDARIES)
+    for boundary in REQUIRED_BOUNDARIES:
+        observation = boundaries[boundary]
+        assert isinstance(observation, dict)
+        status = observation.get("status")
+        if allow_unobservable and status == "unobservable":
+            assert set(observation) == {"status"}
+            continue
+        assert set(observation) == {"status", "fingerprint"}
+        assert status == "observable"
+        fingerprint_value = observation["fingerprint"]
+        assert isinstance(fingerprint_value, str) and fingerprint_value
+        assert SHA256_PATTERN.fullmatch(fingerprint_value)
+
+
+def _assert_trace_summary_schema(summary: object, manifest: dict[str, object]) -> None:
+    assert isinstance(summary, dict)
+    assert set(summary) == {"schema", "cases"}
+    assert summary["schema"] == 1
+    _assert_no_credentials(summary)
+
+    cases = summary["cases"]
+    assert isinstance(cases, list)
+    expected_case_ids = {case["case_id"] for case in manifest["cases"]}
+    assert len(cases) == len(expected_case_ids)
+    assert {case["case_id"] for case in cases} == expected_case_ids
+
+    for case in cases:
+        assert isinstance(case, dict)
+        assert set(case) == {"case_id", "lightweight", "official"}
+        lightweight = case["lightweight"]
+        assert isinstance(lightweight, dict)
+        assert set(lightweight) == {
+            "layout_provider_requested",
+            "layout_providers_active",
+            "boundaries",
+        }
+        assert lightweight["layout_provider_requested"] == "auto"
+        assert lightweight["layout_providers_active"] == [
+            "DmlExecutionProvider",
+            "CPUExecutionProvider",
+        ]
+        _assert_boundary_fingerprints(lightweight["boundaries"], allow_unobservable=False)
+
+        official = case["official"]
+        assert isinstance(official, dict) and set(official) == {"boundaries"}
+        _assert_boundary_fingerprints(official["boundaries"], allow_unobservable=True)
+
+
 def test_manifest_locks_five_distinct_scalar_cases_per_component() -> None:
     manifest = _load_manifest()
 
@@ -260,3 +325,56 @@ def test_manifest_requires_directml_first_without_cpu_fallback() -> None:
 
     assert contract["layout_providers_active_first"] == "DmlExecutionProvider"
     assert contract["allow_cpu_fallback"] is False
+
+
+def _synthetic_trace_summary() -> dict[str, object]:
+    manifest = _load_manifest()
+    cases = []
+    for case in manifest["cases"]:
+        boundaries = {
+            boundary: {"status": "observable", "fingerprint": "a" * 64}
+            for boundary in REQUIRED_BOUNDARIES
+        }
+        cases.append(
+            {
+                "case_id": case["case_id"],
+                "lightweight": {
+                    "layout_provider_requested": "auto",
+                    "layout_providers_active": [
+                        "DmlExecutionProvider",
+                        "CPUExecutionProvider",
+                    ],
+                    "boundaries": deepcopy(boundaries),
+                },
+                "official": {"boundaries": deepcopy(boundaries)},
+            }
+        )
+    return {"schema": 1, "cases": cases}
+
+
+def test_trace_summary_accepts_all_canonical_cases_and_boundaries() -> None:
+    _assert_trace_summary_schema(_synthetic_trace_summary(), _load_manifest())
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda summary: summary["cases"].pop(),
+        lambda summary: summary["cases"][0]["lightweight"]["boundaries"]["crop"].update(
+            fingerprint=""
+        ),
+        lambda summary: summary["cases"][0]["lightweight"].update(
+            api_key="credential-must-not-be-published"
+        ),
+        lambda summary: summary["cases"][0]["lightweight"].update(
+            layout_providers_active=["CPUExecutionProvider", "DmlExecutionProvider"]
+        ),
+    ],
+    ids=["missing-case", "empty-fingerprint", "credential", "cpu-first"],
+)
+def test_trace_summary_rejects_incomplete_or_unqualified_evidence(mutation) -> None:
+    summary = _synthetic_trace_summary()
+    mutation(summary)
+
+    with pytest.raises(AssertionError):
+        _assert_trace_summary_schema(summary, _load_manifest())

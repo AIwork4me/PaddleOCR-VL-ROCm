@@ -2,7 +2,7 @@
 
 - Date: 2026-07-12
 - Benchmark contract: OmniDocBench v1.6, commit `147cd5ac9472002f5751221d390bf00abdbc0d2f`
-- Status: scorer prioritization available; trace diagnosis blocked/incomplete
+- Status: DirectML-qualified lightweight traces captured; paired official trace diagnosis incomplete
 
 ## Executive finding
 
@@ -22,8 +22,9 @@ assumes every loss is recovered with no regression on the more numerous gains.
 It is not a forecast. The current historical lightweight result is already
 0.1677 Overall points better than the historical official result.
 
-No authentic canonical official/lightweight inference traces were found, so
-Task 5 root-cause diagnosis is incomplete.
+Twenty authentic canonical lightweight inference traces are now captured with
+DirectML active first. No matching official inference traces were found, so
+Task 5 root-cause diagnosis remains incomplete.
 Consequently the scorer records prove final matched-output differences, but
 they do not prove whether the first inference divergence is layout, crop,
 payload, raw VLM output, or post-processing. Those causes remain unproven and
@@ -215,6 +216,46 @@ post-processing deletion.
 
 Counts above are not silently converted to zero. “Unproven” means the
 observable does not exist.
+
+## DirectML-qualified canonical capture summary
+
+On 2026-07-12, `scripts/record_trace.py` captured each of the twenty manifest
+cases against the already-running local PaddleOCR-VL 1.6 llama.cpp service.
+Every accepted trace recorded `layout_provider_requested=auto` and active
+providers exactly `[DmlExecutionProvider, CPUExecutionProvider]`; the layout
+session disables fallback and DirectML was first. Raw JSONL, crops, payloads,
+responses, and predictions remain ignored and untracked.
+
+The table contains only scalar SHA-256 prefixes. `LW final` fingerprints the
+current lightweight parser output. `Official scorer` fingerprints all
+authentic historical official scorer rows for that page. These are not the
+same boundary, so they were not passed to `compare_inference_traces.py` and no
+first inference divergence is claimed. Official layout, crop, payload, and raw
+VLM boundaries are explicitly `unobservable`; the closest observable official
+boundary is the historical scorer output.
+
+| Case ID prefix | Trace | Layout | Crop | Payload | Raw VLM | LW final | Official scorer |
+|---|---|---|---|---|---|---|---|
+| `b93ac0c74e16` | `6c94cfa1f1fa` | `33cf437eafd1` | `cbdef18a56ac` | `8e6cc4cd0766` | `cea435df2c76` | `09713e6742d8` | `fe877e9a21bc` |
+| `e5a0e8987c11` | `388750e68dee` | `0ab09ed7328a` | `17b537001e7b` | `7e4d2829ba13` | `c02a0d6a17b9` | `3f7ca6d4341f` | `5e3e88703088` |
+| `13d7060250dd` | `156d577dd309` | `a745462dc978` | `29d70c2ac417` | `10a5bffe127f` | `2b9b46cf061e` | `945ad8276470` | `730af95877b2` |
+| `06f6f1ff2842` | `8f7f43cbeba3` | `3ed5806f06d6` | `813dff4cb7c9` | `e6f1f98853f0` | `ed827b34ea60` | `6af85bec81dc` | `a778915b53d9` |
+| `8602994a7678` | `6fd067e0c102` | `997e95064a5d` | `ba3594136d1a` | `73fc586fd2dd` | `1a746b354998` | `d6c577598b9e` | `a1f48597f042` |
+| `d18aa15a556c` | `9156aea16a1a` | `c132f0989f8d` | `6ab50133f469` | `c6bbc2223e80` | `c69252f881f0` | `a734baf8be5a` | `bbf19cd4f026` |
+| `a963d6c05bac` | `6659bce8f3b8` | `cda77781d7da` | `d8114c7a096f` | `837c3f8a80c1` | `fa8fa0cf0795` | `e6fa81a81665` | `3fcf912a634d` |
+| `e0d93191a7c7` | `49ed7ea8a511` | `51251451ec48` | `42e7a49ba5a7` | `31d6d9cd113f` | `7ba72bfba742` | `42360a2c1c66` | `4882a07041e7` |
+| `5aa11596200d` | `4fde689b2fed` | `a1e3a747afce` | `a93d93188f16` | `bd7977688b61` | `664853e3340c` | `3dc3f1cbfa49` | `533acc587f59` |
+| `ed2a0570f69a` | `bb4f37527ca3` | `8d4edd8c4a7d` | `9c8734f4e47c` | `ebe981e642ee` | `655ef0fa3eab` | `c5211f5f83a3` | `371f57d6aa19` |
+| `dba1aec09157` | `87bddd1498ad` | `1aa79571c7e3` | `89b46a7e613a` | `0c7992539425` | `6aef8bf8669d` | `e87adaf466ef` | `e078fd48f236` |
+| `d34e246c22c4` | `ad1203c81cbe` | `b3421ec0c678` | `c8c05df35536` | `97f1624e6565` | `f92ba21b7c03` | `e1a29fccbe00` | `7fbd776373d0` |
+| `a1b6c1a7af8a` | `985763956e6d` | `26323b85593b` | `327522ae50e4` | `26300566bbe1` | `23ce08c03de5` | `8cb6ac02be34` | `a62006d9d4e4` |
+| `fc98de317a28` | `db473ae614f5` | `83ebced010ce` | `9a7778f4fae8` | `1d69566c26ab` | `ac9c06444d07` | `dcc5caff6441` | `3801f4ff9651` |
+| `9bb616a6d1c4` | `cc438206e680` | `a6dca95d0c41` | `5f5ee170b78a` | `6add63eb3117` | `79d202b1960e` | `1821e1fd0047` | `43d990fdf86c` |
+| `4d791bbfe0ae` | `09a25e2d3c76` | `83ebced010ce` | `9a7778f4fae8` | `1d69566c26ab` | `ba047a696093` | `8a82154130fc` | `ee7a8673874b` |
+| `2f98a52ddf07` | `317fb06ed0a0` | `5d72b0f2af19` | `2baa7c9f3bae` | `2cfca4b08760` | `072dcfbe633d` | `ecb12f4e3913` | `5ee38cb8508d` |
+| `1251d0294f22` | `4d2ca15eaf13` | `c2986fea0ca6` | `58bb6439368d` | `59afba2be6a6` | `0740fe08ca8a` | `2260f025ecb0` | `be4d1d8d6b66` |
+| `427790a859a7` | `2ab227368545` | `dd12be69d75f` | `6aa34d110c99` | `54e98a3b3639` | `c8292d90b6e2` | `8bc8eff63d9c` | `c93b58fda613` |
+| `c868f6459ab2` | `c766b18c2766` | `d2f0398aebce` | `99a33ed73f43` | `b8076f7aba2b` | `80350088820e` | `14f74f4a60b5` | `75856e887868` |
 
 ## Decision
 
