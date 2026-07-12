@@ -1,6 +1,8 @@
 param(
   [string]$ServerUrl = "http://127.0.0.1:8111/v1",
   [string]$ApiModelName = "PaddleOCR-VL-1.6-GGUF.gguf",
+  [string]$DatasetDir = "data/omnidocbench/v16",
+  [string]$PredictionsDir = "predictions/paddleocr_official_local_llamacpp_gguf_v16",
   [int]$SmokePages = 1,
   [int]$SubsetPages = 16,
   [switch]$Full,
@@ -31,13 +33,16 @@ function Invoke-Step {
 }
 
 function Assert-FullPredictionStats {
-  $StatsPath = "predictions/paddleocr_official_local_llamacpp_gguf_v16/_run_stats.json"
+  $StatsPath = Join-Path $PredictionsDir "_run_stats.json"
   if (-not (Test-Path $StatsPath)) {
     throw "CDM scoring requires full official predictions first. Missing $StatsPath; run with -Full."
   }
   $Stats = Get-Content $StatsPath -Raw | ConvertFrom-Json
   if ($null -ne $Stats.limit_pages) {
     throw "CDM scoring requires full official predictions. $StatsPath has limit_pages=$($Stats.limit_pages); run with -Full before -Cdm."
+  }
+  if ($Stats.count -ne 1651 -or $Stats.ok -ne 1651 -or $Stats.fail -ne 0 -or $Stats.fallback -ne 0) {
+    throw "CDM scoring requires a clean 1651-page official run: $StatsPath"
   }
 }
 
@@ -58,24 +63,24 @@ if ($Cdm) {
     Assert-FullPredictionStats
   }
   Invoke-Step "official full CDM scoring" {
-    Invoke-Native python eval/run_eval.py --stage eval --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --cdm
+    Invoke-Native python eval/run_eval.py --stage eval --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --dataset-dir $DatasetDir --predictions-dir $PredictionsDir --cdm
   }
   return
 }
 
 Invoke-Step "official smoke gate" {
-  Invoke-Native python eval/run_eval.py --stage infer --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --limit-pages $SmokePages
+  Invoke-Native python eval/run_eval.py --stage infer --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --dataset-dir $DatasetDir --predictions-dir $PredictionsDir --limit-pages $SmokePages
 }
 
 Invoke-Step "official subset gate" {
-  Invoke-Native python eval/run_eval.py --stage infer --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --limit-pages $SubsetPages
+  Invoke-Native python eval/run_eval.py --stage infer --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --dataset-dir $DatasetDir --predictions-dir $PredictionsDir --limit-pages $SubsetPages
 }
 
 if ($Full) {
   Invoke-Step "official full non-CDM inference" {
-    Invoke-Native python eval/run_eval.py --stage infer --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName
+    Invoke-Native python eval/run_eval.py --stage infer --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --dataset-dir $DatasetDir --predictions-dir $PredictionsDir
   }
   Invoke-Step "official full non-CDM scoring" {
-    Invoke-Native python eval/run_eval.py --stage eval --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName
+    Invoke-Native python eval/run_eval.py --stage eval --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --dataset-dir $DatasetDir --predictions-dir $PredictionsDir
   }
 }
