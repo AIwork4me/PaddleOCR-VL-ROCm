@@ -14,6 +14,7 @@
 - Main model SHA-256 is `F3AE46EC885050ACF4B3D31944431E1FD90D50664FB09126AF4A3C050BA14EE8` and size is `935769056` bytes.
 - MM projector SHA-256 is `204D757D7610D9B3FAAB10D506D69E5B244E32BF765E2BAB2D0167E65E0A058A` and size is `881770560` bytes.
 - Model source is `PaddlePaddle/PaddleOCR-VL-1.6-GGUF`; runtime source is the official llama.cpp b9884 Windows HIP release asset.
+- English users download PP-DocLayoutV3 ONNX from `https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx`; Chinese users download it from `https://modelscope.cn/models/PaddlePaddle/PP-DocLayoutV3_onnx`.
 - Every downloaded file must pass size and SHA-256 checks before activation.
 - Existing `paddleocr-vl-rocm --input ...` commands remain valid.
 - No hidden telemetry. Diagnostics redact secrets.
@@ -76,7 +77,10 @@ unverified value manually.
 
 - [ ] **Step 3: Implement the manifest builder**
 
-The builder accepts `--runtime-archive`, `--main-gguf`, and `--mmproj`. It uses:
+The builder accepts `--runtime-archive`, `--main-gguf`, `--mmproj`,
+`--layout-onnx`, and `--layout-config`. The two layout files use immutable
+Hugging Face resolve URLs in the machine-readable resource list. The manifest
+also records the user-facing Hugging Face and ModelScope repository pages.
 
 ```python
 def describe(path: Path, *, name: str, url: str, destination: str) -> dict[str, object]:
