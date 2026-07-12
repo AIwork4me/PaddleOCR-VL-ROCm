@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
+from paddleocr_vl_rocm.contracts import fingerprint
+from scripts import record_trace
 from scripts.compare_inference_traces import compare_traces
 from scripts.record_trace import build_parser as build_record_parser
 from scripts.record_trace import write_trace_jsonl
@@ -110,6 +113,7 @@ def test_record_trace_defaults_to_v16_llama_cpp():
 
     assert args.api_model_name == "PaddleOCR-VL-1.6-GGUF.gguf"
     assert args.vlm_backend == "llama-cpp-server"
+    assert args.layout_provider == "auto"
     assert args.trace_jsonl is None
 
 
@@ -123,6 +127,7 @@ def test_write_trace_jsonl_is_deterministic_redacted_and_preserves_fields(tmp_pa
                 "temperature": 0.0,
                 "Authorization": "Bearer secret",
             },
+            "payload_fingerprint": "stale-before-redaction",
             "url": "https://host/v1?token=secret",
             "raw_result_sha256": "raw",
             "final_result_sha256": "final",
@@ -140,4 +145,88 @@ def test_write_trace_jsonl_is_deterministic_redacted_and_preserves_fields(tmp_pa
     assert written["final_result_sha256"] == "final"
     assert written["payload"]["Authorization"] == "<redacted>"
     assert written["url"].endswith("token=%3Credacted%3E")
-    assert written["payload_fingerprint"]
+    assert written["payload_fingerprint"] == fingerprint(written["payload"])
+
+
+def test_record_trace_resolves_and_propagates_actual_layout_providers(tmp_path, monkeypatch):
+    captured = {}
+    trace_path = tmp_path / "trace.jsonl"
+    image_path = tmp_path / "input.png"
+    image_path.touch()
+    args = SimpleNamespace(
+        server_url="http://127.0.0.1:8000/v1",
+        api_model_name="model.gguf",
+        vlm_backend="llama-cpp-server",
+        layout_model=str(tmp_path / "layout"),
+        layout_provider="auto",
+        trace_jsonl=trace_path,
+    )
+
+    class FakeParser:
+        def parse_args(self):
+            return args
+
+    class FakeLayout:
+        def __init__(self, model_dir, providers, requested_provider):
+            captured["model_dir"] = model_dir
+            captured["providers"] = providers
+            captured["requested_provider"] = requested_provider
+            self.layout_provider_requested = requested_provider
+            self.layout_providers_active = list(providers)
+
+    def fake_run_light_parser(**kwargs):
+        captured["run_kwargs"] = kwargs
+        kwargs["vlm_trace_events"].append(
+            {
+                "request_order": 0,
+                "payload": {"temperature": 0.0},
+                "layout_provider_requested": kwargs["layout_provider_requested"],
+                "layout_providers_active": kwargs["layout_providers_active"],
+            }
+        )
+        result_path = kwargs["output_dir"] / "result.json"
+        result_path.write_text("{}", encoding="utf-8")
+        return result_path
+
+    monkeypatch.setattr(record_trace, "build_parser", FakeParser)
+    monkeypatch.setattr(record_trace, "IMAGES", [image_path])
+    monkeypatch.setattr(record_trace, "FIXTURES", tmp_path / "fixtures")
+    monkeypatch.setattr(record_trace, "GOLDEN", tmp_path / "fixtures" / "golden")
+    monkeypatch.setattr(
+        record_trace,
+        "ort",
+        SimpleNamespace(
+            get_available_providers=lambda: [
+                "DmlExecutionProvider",
+                "CPUExecutionProvider",
+            ]
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        record_trace,
+        "platform",
+        SimpleNamespace(system=lambda: "Windows"),
+        raising=False,
+    )
+    monkeypatch.setattr(record_trace, "PPDocLayoutV3Onnx", FakeLayout, raising=False)
+    monkeypatch.setattr(record_trace, "run_light_parser", fake_run_light_parser)
+
+    record_trace.main()
+
+    assert captured["providers"] == ["DmlExecutionProvider"]
+    assert captured["requested_provider"] == "auto"
+    assert captured["run_kwargs"]["layout_model"].layout_providers_active == [
+        "DmlExecutionProvider"
+    ]
+    assert captured["run_kwargs"]["layout_provider_requested"] == "auto"
+    assert captured["run_kwargs"]["layout_providers_active"] == ["DmlExecutionProvider"]
+    written_events = [
+        json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert written_events
+    assert all(
+        event["layout_provider_requested"] == "auto"
+        and event["layout_providers_active"] == ["DmlExecutionProvider"]
+        for event in written_events
+    )

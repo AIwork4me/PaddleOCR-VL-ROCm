@@ -12,11 +12,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 from pathlib import Path
 from typing import Any
 
+import onnxruntime as ort
+
 from paddleocr_vl_rocm.contracts import fingerprint, redact
 from paddleocr_vl_rocm.encoding import _jpeg_bytes, _png_bytes, _sha256_hex
+from paddleocr_vl_rocm.layout import PPDocLayoutV3Onnx, resolve_layout_providers
 from paddleocr_vl_rocm.pipeline_core import run_light_parser
 from paddleocr_vl_rocm.vlm import client
 from paddleocr_vl_rocm.vlm.client import _vlm_cache_key
@@ -38,6 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--layout-model", default="models/PP-DocLayoutV3-onnx")
     parser.add_argument(
+        "--layout-provider",
+        default="auto",
+        choices=["auto", "directml", "cpu"],
+    )
+    parser.add_argument(
         "--trace-jsonl",
         type=Path,
         help="Write one redacted canonical JSON event per VLM block",
@@ -51,9 +60,7 @@ def write_trace_jsonl(trace_path: Path, trace_events: list[dict[str, Any]]) -> N
         for event in trace_events:
             redacted_event = redact(event)
             if "payload" in redacted_event:
-                redacted_event.setdefault(
-                    "payload_fingerprint", fingerprint(redacted_event["payload"])
-                )
+                redacted_event["payload_fingerprint"] = fingerprint(redacted_event["payload"])
             stream.write(json.dumps(redacted_event, ensure_ascii=False, sort_keys=True) + "\n")
 
 
@@ -65,6 +72,14 @@ def main() -> None:
 
     recorded: dict[str, str] = {}
     trace_events: list[dict[str, Any]] = []
+    layout_providers = resolve_layout_providers(
+        ort.get_available_providers(), args.layout_provider, platform.system()
+    )
+    layout_model = PPDocLayoutV3Onnx(
+        Path(args.layout_model),
+        providers=layout_providers,
+        requested_provider=args.layout_provider,
+    )
     original = client.OpenAICompatibleVLMClient.complete_image
 
     def recording(
@@ -124,6 +139,9 @@ def main() -> None:
                 display_input_path=str(img),
                 skip_server_check=False,
                 vlm_trace_events=trace_events if args.trace_jsonl is not None else None,
+                layout_model=layout_model,
+                layout_provider_requested=layout_model.layout_provider_requested,
+                layout_providers_active=layout_model.layout_providers_active,
             )
             stem = img.stem
             (GOLDEN / f"{stem}.json").write_text(
