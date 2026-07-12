@@ -201,6 +201,14 @@ The lightweight engine passes only when:
 
 ### G4: Performance acceptance
 
+Performance measurement infrastructure may be implemented and tested before G3
+passes only when it is observational: it must not change inference inputs,
+outputs, scheduling, caching, concurrency, transport, or defaults. Measurements
+collected before G3 are diagnostic only and are not eligible for acceptance,
+release claims, optimization selection, or comparison against the targets below.
+Performance acceptance and all output-affecting or execution-affecting
+optimization work remain blocked until the same configuration passes G3.
+
 The existing official-local timing baseline is:
 
 - mean: 18.57 seconds per page;
@@ -301,6 +309,13 @@ normalization, serialization, and total page time. VLM telemetry records time
 to first token when available. Reports include cold start, warm single-page,
 sustained corpus, mean, P50, P95, P99, pages per minute, failures, retries, and
 peak memory.
+
+The instrumentation layer is passive and optional. When no timing observer is
+provided, the pipeline follows the existing control flow and returns the same
+values. Before G3 passes, development is limited to this instrumentation layer,
+deterministic summary helpers, and tests that prove output contracts are
+unchanged. Cold/warm/corpus acceptance runs and the optimization order below do
+not begin until G3 passes.
 
 Optimization order:
 

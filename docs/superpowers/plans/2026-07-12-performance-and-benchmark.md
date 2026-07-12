@@ -10,7 +10,12 @@
 
 ## Global Constraints
 
-- Run only after the accuracy fix plan has passed the ≥96.13 G3 gate.
+- Before the accuracy fix plan passes the ≥96.13 G3 gate, only Task 1's passive
+  timing infrastructure and its tests may run. Its output is diagnostic only
+  and cannot support acceptance, release claims, optimization selection, or
+  comparison against the performance targets.
+- Tasks 2-5, benchmark acceptance runs, and all execution-affecting performance
+  changes remain blocked until the same inference configuration passes G3.
 - Baseline hardware, driver, power mode, model, runtime, and dataset must remain fixed.
 - Official baseline: mean 18.57 seconds/page, P95 46.42 seconds/page.
 - Release target: mean ≤13.00 seconds/page, P95 ≤34.82 seconds/page.
@@ -36,6 +41,11 @@
 - Create `tests/test_benchmark_harness.py`: summary and quality-pairing tests.
 
 ### Task 1: Add deterministic stage timing and summaries
+
+This task is the only pre-G3 performance task. Instrumentation must be passive:
+with no timing observer, inference control flow, inputs, outputs, scheduling,
+transport, concurrency, caching, and defaults remain unchanged. Pre-G3 timing
+artifacts are diagnostic and must not be published as accepted benchmarks.
 
 **Files:**
 - Create: `src/paddleocr_vl_rocm/timing.py`
