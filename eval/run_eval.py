@@ -77,6 +77,10 @@ def _load_artifact_utils():
     return _load_script_module("eval_artifact_utils", Path("eval/artifact_utils.py"))
 
 
+def _load_release_contract():
+    return _load_script_module("eval_release_contract", Path("eval/release_contract.py"))
+
+
 def apply_artifact_profile_defaults(args: argparse.Namespace) -> None:
     if getattr(args, "artifact_profile", "default") != "official-local":
         return
@@ -229,14 +233,15 @@ def _validate_release_prediction_stats(args: argparse.Namespace, predictions_dir
             f"Prediction count {actual_count} does not match dataset image count "
             f"{expected_count}. Run full unbounded inference before scoring."
         )
-    if args.version == "v16" and actual_count != 1651:
-        raise SystemExit(f"OmniDocBench v1.6 release evidence requires count=1651: {stats_path}")
-    if run_stats.get("ok") != actual_count:
-        raise SystemExit(f"Release evidence requires ok={actual_count}: {stats_path}")
-    if run_stats.get("fail") != 0:
-        raise SystemExit(f"Release evidence requires fail=0: {stats_path}")
-    if run_stats.get("fallback") != 0:
-        raise SystemExit(f"Release evidence requires fallback=0: {stats_path}")
+    release_contract = _load_release_contract()
+    try:
+        release_contract.validate_release_run_stats(
+            run_stats,
+            version=args.version,
+            engine=getattr(args, "engine", run_stats.get("engine", "")),
+        )
+    except ValueError as exc:
+        raise SystemExit(f"Release prediction contract failed for {stats_path}: {exc}") from exc
 
 
 def _render_eval_config(

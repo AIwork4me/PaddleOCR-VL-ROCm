@@ -37,13 +37,7 @@ function Assert-FullPredictionStats {
   if (-not (Test-Path $StatsPath)) {
     throw "CDM scoring requires full official predictions first. Missing $StatsPath; run with -Full."
   }
-  $Stats = Get-Content $StatsPath -Raw | ConvertFrom-Json
-  if ($null -ne $Stats.limit_pages) {
-    throw "CDM scoring requires full official predictions. $StatsPath has limit_pages=$($Stats.limit_pages); run with -Full before -Cdm."
-  }
-  if ($Stats.count -ne 1651 -or $Stats.ok -ne 1651 -or $Stats.fail -ne 0 -or $Stats.fallback -ne 0) {
-    throw "CDM scoring requires a clean 1651-page official run: $StatsPath"
-  }
+  Invoke-Native python eval/release_contract.py --stats $StatsPath --version v16 --engine official
 }
 
 Invoke-Step "server gate" {

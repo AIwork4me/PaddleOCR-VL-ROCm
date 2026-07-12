@@ -107,7 +107,7 @@ def test_release_prediction_stats_reject_incomplete_runs(tmp_path, field, value)
         "fallback": 0,
         "limit_pages": None,
         "engine": "official",
-        "stats": [],
+        "stats": [{"image": f"page-{index:04d}.png", "status": "ok"} for index in range(1651)],
     }
     stats[field] = value
     (predictions / "_run_stats.json").write_text(json.dumps(stats), encoding="utf-8")
@@ -143,7 +143,7 @@ def test_release_prediction_stats_accept_complete_clean_run(tmp_path):
         "fallback": 0,
         "limit_pages": None,
         "engine": "official",
-        "stats": [],
+        "stats": [{"image": f"page-{index:04d}.png", "status": "ok"} for index in range(1651)],
     }
     (predictions / "_run_stats.json").write_text(json.dumps(stats), encoding="utf-8")
     args = type(
@@ -155,6 +155,47 @@ def test_release_prediction_stats_accept_complete_clean_run(tmp_path):
             "copy_report": "metric.json",
             "run_summary": None,
             "cdm": False,
+        },
+    )()
+
+    mod._validate_release_prediction_stats(args, predictions)
+
+
+def test_release_prediction_stats_accept_exact_known_official_failure(tmp_path):
+    mod = _load_run_eval()
+    dataset = tmp_path / "dataset"
+    images = dataset / "images"
+    predictions = tmp_path / "predictions"
+    images.mkdir(parents=True)
+    predictions.mkdir()
+    for index in range(1651):
+        (images / f"{index}.png").touch()
+    stats = {
+        "count": 1651,
+        "ok": 1650,
+        "fail": 1,
+        "fallback": 0,
+        "limit_pages": None,
+        "engine": "official",
+        "stats": [{"image": f"page-{index:04d}.png", "status": "ok"} for index in range(1650)]
+        + [
+            {
+                "image": "newspaper_The Times UK_0801@magazinesclubnew_page_031.png",
+                "status": "failed: output does not match the expected peg-native format",
+            }
+        ],
+    }
+    (predictions / "_run_stats.json").write_text(json.dumps(stats), encoding="utf-8")
+    args = type(
+        "Args",
+        (),
+        {
+            "version": "v16",
+            "dataset_dir": str(dataset),
+            "copy_report": "metric.json",
+            "run_summary": None,
+            "cdm": False,
+            "engine": "official",
         },
     )()
 
