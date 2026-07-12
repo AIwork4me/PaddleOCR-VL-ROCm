@@ -16,8 +16,8 @@ class PaddleOCRVLROCm:
         self,
         layout_model_dir: str | Path = "models/PP-DocLayoutV3-onnx",
         vlm_server_url: str = "http://127.0.0.1:8000/v1",
-        api_model_name: str = "PaddleOCR-VL-1.5-0.9B",
-        vlm_backend: str = "vllm-server",
+        api_model_name: str = "PaddleOCR-VL-1.6-GGUF.gguf",
+        vlm_backend: str = "llama-cpp-server",
         max_new_tokens: int = 4096,
         timeout: float = 300.0,
         seed: int = 1,
@@ -45,17 +45,13 @@ class PaddleOCRVLROCm:
             import onnxruntime
 
             available = onnxruntime.get_available_providers()
-            providers = resolve_layout_providers(
-                available, self.layout_provider, platform.system()
-            )
+            providers = resolve_layout_providers(available, self.layout_provider, platform.system())
             self._layout_model = PPDocLayoutV3Onnx(
                 self.layout_model_dir,
                 providers=providers,
                 requested_provider=self.layout_provider_requested,
             )
-            self.layout_providers_active = list(
-                self._layout_model.layout_providers_active
-            )
+            self.layout_providers_active = list(self._layout_model.layout_providers_active)
             self.active_layout_providers = self.layout_providers_active
         return self._layout_model
 

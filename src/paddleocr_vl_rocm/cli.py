@@ -27,12 +27,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--server-url", default="http://127.0.0.1:8000/v1", help="OpenAI-compatible VLM server URL."
     )
-    parser.add_argument("--api-model-name", default="PaddleOCR-VL-1.5-0.9B", help="VLM model id.")
     parser.add_argument(
-        "--vlm-backend", choices=["vllm-server", "llama-cpp-server"], default="vllm-server"
+        "--api-model-name", default="PaddleOCR-VL-1.6-GGUF.gguf", help="VLM model id."
+    )
+    parser.add_argument(
+        "--vlm-backend",
+        choices=["vllm-server", "llama-cpp-server"],
+        default="llama-cpp-server",
     )
     parser.add_argument("--max-new-tokens", type=int, default=4096)
     parser.add_argument("--timeout", type=float, default=300.0)
+    parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--threshold", type=float, default=0.3)
     parser.add_argument("--vlm-max-workers", type=int, default=1)
     parser.add_argument("--skip-server-check", action="store_true")
@@ -50,6 +55,7 @@ def main() -> None:
         vlm_backend=args.vlm_backend,
         max_new_tokens=args.max_new_tokens,
         timeout=args.timeout,
+        seed=args.seed,
         threshold=args.threshold,
         vlm_max_workers=args.vlm_max_workers,
         layout_provider=args.layout_provider,
