@@ -5,7 +5,6 @@ import hashlib
 import importlib.util
 import json
 import os
-import shutil
 import subprocess
 import sys
 from email.message import Message
@@ -53,32 +52,15 @@ def _is_usable_cpython_310(candidate: Path) -> bool:
 
 
 def _cpython_310() -> Path:
+    if sys.implementation.name == "cpython" and sys.version_info[:2] == (3, 10):
+        return Path(sys.executable)
     configured = os.environ.get("SCORER_PYTHON_310")
-    candidates = [
-        Path(sys.executable) if sys.version_info[:2] == (3, 10) else None,
-        Path(configured) if configured else None,
-        Path(discovered) if (discovered := shutil.which("python3.10")) else None,
-        Path(
-            r"C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-scorer-v16-py310"
-            r"\Scripts\python.exe"
-        ),
-    ]
-    launcher = shutil.which("py")
-    if launcher:
-        completed = subprocess.run(
-            [launcher, "-3.10", "-c", "import sys; print(sys.executable)"],
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if completed.returncode == 0:
-            candidates.append(Path(completed.stdout.strip()))
-    for candidate in candidates:
-        if candidate is None or not candidate.is_file():
-            continue
-        if _is_usable_cpython_310(candidate):
+    if configured:
+        candidate = Path(configured)
+        if candidate.is_file() and _is_usable_cpython_310(candidate):
             return candidate
-    pytest.fail("A real CPython 3.10 interpreter is required for the import-boundary gate")
+        pytest.fail(f"SCORER_PYTHON_310 is not a usable CPython 3.10: {candidate}")
+    pytest.skip("Real import boundary runs in the required CPython 3.10 CI job")
 
 
 def test_checker_imports_and_parses_toml_at_real_cpython_310_boundary(tmp_path: Path) -> None:
@@ -168,6 +150,31 @@ def test_interpreter_probe_rejects_pypy_310(monkeypatch: pytest.MonkeyPatch) -> 
     )
 
     assert not _is_usable_cpython_310(Path("pypy3.10"))
+
+
+def test_current_cpython_310_uses_sys_executable_without_discovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, "version_info", (3, 10, 20))
+    monkeypatch.setattr(sys, "implementation", SimpleNamespace(name="cpython"))
+    monkeypatch.setattr(
+        sys.modules[__name__],
+        "_is_usable_cpython_310",
+        lambda candidate: pytest.fail(f"must not probe current CPython 3.10: {candidate}"),
+    )
+
+    assert _cpython_310() == Path(sys.executable)
+
+
+def test_non_310_ci_job_skips_without_explicit_external_interpreter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, "version_info", (3, 13, 0))
+    monkeypatch.setattr(sys, "implementation", SimpleNamespace(name="cpython"))
+    monkeypatch.delenv("SCORER_PYTHON_310", raising=False)
+
+    with pytest.raises(pytest.skip.Exception, match="CPython 3.10 CI job"):
+        _cpython_310()
 
 
 def test_complete_exact_scorer_dependency_contract_includes_pylatexenc() -> None:

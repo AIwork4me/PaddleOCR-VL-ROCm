@@ -128,6 +128,21 @@ def test_bilingual_readmes_document_the_single_page_exception_without_score_infl
 def test_offline_ci_covers_supported_python_matrix_and_quality_gates() -> None:
     workflow = _read(CI)
 
+    quality = re.search(r"(?ms)^  quality:\n(?P<body>(?:^    .*\n|^\s*$)+)", workflow)
+    assert quality is not None
+    quality_block = quality.group("body")
+    matrix = {
+        (os_name, python)
+        for os_name, python in re.findall(
+            r'^          - \{os: ([^,]+), python: "([^"]+)"\}$',
+            quality_block,
+            re.MULTILINE,
+        )
+    }
+    assert ("windows-latest", "3.10") in matrix
+    assert ("ubuntu-latest", "3.10") in matrix
+    assert "      - run: python -m pytest -q" in quality_block
+
     for value in (
         "windows-latest",
         "ubuntu-latest",
