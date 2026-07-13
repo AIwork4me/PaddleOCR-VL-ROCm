@@ -23,23 +23,21 @@ $RuntimeConfig = Resolve-FullPath $RuntimeConfig
 
 function Resolve-PhysicalPath([string]$PathValue) {
   $full = [IO.Path]::GetFullPath($PathValue)
-  $suffix = @()
-  while (-not (Test-Path -LiteralPath $full)) {
-    $suffix = @([IO.Path]::GetFileName($full)) + $suffix
-    $parent = [IO.Path]::GetDirectoryName($full)
-    if (-not $parent -or $parent -eq $full) { break }
-    $full = $parent
+  $root = [IO.Path]::GetPathRoot($full)
+  $current = $root
+  $relative = $full.Substring($root.Length)
+  foreach ($part in ($relative -split '[\\/]' | Where-Object { $_ })) {
+    $candidate = Join-Path $current $part
+    if (Test-Path -LiteralPath $candidate) {
+      $item = Get-Item -Force -LiteralPath $candidate
+      if ($item.LinkType -and $item.Target) {
+        $target = @($item.Target)[0]
+        if (-not [IO.Path]::IsPathRooted($target)) { $target = Join-Path $item.Parent.FullName $target }
+        $current = [IO.Path]::GetFullPath($target)
+      } else { $current = $item.FullName }
+    } else { $current = $candidate }
   }
-  if (Test-Path -LiteralPath $full) {
-    $item = Get-Item -Force -LiteralPath $full
-    if ($item.LinkType -and $item.Target) {
-      $target = @($item.Target)[0]
-      if (-not [IO.Path]::IsPathRooted($target)) { $target = Join-Path $item.Parent.FullName $target }
-      $full = [IO.Path]::GetFullPath($target)
-    } else { $full = $item.FullName }
-  }
-  foreach ($part in $suffix) { $full = Join-Path $full $part }
-  return [IO.Path]::GetFullPath($full)
+  return [IO.Path]::GetFullPath($current)
 }
 
 function Test-IsWithin([string]$Candidate, [string]$Parent) {
@@ -100,6 +98,9 @@ function Invoke-LoggedNative {
   $record = [ordered]@{ timestamp_utc = $started; stage = $StageName; command_name = $CommandName; arguments = $safe; exit_code = $code; duration_ms = $timer.ElapsedMilliseconds }
   $line = ($record | ConvertTo-Json -Compress -Depth 4) + [Environment]::NewLine
   [IO.File]::AppendAllText($CommandLog, $line, [Text.UTF8Encoding]::new($false))
+  $stageCommandLog = Join-Path (Join-Path $LogDir "stages") "$($StageName.ToLowerInvariant()).commands.jsonl"
+  New-Item -ItemType Directory -Force (Split-Path -Parent $stageCommandLog) | Out-Null
+  [IO.File]::AppendAllText($stageCommandLog, $line, [Text.UTF8Encoding]::new($false))
   if ($code -ne 0) { throw "Native command failed with exit code $code`: $FilePath" }
   return $nativeOutput
 }
@@ -108,7 +109,7 @@ function Get-ImmutableInputs {
   if (-not (Test-Path -LiteralPath $DatasetDir -PathType Container)) { throw "DatasetDir does not exist: $DatasetDir" }
   if (-not (Test-Path -LiteralPath $LayoutModel -PathType Container)) { throw "LayoutModel does not exist: $LayoutModel" }
   $datasetManifest = Join-Path $DatasetDir "OmniDocBench.json"
-  $layoutOnnx = Join-Path $LayoutModel "model.onnx"
+  $layoutOnnx = Join-Path $LayoutModel "inference.onnx"
   $layoutConfig = Join-Path $LayoutModel "inference.yml"
   $runtimeManifest = Join-Path $RepoRoot "src/paddleocr_vl_rocm/assets/runtime-manifest.json"
   $scoringConfig = Join-Path $RepoRoot "eval/configs/omnidocbench_v16.yaml"
@@ -165,7 +166,7 @@ function Assert-OrCreateManifest {
   }
   $arguments += @("--output", $candidate)
   # Contract spelling retained for audit/search: eval/release_evidence.py manifest
-  Invoke-LoggedNative $Stage "manifest" "python" $arguments
+  Invoke-LoggedNative "Manifest" "manifest" "python" $arguments
   if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { throw "Manifest command did not create $candidate" }
   if (Test-Path -LiteralPath $ManifestPath) {
     if ((Get-Content -Raw -LiteralPath $ManifestPath) -cne (Get-Content -Raw -LiteralPath $candidate)) {
@@ -178,7 +179,6 @@ function Assert-OrCreateManifest {
 }
 
 function Invoke-Preflight {
-  Assert-OrCreateManifest
   Invoke-LoggedNative "Preflight" "scorer-contract" "python" @("eval/benchmark_contract.py", "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"))
   Invoke-LoggedNative "Preflight" "server-gate" "python" @("scripts/check_server.py", "--server-url", $ServerUrl)
   Invoke-LoggedNative "Preflight" "official-import" "python" @("scripts/check_official_paddleocr.py", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName)
@@ -186,7 +186,6 @@ function Invoke-Preflight {
 }
 
 function Invoke-Official {
-  Assert-OrCreateManifest
   $official = Join-Path $EvidenceRoot "official"
   $results = Join-Path $EvidenceRoot "results/official"
   New-Item -ItemType Directory -Force -Path $official, $results | Out-Null
@@ -208,7 +207,6 @@ function Assert-DirectMlEvidence([string]$StatsPath) {
 }
 
 function Invoke-Lightweight {
-  Assert-OrCreateManifest
   $lightweight = Join-Path $EvidenceRoot "lightweight"
   $results = Join-Path $EvidenceRoot "results/lightweight"
   New-Item -ItemType Directory -Force -Path $lightweight, $results | Out-Null
@@ -220,7 +218,6 @@ function Invoke-Lightweight {
 }
 
 function Invoke-Decide {
-  Assert-OrCreateManifest
   $decision = @(Invoke-LoggedNative "Decide" "release-decision" "python" @("eval/release_evidence.py", "decide", "--evidence-root", $EvidenceRoot)) -join [Environment]::NewLine
   $temporary = Join-Path $EvidenceRoot "decision.json.tmp"
   [IO.File]::WriteAllText($temporary, $decision + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
@@ -229,6 +226,30 @@ function Invoke-Decide {
 
 function Get-Sha256([string]$Path) {
   return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
+}
+
+function Get-StringSha256([string]$Value) {
+  $bytes = [Text.Encoding]::UTF8.GetBytes($Value)
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try { return ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace '-', '').ToLowerInvariant() }
+  finally { $sha.Dispose() }
+}
+
+function Get-InvocationFingerprint([string]$StageName, [string]$ManifestSha) {
+  $values = [ordered]@{
+    stage = $StageName
+    producing_commit = $GitCommit
+    input_manifest_sha256 = $ManifestSha
+    server_url_sha256 = Get-StringSha256 $ServerUrl
+    api_model_name_sha256 = Get-StringSha256 $ApiModelName
+    evidence_path_sha256 = Get-StringSha256 (Resolve-PhysicalPath $EvidenceRoot)
+    dataset_path_sha256 = Get-StringSha256 (Resolve-PhysicalPath $DatasetDir)
+    layout_path_sha256 = Get-StringSha256 (Resolve-PhysicalPath $LayoutModel)
+    runtime_config_path_sha256 = Get-StringSha256 (Resolve-PhysicalPath $RuntimeConfig)
+    engine = $(if ($StageName -eq "Official") { "official" } elseif ($StageName -eq "Lightweight") { "lightweight" } else { "none" })
+    output_contract_sha256 = Get-StringSha256 "$StageName|official|lightweight|results|decision.json|copy-report|run-summary|provenance|directml-preflight"
+  }
+  return Get-StringSha256 ($values | ConvertTo-Json -Compress)
 }
 
 function Write-AtomicJson([string]$Path, [object]$Value) {
@@ -266,7 +287,11 @@ function Clear-StageOutputs([string]$StageName) {
   foreach ($path in $paths) { if (Test-Path -LiteralPath $path) { Remove-Item -Force -Recurse -LiteralPath $path } }
 }
 
-function Test-OutputHashes([object]$Expected) {
+function Test-OutputHashes([string]$StageName, [object]$Expected) {
+  $current = Get-StageOutputs $StageName
+  $expectedNames = @($Expected.PSObject.Properties.Name | Sort-Object)
+  $currentNames = @($current.Keys | Sort-Object)
+  if ((Compare-Object $expectedNames $currentNames).Count -ne 0) { return $false }
   foreach ($property in $Expected.PSObject.Properties) {
     $path = Join-Path $EvidenceRoot ($property.Name -replace '/', '\')
     if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or (Get-Sha256 $path) -ne $property.Value) { return $false }
@@ -277,14 +302,18 @@ function Test-OutputHashes([object]$Expected) {
 function Invoke-DurableStage([string]$StageName, [scriptblock]$Body) {
   Assert-OrCreateManifest
   $manifestSha = Get-Sha256 $ManifestPath
+  $fingerprint = Get-InvocationFingerprint $StageName $manifestSha
   $stateDir = Join-Path $LogDir "stages"
   New-Item -ItemType Directory -Force $stateDir | Out-Null
   $statePath = Join-Path $stateDir "$($StageName.ToLowerInvariant()).json"
+  $stageCommandLog = Join-Path $stateDir "$($StageName.ToLowerInvariant()).commands.jsonl"
   if (Test-Path -LiteralPath $statePath) {
     $prior = Get-Content -Raw $statePath | ConvertFrom-Json
     if ($prior.producing_commit -ne $GitCommit -or $prior.input_manifest_sha256 -ne $manifestSha) { throw "Stage state commit/input mismatch: $StageName" }
+    if ($prior.invocation_fingerprint -ne $fingerprint) { throw "Stage invocation fingerprint mismatch: $StageName" }
     if ($prior.status -eq "completed") {
-      if (-not (Test-OutputHashes $prior.output_sha256)) { throw "Completed stage output hash mismatch: $StageName" }
+      if (-not (Test-Path -LiteralPath $stageCommandLog -PathType Leaf) -or (Get-Sha256 $stageCommandLog) -ne $prior.command_sha256) { throw "Completed stage command log hash mismatch: $StageName" }
+      if (-not (Test-OutputHashes $StageName $prior.output_sha256)) { throw "Completed stage output hash/set mismatch: $StageName" }
       Write-Host "Skipping completed stage $StageName"
       return
     }
@@ -292,16 +321,17 @@ function Invoke-DurableStage([string]$StageName, [scriptblock]$Body) {
   } else {
     Clear-StageOutputs $StageName
   }
-  $started = [ordered]@{ stage = $StageName; status = "started"; producing_commit = $GitCommit; input_manifest_sha256 = $manifestSha; command_sha256 = $null; output_sha256 = @{} }
+  if (Test-Path -LiteralPath $stageCommandLog) { Remove-Item -Force -LiteralPath $stageCommandLog }
+  $started = [ordered]@{ stage = $StageName; status = "started"; producing_commit = $GitCommit; input_manifest_sha256 = $manifestSha; invocation_fingerprint = $fingerprint; command_sha256 = $null; output_sha256 = @{} }
   Write-AtomicJson $statePath $started
   try {
     & $Body
     $outputs = Get-StageOutputs $StageName
     if ($outputs.Count -eq 0) { throw "Stage produced no durable artifacts: $StageName" }
-    $completed = [ordered]@{ stage = $StageName; status = "completed"; producing_commit = $GitCommit; input_manifest_sha256 = $manifestSha; command_sha256 = (Get-Sha256 $CommandLog); output_sha256 = $outputs }
+    $completed = [ordered]@{ stage = $StageName; status = "completed"; producing_commit = $GitCommit; input_manifest_sha256 = $manifestSha; invocation_fingerprint = $fingerprint; command_sha256 = (Get-Sha256 $stageCommandLog); output_sha256 = $outputs }
     Write-AtomicJson $statePath $completed
   } catch {
-    $failed = [ordered]@{ stage = $StageName; status = "failed"; producing_commit = $GitCommit; input_manifest_sha256 = $manifestSha; command_sha256 = $(if (Test-Path $CommandLog) { Get-Sha256 $CommandLog } else { $null }); output_sha256 = (Get-StageOutputs $StageName); error = $_.Exception.Message }
+    $failed = [ordered]@{ stage = $StageName; status = "failed"; producing_commit = $GitCommit; input_manifest_sha256 = $manifestSha; invocation_fingerprint = $fingerprint; command_sha256 = $(if (Test-Path $stageCommandLog) { Get-Sha256 $stageCommandLog } else { $null }); output_sha256 = (Get-StageOutputs $StageName); error_sha256 = (Get-StringSha256 $_.Exception.Message) }
     Write-AtomicJson $statePath $failed
     throw
   }

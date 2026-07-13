@@ -126,7 +126,7 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     dataset.mkdir()
     layout.mkdir()
     (dataset / "OmniDocBench.json").write_text("{}", encoding="utf-8")
-    (layout / "model.onnx").write_bytes(b"stub")
+    (layout / "inference.onnx").write_bytes(b"stub")
     (layout / "inference.yml").write_text("stub", encoding="utf-8")
     main = tmp_path / "model root" / "PaddleOCR-VL-1.6-GGUF.gguf"
     mmproj = tmp_path / "model root" / "PaddleOCR-VL-1.6-GGUF-mmproj.gguf"
@@ -155,7 +155,7 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     assert completed.returncode != 0
     arguments = argument_log.read_text(encoding="utf-8").splitlines()
     assert f"dataset={dataset / 'OmniDocBench.json'}" in arguments
-    assert f"layout_model={layout / 'model.onnx'}" in arguments
+    assert f"layout_model={layout / 'inference.onnx'}" in arguments
     assert "check_server.py" in "\n".join(arguments)
     assert "run_eval.py" not in "\n".join(arguments)
     records = [json.loads(line) for line in (evidence / "logs" / "commands.jsonl").read_text().splitlines()]
@@ -192,6 +192,24 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     )
     assert skipped.returncode == 0
     assert argument_log.read_text().count("check_server.py") == before
+    changed_url = _run(
+        script, "-Stage", "Preflight", *(
+            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
+            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
+            "-ServerUrl", "http://127.0.0.1:9999/v1",
+        ), env=env, cwd=tmp_path,
+    )
+    assert changed_url.returncode != 0
+    assert "invocation fingerprint mismatch" in (changed_url.stdout + changed_url.stderr)
+    changed_model = _run(
+        script, "-Stage", "Preflight", *(
+            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
+            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
+            "-ApiModelName", "different-model.gguf",
+        ), env=env, cwd=tmp_path,
+    )
+    assert changed_model.returncode != 0
+    assert "invocation fingerprint mismatch" in (changed_model.stdout + changed_model.stderr)
 
 
 def test_rejects_historical_output_before_creating_it(tmp_path: Path) -> None:
@@ -222,7 +240,7 @@ def test_resume_rejects_changed_immutable_input(tmp_path: Path) -> None:
     layout.mkdir()
     manifest = dataset / "OmniDocBench.json"
     manifest.write_text("{}", encoding="utf-8")
-    (layout / "model.onnx").write_bytes(b"model")
+    (layout / "inference.onnx").write_bytes(b"model")
     (layout / "inference.yml").write_text("config", encoding="utf-8")
     main = tmp_path / "PaddleOCR-VL-1.6-GGUF.gguf"
     mmproj = tmp_path / "PaddleOCR-VL-1.6-GGUF-mmproj.gguf"
@@ -271,7 +289,7 @@ def test_runner_uses_exact_release_anchors_and_durable_stage_state() -> None:
     text = SCRIPT.read_text(encoding="utf-8")
     for anchor in (
         "OmniDocBench.json",
-        "model.onnx",
+        "inference.onnx",
         "inference.yml",
         "eval/configs/omnidocbench_v16.yaml",
         "src/paddleocr_vl_rocm/assets/runtime-manifest.json",
@@ -283,6 +301,7 @@ def test_runner_uses_exact_release_anchors_and_durable_stage_state() -> None:
     assert 'status = "completed"' in text
     assert 'status = "failed"' in text
     assert "input_manifest_sha256" in text
+    assert "invocation_fingerprint" in text
     assert "command_sha256" in text
     assert "output_sha256" in text
     assert "decision.json" in text
@@ -311,7 +330,7 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     dataset.mkdir()
     layout.mkdir()
     (dataset / "OmniDocBench.json").write_text("{}", encoding="utf-8")
-    (layout / "model.onnx").write_bytes(b"model")
+    (layout / "inference.onnx").write_bytes(b"model")
     (layout / "inference.yml").write_text("config", encoding="utf-8")
     main, mmproj = tmp_path / "PaddleOCR-VL-1.6-GGUF.gguf", tmp_path / "PaddleOCR-VL-1.6-GGUF-mmproj.gguf"
     main.write_bytes(b"main")
@@ -337,13 +356,31 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     decide_state = json.loads((evidence / "logs" / "stages" / "decide.json").read_text())
     assert decide_state["status"] == "completed"
     assert decide_state["output_sha256"]["decision.json"]
+    extra = evidence / "official" / "unexpected.txt"
+    extra.write_text("unexpected", encoding="utf-8")
+    added = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
+    assert added.returncode != 0
+    assert "output hash/set mismatch" in (added.stdout + added.stderr)
+    extra.unlink()
+    command_log = evidence / "logs" / "stages" / "official.commands.jsonl"
+    original_log = command_log.read_bytes()
+    command_log.write_bytes(original_log + b"tampered\n")
+    log_tampered = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
+    assert log_tampered.returncode != 0
+    assert "command log hash mismatch" in (log_tampered.stdout + log_tampered.stderr)
+    command_log.write_bytes(original_log)
+    command_log.unlink()
+    log_missing = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
+    assert log_missing.returncode != 0
+    assert "command log hash mismatch" in (log_missing.stdout + log_missing.stderr)
+    command_log.write_bytes(original_log)
     metric = evidence / "results" / "official" / "metric.json"
     metric.write_text('{"tampered": true}', encoding="utf-8")
 
     resumed = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
 
     assert resumed.returncode != 0
-    assert "output hash mismatch" in (resumed.stdout + resumed.stderr)
+    assert "output hash/set mismatch" in (resumed.stdout + resumed.stderr)
 
 
 def test_clean_gate_rejects_untracked_file_from_foreign_cwd(tmp_path: Path) -> None:
@@ -386,6 +423,6 @@ def test_physical_link_into_protected_results_is_rejected(tmp_path: Path) -> Non
         link.symlink_to(protected, target_is_directory=True)
     except OSError as exc:
         pytest.skip(f"directory links are unavailable: {exc}")
-    completed = _run(SCRIPT, "-EvidenceRoot", str(link))
+    completed = _run(SCRIPT, "-EvidenceRoot", str(link / "ordinary-child"))
     assert completed.returncode != 0
     assert "protected historical path" in (completed.stdout + completed.stderr)
