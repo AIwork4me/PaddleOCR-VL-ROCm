@@ -8,11 +8,13 @@
 
 ## Global Constraints
 
-- Fresh official-local release evidence requires `count=1651`, `ok=1650`,
-  `fail=1`, `fallback=0`, and `limit_pages=null`, with only the approved issue
-  #18248 `peg-native` failure and no failed-page prediction; scoring retains all
-  1,651 GT pages.
-- This contract admits 1,650 successful predictions and the sole approved failure.
+Release contract: Fresh official-local release evidence requires `count=1651`,
+`ok=1650`, `fail=1`, `fallback=0`, and `limit_pages=null`; the sole approved
+failure is `newspaper_The Times UK_0801@magazinesclubnew_page_031.png` with the
+`peg-native` signature tracked at
+https://github.com/PaddlePaddle/PaddleOCR/issues/18248. There is no failed-page
+prediction file, and all 1,651 GT pages are scored.
+
 - Formula uses `display_formula.page.CDM.ALL * 100`; Table uses `table.page.TEDS.ALL * 100`.
 - Text page score is `sum(Edit_num) / sum(upper_len)`; Formula CDM and Table TEDS use equal sample means within each GT page and equal page means.
 - Round Text, Formula, and Table to three decimals before computing Overall.

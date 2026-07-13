@@ -1,4 +1,9 @@
+import re
 from pathlib import Path
+
+import pytest
+
+from eval.release_contract import KNOWN_V16_OFFICIAL_FAILURE
 
 ROOT = Path(__file__).parents[1]
 README_EN = ROOT / "README.md"
@@ -112,6 +117,11 @@ def test_bilingual_readmes_document_the_single_page_exception_without_score_infl
     assert "全部 1,651 个 GT 页面" in chinese
     assert "空预测" in chinese
     assert "PaddlePaddle maintainer confirmed" not in english
+
+    evaluation = re.sub(r"\s+", " ", _read(EVAL_README))
+    assert "no prediction file" in evaluation
+    assert "treats the missing output as empty for scoring" in evaluation
+    assert "failed page is an empty prediction" not in evaluation
     assert "PaddlePaddle 维护者已确认" not in chinese
 
 
@@ -173,6 +183,36 @@ def test_windows_validation_distinguishes_cached_install_from_network_setup() ->
         assert evidence in text
 
 
+def _assert_approved_v16_contract(text: str) -> None:
+    match = re.search(r"Release contract:\s*(.+?)(?:\n\s*\n|\Z)", text, re.DOTALL)
+    assert match, "active document must contain a Release contract block"
+    contract = re.sub(r"[`\s]+", " ", match.group(1)).strip()
+
+    assignments = {
+        name: re.findall(rf"\b{name}\s*=\s*([^,;\s]+)", contract)
+        for name in ("count", "ok", "fail", "fallback", "limit_pages")
+    }
+    assert assignments == {
+        "count": ["1651"],
+        "ok": ["1650"],
+        "fail": ["1"],
+        "fallback": ["0"],
+        "limit_pages": ["null"],
+    }
+    assert KNOWN_V16_OFFICIAL_FAILURE["issue_url"] in contract
+    assert KNOWN_V16_OFFICIAL_FAILURE["image"] in contract
+    assert KNOWN_V16_OFFICIAL_FAILURE["error_signature"] in contract
+    assert re.search(r"\b(?:sole|single|exactly one)\b", contract, re.IGNORECASE)
+    assert re.search(r"no (?:failed-page )?prediction file", contract, re.IGNORECASE)
+    assert re.search(r"all 1,651 GT pages (?:are )?scored", contract, re.IGNORECASE)
+    normalized_text = re.sub(r"[`\s]+", " ", text)
+    assert not re.search(
+        r"(?:1,?651\s+(?:successful|success(?:es)?)|all\s+1,?651\s+pages\s+succeed)",
+        normalized_text,
+        re.IGNORECASE,
+    )
+
+
 def test_active_release_documents_use_approved_v16_exception() -> None:
     active = [
         ROOT / "docs/superpowers/plans/2026-07-12-accuracy-inference-fixes.md",
@@ -180,8 +220,31 @@ def test_active_release_documents_use_approved_v16_exception() -> None:
         ROOT / "eval/README.md",
     ]
     for path in active:
-        text = path.read_text(encoding="utf-8")
-        assert "ok=1651`, `fail=0" not in text
-        assert "1,650" in text
-        assert "1,651" in text
-        assert "peg-native" in text
+        _assert_approved_v16_contract(path.read_text(encoding="utf-8"))
+
+
+VALID_CONTRACT = f"""Release contract: `count=1651`, `ok=1650`, `fail=1`,
+`fallback=0`, and `limit_pages=null`; the sole approved failure is
+{KNOWN_V16_OFFICIAL_FAILURE["image"]} with
+{KNOWN_V16_OFFICIAL_FAILURE["error_signature"]} tracked at
+{KNOWN_V16_OFFICIAL_FAILURE["issue_url"]}. There is no failed-page prediction
+file, and all 1,651 GT pages are scored.
+"""
+
+
+@pytest.mark.parametrize(
+    "mutated",
+    [
+        VALID_CONTRACT.replace("ok=1650", "ok = 1651"),
+        VALID_CONTRACT.replace("fail=1", "fail = 0"),
+        VALID_CONTRACT.replace("limit_pages=null", "limit_pages = 1651"),
+        VALID_CONTRACT.replace("sole approved", "approved"),
+        VALID_CONTRACT.replace(KNOWN_V16_OFFICIAL_FAILURE["image"], "other.png"),
+        VALID_CONTRACT.replace("no failed-page prediction\nfile", "an empty prediction file"),
+        VALID_CONTRACT.replace("all 1,651 GT pages are scored", "1,650 GT pages are scored"),
+        VALID_CONTRACT + " 1,651 successful predictions are required.",
+    ],
+)
+def test_release_contract_parser_rejects_realistic_regressions(mutated: str) -> None:
+    with pytest.raises(AssertionError):
+        _assert_approved_v16_contract(mutated)

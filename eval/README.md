@@ -290,10 +290,16 @@ artifact separately when you want it in history.)
 
 Historical reconstructed evidence is documented in
 `results/omnidocbench/v16/README.md` and `docs/accuracy-root-cause-v16.md`. It is
-not fresh release evidence. The release contract accepts exactly 1,650
-successful official pages plus the single `peg-native` failure documented in
-<https://github.com/PaddlePaddle/PaddleOCR/issues/18248>. All 1,651 GT pages
-remain in scoring and the failed page is an empty prediction. Any second or
-different failure is rejected. G3 accuracy and G4 performance remain pending.
+not fresh release evidence.
+
+Release contract: Fresh official-local release evidence requires `count=1651`,
+`ok=1650`, `fail=1`, `fallback=0`, and `limit_pages=null`; the sole approved
+failure is `newspaper_The Times UK_0801@magazinesclubnew_page_031.png` with the
+`peg-native` signature tracked at
+https://github.com/PaddlePaddle/PaddleOCR/issues/18248. There is no prediction
+file for the failed page, and all 1,651 GT pages are scored; the scorer retains
+the failed page and treats the missing output as empty for scoring.
+
+Any second or different failure is rejected. G3 accuracy and G4 performance remain pending.
 CI validates this integration offline and never downloads datasets/models or
 contacts a server.
