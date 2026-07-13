@@ -246,7 +246,12 @@ def _validate_release_prediction_stats(args: argparse.Namespace, predictions_dir
 
 
 def _render_eval_config(
-    base_config: Path, predictions_dir: Path, *, cdm: bool, destination_dir: Path
+    base_config: Path,
+    predictions_dir: Path,
+    *,
+    ground_truth_manifest: Path,
+    cdm: bool,
+    destination_dir: Path,
 ) -> Path:
     try:
         import yaml
@@ -255,10 +260,11 @@ def _render_eval_config(
 
     config_data = yaml.safe_load(base_config.read_text(encoding="utf-8"))
     eval_config = config_data["end2end_eval"]
-    ground_truth_path = Path(eval_config["dataset"]["ground_truth"]["data_path"])
-    if not ground_truth_path.is_absolute():
-        ground_truth_path = ground_truth_path.expanduser().resolve()
-    eval_config["dataset"]["ground_truth"]["data_path"] = str(ground_truth_path)
+    if not ground_truth_manifest.is_file():
+        raise SystemExit(f"Dataset manifest not found: {ground_truth_manifest}")
+    eval_config["dataset"]["ground_truth"]["data_path"] = str(
+        ground_truth_manifest.expanduser().resolve()
+    )
     eval_config["dataset"]["prediction"]["data_path"] = str(predictions_dir.expanduser().resolve())
 
     formula_metrics = list(eval_config["metrics"]["display_formula"].get("metric", []))
@@ -322,9 +328,13 @@ def stage_eval(args: argparse.Namespace) -> None:
     # Render a runtime config so the subprocess sees the selected prediction
     # directory and explicit CDM/non-CDM formula metrics.
     with tempfile.TemporaryDirectory(prefix="paddleocr_eval_config_") as config_dir:
+        dataset_root = Path(
+            getattr(args, "dataset_dir", None) or VERSION_DATASET_DIRS[args.version]
+        )
         rendered_config = _render_eval_config(
             config,
             predictions_dir,
+            ground_truth_manifest=dataset_root / "OmniDocBench.json",
             cdm=bool(getattr(args, "cdm", False)),
             destination_dir=Path(config_dir),
         )

@@ -33,6 +33,14 @@ def _allow_test_release_stats(mod, monkeypatch):
     monkeypatch.setattr(mod, "_validate_release_prediction_stats", lambda args, path: None)
 
 
+def _use_test_dataset_manifest(mod, monkeypatch, tmp_path):
+    dataset = tmp_path / "authenticated dataset"
+    dataset.mkdir(exist_ok=True)
+    (dataset / "OmniDocBench.json").write_text("[]", encoding="utf-8")
+    monkeypatch.setitem(mod.VERSION_DATASET_DIRS, "v16", dataset)
+    return dataset
+
+
 def test_report_path_under_checkout(tmp_path):
     mod = _load_run_eval()
     pred = tmp_path / "predictions" / "paddleocrvl_rocm"  # basename -> paddleocrvl_rocm
@@ -593,6 +601,7 @@ def test_stage_eval_uses_version_dataset_count_without_dataset_override(tmp_path
 
 def test_stage_eval_fails_when_expected_report_is_missing(tmp_path, monkeypatch):
     mod = _load_run_eval()
+    _use_test_dataset_manifest(mod, monkeypatch, tmp_path)
     checkout = tmp_path / "checkout"
     predictions = tmp_path / "predictions" / "paddleocrvl_rocm"
     predictions.mkdir(parents=True)
@@ -632,6 +641,7 @@ def test_stage_eval_fails_when_expected_report_is_missing(tmp_path, monkeypatch)
 
 def test_stage_eval_removes_stale_report_before_scoring(tmp_path, monkeypatch):
     mod = _load_run_eval()
+    _use_test_dataset_manifest(mod, monkeypatch, tmp_path)
     checkout = tmp_path / "checkout"
     predictions = tmp_path / "predictions" / "paddleocrvl_rocm"
     report = checkout / "result" / f"{predictions.name}_quick_match_metric_result.json"
@@ -683,6 +693,8 @@ def test_stage_eval_passes_rendered_config_for_selected_predictions_without_cdm(
     report = checkout / "result" / f"{predictions.name}_quick_match_metric_result.json"
     images.mkdir(parents=True)
     (images / "page.png").write_bytes(b"image")
+    dataset_manifest = dataset / "OmniDocBench.json"
+    dataset_manifest.write_text("[]", encoding="utf-8")
     predictions.mkdir(parents=True)
     report.parent.mkdir(parents=True)
     report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
@@ -720,9 +732,45 @@ def test_stage_eval_passes_rendered_config_for_selected_predictions_without_cdm(
     assert captured["config_path"] != Path(args.config).resolve()
     assert eval_config["dataset"]["prediction"]["data_path"] == str(predictions.resolve())
     assert eval_config["dataset"]["ground_truth"]["data_path"] == str(
-        Path("data/omnidocbench/v16/OmniDocBench.json").resolve()
+        dataset_manifest.resolve()
     )
     assert eval_config["metrics"]["display_formula"]["metric"] == ["Edit_dist"]
+
+
+def test_render_eval_config_uses_authenticated_unicode_dataset_manifest(tmp_path):
+    mod = _load_run_eval()
+    config = tmp_path / "base.yaml"
+    config.write_text(
+        """end2end_eval:
+  dataset:
+    ground_truth:
+      data_path: unsafe/default.json
+    prediction:
+      data_path: ignored
+  metrics:
+    display_formula:
+      metric: [Edit_dist]
+""",
+        encoding="utf-8",
+    )
+    predictions = tmp_path / "predictions"
+    predictions.mkdir()
+    dataset_manifest = tmp_path / "dataset with spaces 数据" / "OmniDocBench.json"
+    dataset_manifest.parent.mkdir()
+    dataset_manifest.write_text("[]", encoding="utf-8")
+
+    rendered = mod._render_eval_config(
+        config,
+        predictions,
+        ground_truth_manifest=dataset_manifest,
+        cdm=False,
+        destination_dir=tmp_path / "rendered",
+    )
+
+    eval_config = yaml.safe_load(rendered.read_text(encoding="utf-8"))["end2end_eval"]
+    assert eval_config["dataset"]["ground_truth"]["data_path"] == str(
+        dataset_manifest.resolve()
+    )
 
 
 def test_stage_eval_passes_rendered_config_with_cdm_when_requested(tmp_path, monkeypatch):
@@ -734,6 +782,7 @@ def test_stage_eval_passes_rendered_config_with_cdm_when_requested(tmp_path, mon
     report = checkout / "result" / f"{predictions.name}_quick_match_metric_result.json"
     images.mkdir(parents=True)
     (images / "page.png").write_bytes(b"image")
+    (dataset / "OmniDocBench.json").write_text("[]", encoding="utf-8")
     predictions.mkdir(parents=True)
     report.parent.mkdir(parents=True)
     report.write_text('{"text_block": {"page": {"Edit_dist": {"ALL": 0.1}}}}', encoding="utf-8")
@@ -779,6 +828,7 @@ def test_stage_eval_passes_rendered_config_with_cdm_when_requested(tmp_path, mon
 
 def test_stage_eval_uses_checkout_venv_python_when_available(tmp_path, monkeypatch):
     mod = _load_run_eval()
+    _use_test_dataset_manifest(mod, monkeypatch, tmp_path)
     checkout = tmp_path / "checkout"
     venv_python = checkout / ".venv" / "Scripts" / "python.exe"
     venv_python.parent.mkdir(parents=True)
@@ -835,6 +885,7 @@ def test_explicit_scorer_python_overrides_checkout_venv(tmp_path):
 
 def test_stage_eval_sets_pythonutf8_for_windows_omnidocbench_subprocess(tmp_path, monkeypatch):
     mod = _load_run_eval()
+    _use_test_dataset_manifest(mod, monkeypatch, tmp_path)
     checkout = tmp_path / "checkout"
     predictions = tmp_path / "predictions" / "paddleocr_official_local_llamacpp_gguf_v16"
     report = checkout / "result" / f"{predictions.name}_quick_match_metric_result.json"

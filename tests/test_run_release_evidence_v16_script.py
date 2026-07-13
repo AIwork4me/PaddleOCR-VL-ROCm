@@ -29,7 +29,10 @@ def test_release_runner_isolates_and_orders_stages() -> None:
     assert "check_omnidocbench_scorer.py" in text
     assert text.index("scorer-preflight") < text.index("official-infer")
     assert '"--cdm"' in text
-    assert '"--scorer-python", $PythonExe' in text
+    assert "[string]$ScorerPythonExe" in text
+    assert '"--scorer-python", $ScorerPythonExe' in text
+    assert "scorer_environment_sha256" in text
+    assert "requirements-omnidocbench-v16-transitive.txt" in text
 
 
 def test_score_only_source_never_invokes_inference_and_requires_both_scores() -> None:
@@ -72,6 +75,10 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
         " hashes={n:hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for n,p in records.items()}\n"
         " origins={n:str(base/(n+'.py')) for n in records}; dist_origins={n:str(venv) for n in records}\n"
         " print(json.dumps({'version':'stub-version','executable':os.environ['STUB_REPORTED_EXE'],'eval_origin':str(base/'eval/__init__.py'),'package_origin':str(base/'src/paddleocr_vl_rocm/__init__.py'),'core_versions':versions,'core_origins':origins,'distribution_origins':dist_origins,'record_paths':records,'record_sha256':hashes,'dependency_environment_sha256':os.environ.get('STUB_ENV_HASH','a'*64)})); sys.exit(0)\n"
+        "if a and a[0].endswith('check_omnidocbench_scorer.py') and '--output' in a:\n"
+        " package=pathlib.Path(os.environ.get('STUB_SCORER_PACKAGE',os.environ['STUB_REPORTED_EXE'])); content=hashlib.sha256(package.read_bytes()).hexdigest()\n"
+        " value={'python_executable_sha256':hashlib.sha256(str(pathlib.Path(sys.argv[0]).resolve()).encode()).hexdigest(),'python_version_sha256':'b'*64,'dependency_environment_sha256':content,'dependencies':{'demo':{'version':'1.0','origin_sha256':'c'*64,'record_sha256':'d'*64,'content_sha256':content,'file_count':1}}}\n"
+        " out=pathlib.Path(a[a.index('--output')+1]); out.parent.mkdir(parents=True,exist_ok=True); out.write_text(json.dumps(value,sort_keys=True),encoding='utf-8'); print(json.dumps(value)); sys.exit(0)\n"
         f"fail={fail_on!r}\n"
         "if fail and any(fail in x for x in a): sys.exit(23)\n"
         "if 'eval.release_evidence' in a and 'manifest' in a:\n"
@@ -104,6 +111,8 @@ def _run(script: Path, *arguments: str, env: dict[str, str] | None = None, cwd: 
     values = list(arguments)
     if env and env.get("STUB_REPORTED_EXE") and "-PythonExe" not in values:
         values += ["-PythonExe", env["STUB_REPORTED_EXE"]]
+    if env and env.get("STUB_REPORTED_EXE") and "-ScorerPythonExe" not in values:
+        values += ["-ScorerPythonExe", env.get("STUB_SCORER_EXE", env["STUB_REPORTED_EXE"])]
     return subprocess.run(
         [_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script), *values],
         cwd=cwd,
@@ -123,11 +132,13 @@ def _clean_repo(tmp_path: Path) -> tuple[Path, Path]:
         "eval/benchmark_contract.py",
         "eval/score_recovery.py",
         "eval/requirements-omnidocbench-v16.txt",
+        "eval/requirements-omnidocbench-v16-transitive.txt",
         "scripts/check_omnidocbench_scorer.py",
         "eval/configs/omnidocbench_v16.yaml",
         "src/paddleocr_vl_rocm/assets/runtime-manifest.json",
         "eval/patches/omnidocbench-v16-windows-cdm.patch",
         "eval/.omnidocbench/tools/generate_result_tables.ipynb",
+        "eval/.omnidocbench/pyproject.toml",
         "eval/.omnidocbench/src/core/metrics.py",
         "eval/.omnidocbench/src/metrics/cal_metric.py",
         "eval/.omnidocbench/src/metrics/table_metric.py",
@@ -175,11 +186,14 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     mmproj.write_bytes(b"mmproj")
     config = tmp_path / "active config.json"
     config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
+    scorer_package = tmp_path / "scorer-package.py"
+    scorer_package.write_text("VERSION = 1\n", encoding="utf-8")
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
     env.update(
         STUB_ARG_LOG=str(argument_log),
         STUB_REPORTED_EXE=str(stub_python),
+        STUB_SCORER_PACKAGE=str(scorer_package),
     )
     env["STUB_MISSING_PACKAGE"] = "1"
     missing_package = _run(
@@ -259,6 +273,22 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     )
     assert skipped.returncode == 0
     assert argument_log.read_text().count("check_server.py") == before
+    scorer_package.write_text("VERSION = 2\n", encoding="utf-8")
+    package_mutation = _run(
+        script,
+        "-Stage", "Preflight",
+        "-EvidenceRoot", str(evidence),
+        "-DatasetDir", str(dataset),
+        "-LayoutModel", str(layout),
+        "-RuntimeConfig", str(config),
+        env=env,
+        cwd=tmp_path,
+    )
+    assert package_mutation.returncode != 0
+    assert "scorer interpreter, origin, RECORD, or package content differs" in (
+        package_mutation.stdout + package_mutation.stderr
+    )
+    scorer_package.write_text("VERSION = 1\n", encoding="utf-8")
     doctor_before = argument_log.read_text().count("doctor")
     missing_official = _run(
         script, "-Stage", "Lightweight", *(
@@ -606,7 +636,7 @@ def test_failed_score_retry_preserves_inference_and_both_scores_gate_official(
     )
 
 
-def test_score_only_recovery_does_not_require_inference_assets_or_call_infer(
+def test_score_only_recovery_binds_assets_then_continues_lightweight_and_decide(
     tmp_path: Path,
 ) -> None:
     _, script = _clean_repo(tmp_path)
@@ -617,6 +647,22 @@ def test_score_only_recovery_does_not_require_inference_assets_or_call_infer(
     dataset = tmp_path / "dataset"
     dataset.mkdir()
     (dataset / "OmniDocBench.json").write_text("{}", encoding="utf-8")
+    layout = tmp_path / "layout"
+    layout.mkdir()
+    layout_onnx = layout / "inference.onnx"
+    layout_onnx.write_bytes(b"layout-model")
+    (layout / "inference.yml").write_text("layout-config", encoding="utf-8")
+    main = tmp_path / "PaddleOCR-VL-1.6-GGUF.gguf"
+    mmproj = tmp_path / "PaddleOCR-VL-1.6-GGUF-mmproj.gguf"
+    main.write_bytes(b"main")
+    mmproj.write_bytes(b"mmproj")
+    config = tmp_path / "runtime config.json"
+    config.write_text(
+        json.dumps(
+            {"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}
+        ),
+        encoding="utf-8",
+    )
     source = tmp_path / "immutable source"
     for relative in (
         "manifest.json",
@@ -631,17 +677,24 @@ def test_score_only_recovery_does_not_require_inference_assets_or_call_infer(
     evidence = tmp_path / "recovery evidence"
     env = os.environ.copy()
     env.update(STUB_ARG_LOG=str(argument_log), STUB_REPORTED_EXE=str(stub_python))
-
-    completed = _run(
-        script,
-        "-Stage",
-        "OfficialScore",
+    common = (
         "-EvidenceRoot",
         str(evidence),
         "-RecoverySourceRoot",
         str(source),
         "-DatasetDir",
         str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
+    )
+
+    completed = _run(
+        script,
+        "-Stage",
+        "OfficialScore",
+        *common,
         env=env,
         cwd=tmp_path,
     )
@@ -653,21 +706,28 @@ def test_score_only_recovery_does_not_require_inference_assets_or_call_infer(
     assert (evidence / "recovery" / "source.json").is_file()
     assert (evidence / "results" / "official" / "metric.json").is_file()
     assert (evidence / "results" / "official" / "metric-cdm.json").is_file()
-    ordered = _run(
-        script,
-        "-Stage",
-        "Decide",
-        "-EvidenceRoot",
-        str(evidence),
-        "-RecoverySourceRoot",
-        str(source),
-        "-DatasetDir",
-        str(dataset),
-        env=env,
-        cwd=tmp_path,
-    )
-    assert ordered.returncode != 0
-    assert "Missing completed predecessor: Lightweight" in (ordered.stdout + ordered.stderr)
+    manifest = json.loads((evidence / "manifest.json").read_text(encoding="utf-8"))
+    assert {
+        "layout_model",
+        "layout_config",
+        "runtime_config",
+        "runtime_manifest",
+        "main_gguf",
+        "mmproj",
+    } <= set(manifest["inputs"])
+
+    layout_onnx.write_bytes(b"mutated")
+    rejected = _run(script, "-Stage", "Lightweight", *common, env=env, cwd=tmp_path)
+    assert rejected.returncode != 0
+    assert "Resume refused" in (rejected.stdout + rejected.stderr)
+    assert argument_log.read_text(encoding="utf-8").splitlines().count("infer") == 0
+
+    layout_onnx.write_bytes(b"layout-model")
+    lightweight = _run(script, "-Stage", "Lightweight", *common, env=env, cwd=tmp_path)
+    assert lightweight.returncode == 0, lightweight.stderr
+    decided = _run(script, "-Stage", "Decide", *common, env=env, cwd=tmp_path)
+    assert decided.returncode == 0, decided.stderr
+    assert (evidence / "decision.json").is_file()
 
 
 def test_score_only_recovery_rejects_source_output_overlap(tmp_path: Path) -> None:

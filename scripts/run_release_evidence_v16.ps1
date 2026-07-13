@@ -8,6 +8,7 @@ param(
   [string]$LayoutModel = "models/PP-DocLayoutV3-onnx",
   [string]$RuntimeConfig = "$HOME/.paddleocr-vl-rocm/config.json",
   [string]$PythonExe,
+  [string]$ScorerPythonExe,
   [string]$RecoverySourceRoot
 )
 
@@ -58,6 +59,11 @@ if ([string]::IsNullOrWhiteSpace($PythonExe)) {
 if (-not [IO.Path]::IsPathRooted($PythonExe)) { throw "PythonExe must be an absolute path." }
 $PythonExe = Resolve-PhysicalPath $PythonExe
 if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) { throw "PythonExe must be an existing regular executable file." }
+if ([string]::IsNullOrWhiteSpace($ScorerPythonExe)) {
+  $ScorerPythonExe = if ($IsWindows -or $env:OS -eq "Windows_NT") { Join-Path $RepoRoot ".scorer-venv/Scripts/python.exe" } else { Join-Path $RepoRoot ".scorer-venv/bin/python" }
+}
+if (-not [IO.Path]::IsPathRooted($ScorerPythonExe)) { throw "ScorerPythonExe must be an absolute path." }
+$ScorerPythonExe = Resolve-PhysicalPath $ScorerPythonExe
 
 $ProtectedPaths = @(
   (Join-Path $RepoRoot "results/omnidocbench/v16"),
@@ -160,11 +166,48 @@ function Get-PythonProvenance {
   return $script:PythonProvenance
 }
 
+function Get-ScorerProvenance {
+  if ($script:ScorerProvenance) { return $script:ScorerProvenance }
+  if (-not (Test-Path -LiteralPath $ScorerPythonExe -PathType Leaf)) { throw "ScorerPythonExe must be an existing regular executable file." }
+  New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+  $attestation = Join-Path $LogDir "scorer-environment.json"
+  $candidate = Join-Path $LogDir "scorer-environment.candidate.json"
+  $arguments = @(
+    "scripts/check_omnidocbench_scorer.py",
+    "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"),
+    "--direct-lock", (Join-Path $RepoRoot "eval/requirements-omnidocbench-v16.txt"),
+    "--transitive-lock", (Join-Path $RepoRoot "eval/requirements-omnidocbench-v16-transitive.txt"),
+    "--attest-only", "--output", $candidate
+  )
+  Invoke-LoggedNative "Manifest" "scorer-environment" $ScorerPythonExe $arguments | Out-Null
+  if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { throw "Scorer attestation did not create $candidate" }
+  if (Test-Path -LiteralPath $attestation -PathType Leaf) {
+    if ((Get-Content -Raw -LiteralPath $attestation) -cne (Get-Content -Raw -LiteralPath $candidate)) {
+      throw "Resume refused: scorer interpreter, origin, RECORD, or package content differs."
+    }
+    Remove-Item -LiteralPath $candidate
+  } else {
+    Move-Item -LiteralPath $candidate -Destination $attestation
+  }
+  try { $value = Get-Content -Raw -LiteralPath $attestation | ConvertFrom-Json }
+  catch { throw "Scorer attestation returned invalid JSON." }
+  foreach ($key in @("python_executable_sha256", "python_version_sha256", "dependency_environment_sha256")) {
+    if ([string]$value.$key -notmatch '^[0-9a-f]{64}$') { throw "Scorer attestation hash is invalid: $key" }
+  }
+  $script:ScorerProvenance = [ordered]@{
+    path_sha256 = Get-StringSha256 $ScorerPythonExe
+    file_sha256 = Get-Sha256 $ScorerPythonExe
+    environment_sha256 = [string]$value.dependency_environment_sha256
+    attestation = $attestation
+  }
+  return $script:ScorerProvenance
+}
+
 function Get-ImmutableInputs {
   $pythonProvenance = Get-PythonProvenance
+  $scorerProvenance = Get-ScorerProvenance
   if (-not (Test-Path -LiteralPath $DatasetDir -PathType Container)) { throw "DatasetDir does not exist: $DatasetDir" }
-  $inferenceMode = [string]::IsNullOrWhiteSpace($RecoverySourceRoot)
-  if ($inferenceMode -and -not (Test-Path -LiteralPath $LayoutModel -PathType Container)) { throw "LayoutModel does not exist: $LayoutModel" }
+  if (-not (Test-Path -LiteralPath $LayoutModel -PathType Container)) { throw "LayoutModel does not exist: $LayoutModel" }
   $datasetManifest = Join-Path $DatasetDir "OmniDocBench.json"
   $layoutOnnx = Join-Path $LayoutModel "inference.onnx"
   $layoutConfig = Join-Path $LayoutModel "inference.yml"
@@ -172,11 +215,13 @@ function Get-ImmutableInputs {
   $scoringConfig = Join-Path $RepoRoot "eval/configs/omnidocbench_v16.yaml"
   $benchmarkContract = Join-Path $RepoRoot "eval/benchmark_contract.py"
   $scorerRequirements = Join-Path $RepoRoot "eval/requirements-omnidocbench-v16.txt"
+  $scorerTransitiveRequirements = Join-Path $RepoRoot "eval/requirements-omnidocbench-v16-transitive.txt"
   $scorerPreflight = Join-Path $RepoRoot "scripts/check_omnidocbench_scorer.py"
   $scoreRecovery = Join-Path $RepoRoot "eval/score_recovery.py"
   $scorerCheckout = Join-Path $RepoRoot "eval/.omnidocbench"
   $scorerFiles = [ordered]@{
     scorer_notebook = (Join-Path $scorerCheckout "tools/generate_result_tables.ipynb")
+    scorer_pyproject = (Join-Path $scorerCheckout "pyproject.toml")
     scorer_core_metrics = (Join-Path $scorerCheckout "src/core/metrics.py")
     scorer_cal_metric = (Join-Path $scorerCheckout "src/metrics/cal_metric.py")
     scorer_table_metric = (Join-Path $scorerCheckout "src/metrics/table_metric.py")
@@ -184,27 +229,25 @@ function Get-ImmutableInputs {
     scorer_dataset = (Join-Path $scorerCheckout "src/dataset/end2end_dataset.py")
     scorer_windows_patch = (Join-Path $RepoRoot "eval/patches/omnidocbench-v16-windows-cdm.patch")
   }
-  if ($inferenceMode) {
-    if (-not (Test-Path $RuntimeConfig -PathType Leaf)) { throw "Active RuntimeConfig is missing: $RuntimeConfig" }
-    $config = Get-Content -Raw $RuntimeConfig | ConvertFrom-Json
-    $mainGguf = [string]$config.main_gguf
-    $mmproj = [string]$config.mmproj
-    $configuredLayout = [string]$config.layout_model_dir
-    if ([string]::IsNullOrWhiteSpace($configuredLayout) -or
-        (Resolve-PhysicalPath $configuredLayout) -ne (Resolve-PhysicalPath $LayoutModel)) {
-      throw "Active RuntimeConfig layout_model_dir does not match LayoutModel."
-    }
-    $runtime = Get-Content -Raw $runtimeManifest | ConvertFrom-Json
-    $mainRecords = @($runtime.resources | Where-Object name -eq "paddleocr-vl-main-gguf")
-    $mmprojRecords = @($runtime.resources | Where-Object name -eq "paddleocr-vl-mmproj")
-    if ($mainRecords.Count -ne 1 -or $mmprojRecords.Count -ne 1) { throw "Runtime manifest model anchors are absent or ambiguous." }
-    if ((Split-Path -Leaf $mainGguf) -ne (Split-Path -Leaf $mainRecords[0].destination) -or
-        (Split-Path -Leaf $mmproj) -ne (Split-Path -Leaf $mmprojRecords[0].destination)) {
-      throw "Active config model paths do not match the pinned runtime manifest."
-    }
+  if (-not (Test-Path $RuntimeConfig -PathType Leaf)) { throw "Active RuntimeConfig is missing: $RuntimeConfig" }
+  $config = Get-Content -Raw $RuntimeConfig | ConvertFrom-Json
+  $mainGguf = [string]$config.main_gguf
+  $mmproj = [string]$config.mmproj
+  $configuredLayout = [string]$config.layout_model_dir
+  if ([string]::IsNullOrWhiteSpace($configuredLayout) -or
+      (Resolve-PhysicalPath $configuredLayout) -ne (Resolve-PhysicalPath $LayoutModel)) {
+    throw "Active RuntimeConfig layout_model_dir does not match LayoutModel."
   }
-  $requiredInputs = @($datasetManifest, $scoringConfig, $benchmarkContract, $scorerRequirements, $scorerPreflight, $scoreRecovery) + @($scorerFiles.Values)
-  if ($inferenceMode) { $requiredInputs += @($layoutOnnx, $layoutConfig, $runtimeManifest, $mainGguf, $mmproj) }
+  $runtime = Get-Content -Raw $runtimeManifest | ConvertFrom-Json
+  $mainRecords = @($runtime.resources | Where-Object name -eq "paddleocr-vl-main-gguf")
+  $mmprojRecords = @($runtime.resources | Where-Object name -eq "paddleocr-vl-mmproj")
+  if ($mainRecords.Count -ne 1 -or $mmprojRecords.Count -ne 1) { throw "Runtime manifest model anchors are absent or ambiguous." }
+  if ((Split-Path -Leaf $mainGguf) -ne (Split-Path -Leaf $mainRecords[0].destination) -or
+      (Split-Path -Leaf $mmproj) -ne (Split-Path -Leaf $mmprojRecords[0].destination)) {
+    throw "Active config model paths do not match the pinned runtime manifest."
+  }
+  $requiredInputs = @($datasetManifest, $scoringConfig, $benchmarkContract, $scorerRequirements, $scorerTransitiveRequirements, $scorerPreflight, $scoreRecovery, $scorerProvenance.attestation) + @($scorerFiles.Values)
+  $requiredInputs += @($layoutOnnx, $layoutConfig, $runtimeManifest, $mainGguf, $mmproj, $RuntimeConfig)
   foreach ($required in $requiredInputs) {
     if ([string]::IsNullOrWhiteSpace($required) -or -not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Required immutable input is absent or ambiguous: $required" }
   }
@@ -213,9 +256,12 @@ function Get-ImmutableInputs {
     scoring_config = $scoringConfig
     benchmark_contract = $benchmarkContract
     scorer_requirements = $scorerRequirements
+    scorer_transitive_requirements = $scorerTransitiveRequirements
+    scorer_environment = $scorerProvenance.attestation
     scorer_preflight = $scorerPreflight
     score_recovery = $scoreRecovery
     python_executable = $PythonExe
+    scorer_python_executable = $ScorerPythonExe
     paddleocr_record = [string]$pythonProvenance.record_paths.paddleocr
     paddlex_record = [string]$pythonProvenance.record_paths.paddlex
     paddlepaddle_record = [string]$pythonProvenance.record_paths.paddlepaddle
@@ -223,14 +269,12 @@ function Get-ImmutableInputs {
     release_contract = (Join-Path $RepoRoot "eval/release_contract.py")
     release_evidence = (Join-Path $RepoRoot "eval/release_evidence.py")
   }
-  if ($inferenceMode) {
-    $inputs["layout_model"] = $layoutOnnx
-    $inputs["layout_config"] = $layoutConfig
-    $inputs["main_gguf"] = $mainGguf
-    $inputs["mmproj"] = $mmproj
-    $inputs["runtime_config"] = $RuntimeConfig
-    $inputs["runtime_manifest"] = $runtimeManifest
-  }
+  $inputs["layout_model"] = $layoutOnnx
+  $inputs["layout_config"] = $layoutConfig
+  $inputs["main_gguf"] = $mainGguf
+  $inputs["mmproj"] = $mmproj
+  $inputs["runtime_config"] = $RuntimeConfig
+  $inputs["runtime_manifest"] = $runtimeManifest
   foreach ($entry in $scorerFiles.GetEnumerator()) { $inputs[$entry.Key] = $entry.Value }
   if (-not [string]::IsNullOrWhiteSpace($RecoverySourceRoot)) {
     $sourceInputs = [ordered]@{
@@ -271,7 +315,7 @@ function Assert-OrCreateManifest {
 
 function Invoke-Preflight {
   Invoke-LoggedNative "Preflight" "scorer-contract" $PythonExe @("-m", "eval.benchmark_contract", "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"))
-  Invoke-LoggedNative "Preflight" "scorer-preflight" $PythonExe @("scripts/check_omnidocbench_scorer.py", "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"), "--require-cdm-tools")
+  Invoke-LoggedNative "Preflight" "scorer-preflight" $ScorerPythonExe @("scripts/check_omnidocbench_scorer.py", "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"), "--direct-lock", (Join-Path $RepoRoot "eval/requirements-omnidocbench-v16.txt"), "--transitive-lock", (Join-Path $RepoRoot "eval/requirements-omnidocbench-v16-transitive.txt"), "--require-cdm-tools")
   if (-not [string]::IsNullOrWhiteSpace($RecoverySourceRoot)) { return }
   Invoke-LoggedNative "Preflight" "server-gate" $PythonExe @("scripts/check_server.py", "--server-url", $ServerUrl)
   Invoke-LoggedNative "Preflight" "official-import" $PythonExe @("scripts/check_official_paddleocr.py", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName)
@@ -297,8 +341,8 @@ function Invoke-OfficialScore {
   $results = Join-Path $EvidenceRoot "results/official"
   New-Item -ItemType Directory -Force -Path $results | Out-Null
   if (-not [string]::IsNullOrWhiteSpace($RecoverySourceRoot)) { Invoke-RecoveryAuthentication "Official" }
-  Invoke-LoggedNative "Official" "official-score" $PythonExe @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--dataset-dir", $DatasetDir, "--predictions-dir", $official, "--scorer-python", $PythonExe, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
-  Invoke-LoggedNative "Official" "official-score-cdm" $PythonExe @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--dataset-dir", $DatasetDir, "--predictions-dir", $official, "--scorer-python", $PythonExe, "--cdm", "--copy-report", (Join-Path $results "metric-cdm.json"), "--run-summary", (Join-Path $results "run-summary-cdm.json"), "--provenance", (Join-Path $results "provenance-cdm.json"))
+  Invoke-LoggedNative "Official" "official-score" $PythonExe @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--dataset-dir", $DatasetDir, "--predictions-dir", $official, "--scorer-python", $ScorerPythonExe, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
+  Invoke-LoggedNative "Official" "official-score-cdm" $PythonExe @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--dataset-dir", $DatasetDir, "--predictions-dir", $official, "--scorer-python", $ScorerPythonExe, "--cdm", "--copy-report", (Join-Path $results "metric-cdm.json"), "--run-summary", (Join-Path $results "run-summary-cdm.json"), "--provenance", (Join-Path $results "provenance-cdm.json"))
 }
 
 function Assert-DirectMlEvidence([string]$StatsPath) {
@@ -320,7 +364,7 @@ function Invoke-Lightweight {
   Invoke-LoggedNative "Lightweight" "lightweight-infer" $PythonExe @("-m", "eval.run_eval", "--stage", "infer", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel)
   $stats = Join-Path $lightweight "_run_stats.json"
   Assert-DirectMlEvidence $stats
-  Invoke-LoggedNative "Lightweight" "lightweight-score" $PythonExe @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
+  Invoke-LoggedNative "Lightweight" "lightweight-score" $PythonExe @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel, "--scorer-python", $ScorerPythonExe, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
 }
 
 function Invoke-Decide {
@@ -375,6 +419,7 @@ function Get-CDMToolEnvironmentSha256 {
 
 function Get-InvocationFingerprint([string]$StageName, [string]$ManifestSha) {
   $pythonProvenance = Get-PythonProvenance
+  $scorerProvenance = Get-ScorerProvenance
   $values = [ordered]@{
     stage = $StageName
     producing_commit = $GitCommit
@@ -395,6 +440,9 @@ function Get-InvocationFingerprint([string]$StageName, [string]$ManifestSha) {
     eval_origin_sha256 = $pythonProvenance.eval_origin_sha256
     package_origin_sha256 = $pythonProvenance.package_origin_sha256
     dependency_environment_sha256 = $pythonProvenance.dependency_environment_sha256
+    scorer_python_path_sha256 = $scorerProvenance.path_sha256
+    scorer_python_file_sha256 = $scorerProvenance.file_sha256
+    scorer_environment_sha256 = $scorerProvenance.environment_sha256
     cdm_tool_environment_sha256 = Get-CDMToolEnvironmentSha256
     paddleocr_record_sha256 = $pythonProvenance.paddleocr_record_sha256
     paddlex_record_sha256 = $pythonProvenance.paddlex_record_sha256

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import csv
 import hashlib
 import importlib.metadata as metadata
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -13,26 +16,31 @@ import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
-EXPECTED_DISTRIBUTIONS = {
+from packaging.requirements import InvalidRequirement, Requirement
+
+try:
+    import tomllib
+except ImportError:  # pragma: no cover - exercised by the supported Python 3.10 scorer
+    import tomli as tomllib
+
+DIRECT_DISTRIBUTIONS = {
     "apted": "1.0.3",
-    "beautifulsoup4": "4.15.0",
-    "evaluate": "0.4.6",
+    "beautifulsoup4": "4.11.1",
+    "evaluate": "0.4.3",
     "func-timeout": "4.3.5",
-    "Levenshtein": "0.27.3",
-    "loguru": "0.7.3",
-    "lxml": "6.1.1",
-    "matplotlib": "3.11.0",
-    "nltk": "3.9.4",
-    "numpy": "2.3.5",
-    "pandas": "3.0.3",
-    "Pillow": "12.3.0",
+    "Levenshtein": "0.25.1",
+    "loguru": "0.7.2",
+    "lxml": "4.9.1",
+    "matplotlib": "3.7.5",
+    "nltk": "3.9.1",
+    "numpy": "1.24.4",
+    "pandas": "2.0.3",
+    "Pillow": "10.4.0",
     "pylatexenc": "2.10",
     "PyYAML": "6.0.2",
-    "scipy": "1.17.1",
-    "tabulate": "0.10.0",
-    "tqdm": "4.68.3",
-    "pip": "26.1.2",
-    "setuptools": "79.0.1",
+    "scipy": "1.10.1",
+    "tabulate": "0.9.0",
+    "tqdm": "4.67.1",
 }
 REQUIRED_REGISTRATIONS = {
     "datasets": {"end2end_dataset"},
@@ -43,6 +51,159 @@ REQUIRED_REGISTRATIONS = {
 
 def _hash_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _normalized_name(value: str) -> str:
+    return re.sub(r"[-_.]+", "-", value).lower()
+
+
+def _read_lock(path: Path) -> dict[str, tuple[str, str]]:
+    locked: dict[str, tuple[str, str]] = {}
+    for line_number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.count("==") != 1 or any(marker in line for marker in (";", " @ ", " --")):
+            raise RuntimeError(
+                f"Lock entry must be one unconditional exact pin: {path}:{line_number}"
+            )
+        name, version = (part.strip() for part in line.split("==", 1))
+        normalized = _normalized_name(name)
+        if not name or not version or normalized in locked:
+            raise RuntimeError(f"Invalid or duplicate lock entry: {path}:{line_number}")
+        locked[normalized] = (name, version)
+    return locked
+
+
+def _validate_checkout_dependency_contract(
+    checkout: Path, direct: dict[str, tuple[str, str]]
+) -> None:
+    pyproject_path = checkout / "pyproject.toml"
+    if not pyproject_path.is_file():
+        raise RuntimeError(f"Pinned scorer pyproject is missing: {pyproject_path}")
+    project = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))["project"]
+    if project.get("requires-python") != ">=3.10,<3.12":
+        raise RuntimeError("Pinned scorer Python range is not >=3.10,<3.12.")
+    checkout_direct: dict[str, tuple[str, str]] = {}
+    for raw in project.get("dependencies", ()):
+        if raw.count("==") != 1:
+            raise RuntimeError("Pinned scorer dependency is not an exact requirement.")
+        name, version = (part.strip() for part in raw.split("==", 1))
+        checkout_direct[_normalized_name(name)] = (name, version)
+    if checkout_direct != direct:
+        raise RuntimeError("Direct dependency lock diverges from the pinned scorer pyproject.")
+
+
+def _is_within(candidate: Path, parent: Path) -> bool:
+    try:
+        candidate.resolve().relative_to(parent.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def _attest_distribution(
+    name: str,
+    expected: str,
+    distribution: metadata.Distribution,
+    *,
+    environment_root: Path,
+) -> dict[str, object]:
+    if distribution.version != expected:
+        raise RuntimeError(
+            f"Required scorer dependency version mismatch: {name}=={expected}; "
+            f"found {distribution.version}"
+        )
+    root = environment_root.resolve()
+    origin = Path(distribution.locate_file(".")).resolve()
+    if not _is_within(origin, root):
+        raise RuntimeError(f"Scorer dependency origin is outside its interpreter: {name}")
+    record_entries = [path for path in distribution.files or () if Path(path).name == "RECORD"]
+    if len(record_entries) != 1:
+        raise RuntimeError(f"Scorer dependency RECORD is absent or ambiguous: {name}")
+    record_path = Path(distribution.locate_file(record_entries[0])).resolve()
+    if not record_path.is_file() or not _is_within(record_path, root):
+        raise RuntimeError(f"Scorer dependency RECORD is outside its interpreter: {name}")
+
+    content_records: list[str] = []
+    with record_path.open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.reader(handle))
+    if not rows:
+        raise RuntimeError(f"Scorer dependency RECORD is empty: {name}")
+    for row in rows:
+        if len(row) != 3 or not row[0]:
+            raise RuntimeError(f"Malformed scorer dependency RECORD row: {name}")
+        listed = Path(distribution.locate_file(row[0])).resolve()
+        if not listed.is_file() or not _is_within(listed, root):
+            raise RuntimeError(f"RECORD-listed file is missing or outside interpreter: {name}")
+        payload = listed.read_bytes()
+        actual_digest = hashlib.sha256(payload).hexdigest()
+        if row[1]:
+            try:
+                algorithm, encoded = row[1].split("=", 1)
+                expected_digest = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+                actual_declared = hashlib.new(algorithm, payload).digest()
+            except (ValueError, TypeError) as exc:
+                raise RuntimeError(
+                    f"Unsupported RECORD hash for scorer dependency: {name}"
+                ) from exc
+            if actual_declared != expected_digest:
+                raise RuntimeError(f"RECORD hash mismatch for scorer dependency: {name}")
+        if row[2]:
+            try:
+                expected_size = int(row[2])
+            except ValueError as exc:
+                raise RuntimeError(f"Malformed RECORD size for scorer dependency: {name}") from exc
+            if expected_size != len(payload):
+                raise RuntimeError(f"RECORD size mismatch for scorer dependency: {name}")
+        relative = listed.relative_to(root).as_posix()
+        content_records.append(f"{relative}\0{actual_digest}\0{len(payload)}")
+    canonical = "\n".join(sorted(content_records))
+    return {
+        "version": distribution.version,
+        "origin_sha256": _hash_text(origin.as_posix().casefold()),
+        "record_sha256": hashlib.sha256(record_path.read_bytes()).hexdigest(),
+        "content_sha256": _hash_text(canonical),
+        "file_count": len(content_records),
+    }
+
+
+def _attest_locked_distributions(
+    locked: dict[str, tuple[str, str]], *, environment_root: Path
+) -> dict[str, dict[str, object]]:
+    result: dict[str, dict[str, object]] = {}
+    distributions: dict[str, metadata.Distribution] = {}
+    for normalized in sorted(locked):
+        name, expected = locked[normalized]
+        try:
+            distribution = metadata.distribution(name)
+        except metadata.PackageNotFoundError as exc:
+            raise RuntimeError(
+                f"Required scorer dependency is missing: {name}=={expected}"
+            ) from exc
+        distributions[normalized] = distribution
+        result[normalized] = _attest_distribution(
+            name, expected, distribution, environment_root=environment_root
+        )
+    for owner, distribution in distributions.items():
+        for raw_requirement in distribution.metadata.get_all("Requires-Dist") or ():
+            try:
+                requirement = Requirement(raw_requirement)
+            except InvalidRequirement as exc:
+                raise RuntimeError(f"Malformed installed dependency metadata: {owner}") from exc
+            if requirement.marker and not requirement.marker.evaluate({"extra": ""}):
+                continue
+            required = _normalized_name(requirement.name)
+            if required not in locked:
+                raise RuntimeError(
+                    f"Transitive lock is incomplete: {owner} requires {requirement.name}"
+                )
+            actual = distributions[required].version
+            if requirement.specifier and actual not in requirement.specifier:
+                raise RuntimeError(
+                    f"Transitive lock conflict: {owner} requires {requirement}; found {actual}"
+                )
+    return result
 
 
 def _import_registries(checkout: Path) -> dict[str, list[str]]:
@@ -141,9 +302,30 @@ def _exercise_cdm_runtime(checkout: Path) -> dict[str, object]:
     }
 
 
-def check_scorer(checkout: Path, *, require_cdm_tools: bool) -> dict[str, object]:
+def check_scorer(
+    checkout: Path,
+    *,
+    require_cdm_tools: bool,
+    direct_lock: Path = Path("eval/requirements-omnidocbench-v16.txt"),
+    transitive_lock: Path = Path("eval/requirements-omnidocbench-v16-transitive.txt"),
+    attest_only: bool = False,
+) -> dict[str, object]:
+    if sys.version_info[:2] not in ((3, 10), (3, 11)):
+        raise RuntimeError("OmniDocBench scorer requires isolated Python 3.10 or 3.11.")
+    direct = _read_lock(direct_lock)
+    expected_direct = {
+        _normalized_name(name): (name, version) for name, version in DIRECT_DISTRIBUTIONS.items()
+    }
+    if direct != expected_direct:
+        raise RuntimeError("Direct dependency lock diverges from the pinned OmniDocBench checkout.")
+    _validate_checkout_dependency_contract(checkout, direct)
+    transitive = _read_lock(transitive_lock)
+    overlap = set(direct) & set(transitive)
+    if overlap:
+        raise RuntimeError(f"Direct dependencies repeated in transitive lock: {sorted(overlap)}")
+    locked = {**direct, **transitive}
     versions: dict[str, str] = {}
-    for name, expected in EXPECTED_DISTRIBUTIONS.items():
+    for name, expected in DIRECT_DISTRIBUTIONS.items():
         try:
             actual = metadata.version(name)
         except metadata.PackageNotFoundError as exc:
@@ -155,15 +337,18 @@ def check_scorer(checkout: Path, *, require_cdm_tools: bool) -> dict[str, object
                 f"Required scorer dependency version mismatch: {name}=={expected}; found {actual}"
             )
         versions[name] = actual
-    installed = "\n".join(
-        f"{name.lower()}=={versions[name]}" for name in sorted(versions, key=str.lower)
-    )
+    attestations = _attest_locked_distributions(locked, environment_root=Path(sys.prefix))
+    installed = json.dumps(attestations, sort_keys=True, separators=(",", ":"))
     result: dict[str, object] = {
         "python_executable_sha256": _hash_text(str(Path(sys.executable).resolve())),
+        "python_file_sha256": hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest(),
+        "python_prefix_sha256": _hash_text(str(Path(sys.prefix).resolve())),
         "python_version_sha256": _hash_text(sys.version),
-        "dependencies": versions,
+        "dependencies": attestations,
         "dependency_environment_sha256": _hash_text(installed),
     }
+    if attest_only:
+        return result
     result["registries"] = _import_registries(checkout)
     if require_cdm_tools:
         result["cdm_runtime"] = _exercise_cdm_runtime(checkout)
@@ -174,10 +359,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkout", type=Path, required=True)
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--direct-lock", type=Path, default=Path("eval/requirements-omnidocbench-v16.txt")
+    )
+    parser.add_argument(
+        "--transitive-lock",
+        type=Path,
+        default=Path("eval/requirements-omnidocbench-v16-transitive.txt"),
+    )
+    parser.add_argument("--attest-only", action="store_true")
     parser.add_argument("--require-cdm-tools", action="store_true")
     args = parser.parse_args(argv)
     try:
-        result = check_scorer(args.checkout, require_cdm_tools=args.require_cdm_tools)
+        result = check_scorer(
+            args.checkout,
+            require_cdm_tools=args.require_cdm_tools,
+            direct_lock=args.direct_lock,
+            transitive_lock=args.transitive_lock,
+            attest_only=args.attest_only,
+        )
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 2
