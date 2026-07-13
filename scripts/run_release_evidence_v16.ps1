@@ -364,7 +364,7 @@ try {
   switch ($Stage) {
     "Preflight" { Invoke-DurableStage "Preflight" { Invoke-Preflight } }
     "Official" { Assert-CompletedStageIntegrity "Preflight"; Invoke-DurableStage "Official" { Invoke-Official } }
-    "Lightweight" { Assert-CompletedStageIntegrity "Preflight"; Invoke-DurableStage "Lightweight" { Invoke-Lightweight } }
+    "Lightweight" { Assert-CompletedStageIntegrity "Preflight"; Assert-CompletedStageIntegrity "Official"; Invoke-DurableStage "Lightweight" { Invoke-Lightweight } }
     "Decide" { Assert-CompletedStageIntegrity "Preflight"; Assert-CompletedStageIntegrity "Official"; Assert-CompletedStageIntegrity "Lightweight"; Invoke-DurableStage "Decide" { Invoke-Decide } }
     "All" {
       Invoke-DurableStage "Preflight" { Invoke-Preflight }

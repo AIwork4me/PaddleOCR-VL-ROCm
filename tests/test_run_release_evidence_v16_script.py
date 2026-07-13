@@ -192,6 +192,31 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     )
     assert skipped.returncode == 0
     assert argument_log.read_text().count("check_server.py") == before
+    doctor_before = argument_log.read_text().count("doctor")
+    missing_official = _run(
+        script, "-Stage", "Lightweight", *(
+            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
+            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
+        ), env=env, cwd=tmp_path,
+    )
+    assert missing_official.returncode != 0
+    assert "Missing completed predecessor: Official" in (missing_official.stdout + missing_official.stderr)
+    assert argument_log.read_text().count("doctor") == doctor_before
+    official = _run(
+        script, "-Stage", "Official", *(
+            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
+            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
+        ), env=env, cwd=tmp_path,
+    )
+    assert official.returncode == 0, official.stderr
+    lightweight_run = _run(
+        script, "-Stage", "Lightweight", *(
+            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
+            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
+        ), env=env, cwd=tmp_path,
+    )
+    assert lightweight_run.returncode == 0, lightweight_run.stderr
+    assert argument_log.read_text().count("doctor") > doctor_before
     changed_url = _run(
         script, "-Stage", "Preflight", *(
             "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
@@ -365,6 +390,13 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     decide_state = json.loads((evidence / "logs" / "stages" / "decide.json").read_text())
     assert decide_state["status"] == "completed"
     assert decide_state["output_sha256"]["decision.json"]
+    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(tmp_path / "wrong-layout")}), encoding="utf-8")
+    infer_before = argument_log.read_text().count("eval/run_eval.py")
+    mismatch = _run(script, "-Stage", "Lightweight", *common, env=env, cwd=tmp_path)
+    assert mismatch.returncode != 0
+    assert "layout_model_dir does not match" in (mismatch.stdout + mismatch.stderr)
+    assert argument_log.read_text().count("eval/run_eval.py") == infer_before
+    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
     extra = evidence / "official" / "unexpected.txt"
     extra.write_text("unexpected", encoding="utf-8")
     added = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
@@ -395,12 +427,6 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
 
     assert resumed.returncode != 0
     assert "output hash/set mismatch" in (resumed.stdout + resumed.stderr)
-    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(tmp_path / "wrong-layout")}), encoding="utf-8")
-    infer_before = argument_log.read_text().count("eval/run_eval.py")
-    mismatch = _run(script, "-Stage", "Lightweight", *common, env=env, cwd=tmp_path)
-    assert mismatch.returncode != 0
-    assert "layout_model_dir does not match" in (mismatch.stdout + mismatch.stderr)
-    assert argument_log.read_text().count("eval/run_eval.py") == infer_before
 
 
 def test_standalone_stage_requires_preflight_before_native_commands(tmp_path: Path) -> None:
