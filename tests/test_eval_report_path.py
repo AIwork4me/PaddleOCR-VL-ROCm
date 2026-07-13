@@ -818,6 +818,21 @@ def test_stage_eval_uses_checkout_venv_python_when_available(tmp_path, monkeypat
     assert captured["cmd"][0] == str(venv_python)
 
 
+def test_explicit_scorer_python_overrides_checkout_venv(tmp_path):
+    mod = _load_run_eval()
+    checkout = tmp_path / "checkout"
+    checkout_python = checkout / ".venv" / "Scripts" / "python.exe"
+    checkout_python.parent.mkdir(parents=True)
+    checkout_python.write_text("", encoding="utf-8")
+    authenticated_python = tmp_path / "authenticated" / "python.exe"
+    authenticated_python.parent.mkdir()
+    authenticated_python.write_text("", encoding="utf-8")
+
+    resolved = mod._resolve_eval_python(checkout, str(authenticated_python.resolve()))
+
+    assert resolved == str(authenticated_python.resolve())
+
+
 def test_stage_eval_sets_pythonutf8_for_windows_omnidocbench_subprocess(tmp_path, monkeypatch):
     mod = _load_run_eval()
     checkout = tmp_path / "checkout"

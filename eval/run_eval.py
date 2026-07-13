@@ -278,7 +278,12 @@ def _render_eval_config(
     return rendered
 
 
-def _resolve_eval_python(checkout: Path) -> str:
+def _resolve_eval_python(checkout: Path, explicit: str | None = None) -> str:
+    if explicit:
+        candidate = Path(explicit)
+        if not candidate.is_absolute() or not candidate.is_file():
+            raise SystemExit("--scorer-python must be an existing absolute file path.")
+        return str(candidate.resolve())
     for candidate in (
         checkout / ".venv" / "Scripts" / "python.exe",
         checkout / ".venv" / "bin" / "python",
@@ -324,7 +329,7 @@ def stage_eval(args: argparse.Namespace) -> None:
             destination_dir=Path(config_dir),
         )
         cmd = [
-            _resolve_eval_python(checkout),
+            _resolve_eval_python(checkout, getattr(args, "scorer_python", None)),
             PDF_VALIDATION,
             "--config",
             str(rendered_config.resolve()),
@@ -461,6 +466,11 @@ def main() -> None:
     parser.add_argument("--copy-report", default=None)
     parser.add_argument("--run-summary", default=None)
     parser.add_argument("--provenance", default=None)
+    parser.add_argument(
+        "--scorer-python",
+        default=None,
+        help="Existing absolute interpreter path for the authenticated scorer environment.",
+    )
     parser.add_argument("--cdm", action="store_true")
     args = parser.parse_args()
     apply_artifact_profile_defaults(args)

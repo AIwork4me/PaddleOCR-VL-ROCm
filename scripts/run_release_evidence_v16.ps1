@@ -1,5 +1,5 @@
 param(
-  [ValidateSet("Preflight", "Official", "Lightweight", "Decide", "All")]
+  [ValidateSet("Preflight", "Official", "OfficialScore", "Lightweight", "Decide", "All")]
   [string]$Stage = "Preflight",
   [Parameter(Mandatory = $true)] [string]$EvidenceRoot,
   [string]$ServerUrl = "http://127.0.0.1:8111/v1",
@@ -7,7 +7,8 @@ param(
   [string]$DatasetDir = "data/omnidocbench/v16",
   [string]$LayoutModel = "models/PP-DocLayoutV3-onnx",
   [string]$RuntimeConfig = "$HOME/.paddleocr-vl-rocm/config.json",
-  [string]$PythonExe
+  [string]$PythonExe,
+  [string]$RecoverySourceRoot
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +22,9 @@ $EvidenceRoot = Resolve-FullPath $EvidenceRoot
 $DatasetDir = Resolve-FullPath $DatasetDir
 $LayoutModel = Resolve-FullPath $LayoutModel
 $RuntimeConfig = Resolve-FullPath $RuntimeConfig
+if (-not [string]::IsNullOrWhiteSpace($RecoverySourceRoot)) {
+  $RecoverySourceRoot = Resolve-FullPath $RecoverySourceRoot
+}
 
 function Resolve-PhysicalPath([string]$PathValue) {
   $full = [IO.Path]::GetFullPath($PathValue)
@@ -64,6 +68,11 @@ foreach ($protected in $ProtectedPaths) {
   if (Test-IsWithin $EvidenceRoot $protected) {
     throw "EvidenceRoot is inside a protected historical path: $protected"
   }
+}
+if (-not [string]::IsNullOrWhiteSpace($RecoverySourceRoot) -and
+    ((Test-IsWithin $EvidenceRoot $RecoverySourceRoot) -or
+     (Test-IsWithin $RecoverySourceRoot $EvidenceRoot))) {
+  throw "EvidenceRoot and RecoverySourceRoot must not overlap."
 }
 
 # A release run must begin from a clean tracked checkout. eval/.omnidocbench is
@@ -154,13 +163,17 @@ function Get-PythonProvenance {
 function Get-ImmutableInputs {
   $pythonProvenance = Get-PythonProvenance
   if (-not (Test-Path -LiteralPath $DatasetDir -PathType Container)) { throw "DatasetDir does not exist: $DatasetDir" }
-  if (-not (Test-Path -LiteralPath $LayoutModel -PathType Container)) { throw "LayoutModel does not exist: $LayoutModel" }
+  $inferenceMode = [string]::IsNullOrWhiteSpace($RecoverySourceRoot)
+  if ($inferenceMode -and -not (Test-Path -LiteralPath $LayoutModel -PathType Container)) { throw "LayoutModel does not exist: $LayoutModel" }
   $datasetManifest = Join-Path $DatasetDir "OmniDocBench.json"
   $layoutOnnx = Join-Path $LayoutModel "inference.onnx"
   $layoutConfig = Join-Path $LayoutModel "inference.yml"
   $runtimeManifest = Join-Path $RepoRoot "src/paddleocr_vl_rocm/assets/runtime-manifest.json"
   $scoringConfig = Join-Path $RepoRoot "eval/configs/omnidocbench_v16.yaml"
   $benchmarkContract = Join-Path $RepoRoot "eval/benchmark_contract.py"
+  $scorerRequirements = Join-Path $RepoRoot "eval/requirements-omnidocbench-v16.txt"
+  $scorerPreflight = Join-Path $RepoRoot "scripts/check_omnidocbench_scorer.py"
+  $scoreRecovery = Join-Path $RepoRoot "eval/score_recovery.py"
   $scorerCheckout = Join-Path $RepoRoot "eval/.omnidocbench"
   $scorerFiles = [ordered]@{
     scorer_notebook = (Join-Path $scorerCheckout "tools/generate_result_tables.ipynb")
@@ -171,36 +184,37 @@ function Get-ImmutableInputs {
     scorer_dataset = (Join-Path $scorerCheckout "src/dataset/end2end_dataset.py")
     scorer_windows_patch = (Join-Path $RepoRoot "eval/patches/omnidocbench-v16-windows-cdm.patch")
   }
-  if (-not (Test-Path $RuntimeConfig -PathType Leaf)) { throw "Active RuntimeConfig is missing: $RuntimeConfig" }
-  $config = Get-Content -Raw $RuntimeConfig | ConvertFrom-Json
-  $mainGguf = [string]$config.main_gguf
-  $mmproj = [string]$config.mmproj
-  $configuredLayout = [string]$config.layout_model_dir
-  if ([string]::IsNullOrWhiteSpace($configuredLayout) -or
-      (Resolve-PhysicalPath $configuredLayout) -ne (Resolve-PhysicalPath $LayoutModel)) {
-    throw "Active RuntimeConfig layout_model_dir does not match LayoutModel."
+  if ($inferenceMode) {
+    if (-not (Test-Path $RuntimeConfig -PathType Leaf)) { throw "Active RuntimeConfig is missing: $RuntimeConfig" }
+    $config = Get-Content -Raw $RuntimeConfig | ConvertFrom-Json
+    $mainGguf = [string]$config.main_gguf
+    $mmproj = [string]$config.mmproj
+    $configuredLayout = [string]$config.layout_model_dir
+    if ([string]::IsNullOrWhiteSpace($configuredLayout) -or
+        (Resolve-PhysicalPath $configuredLayout) -ne (Resolve-PhysicalPath $LayoutModel)) {
+      throw "Active RuntimeConfig layout_model_dir does not match LayoutModel."
+    }
+    $runtime = Get-Content -Raw $runtimeManifest | ConvertFrom-Json
+    $mainRecords = @($runtime.resources | Where-Object name -eq "paddleocr-vl-main-gguf")
+    $mmprojRecords = @($runtime.resources | Where-Object name -eq "paddleocr-vl-mmproj")
+    if ($mainRecords.Count -ne 1 -or $mmprojRecords.Count -ne 1) { throw "Runtime manifest model anchors are absent or ambiguous." }
+    if ((Split-Path -Leaf $mainGguf) -ne (Split-Path -Leaf $mainRecords[0].destination) -or
+        (Split-Path -Leaf $mmproj) -ne (Split-Path -Leaf $mmprojRecords[0].destination)) {
+      throw "Active config model paths do not match the pinned runtime manifest."
+    }
   }
-  $runtime = Get-Content -Raw $runtimeManifest | ConvertFrom-Json
-  $mainRecords = @($runtime.resources | Where-Object name -eq "paddleocr-vl-main-gguf")
-  $mmprojRecords = @($runtime.resources | Where-Object name -eq "paddleocr-vl-mmproj")
-  if ($mainRecords.Count -ne 1 -or $mmprojRecords.Count -ne 1) { throw "Runtime manifest model anchors are absent or ambiguous." }
-  if ((Split-Path -Leaf $mainGguf) -ne (Split-Path -Leaf $mainRecords[0].destination) -or
-      (Split-Path -Leaf $mmproj) -ne (Split-Path -Leaf $mmprojRecords[0].destination)) {
-    throw "Active config model paths do not match the pinned runtime manifest."
-  }
-  foreach ($required in @($datasetManifest, $layoutOnnx, $layoutConfig, $runtimeManifest, $scoringConfig, $benchmarkContract, $mainGguf, $mmproj) + @($scorerFiles.Values)) {
+  $requiredInputs = @($datasetManifest, $scoringConfig, $benchmarkContract, $scorerRequirements, $scorerPreflight, $scoreRecovery) + @($scorerFiles.Values)
+  if ($inferenceMode) { $requiredInputs += @($layoutOnnx, $layoutConfig, $runtimeManifest, $mainGguf, $mmproj) }
+  foreach ($required in $requiredInputs) {
     if ([string]::IsNullOrWhiteSpace($required) -or -not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Required immutable input is absent or ambiguous: $required" }
   }
   $inputs = [ordered]@{
     dataset = $datasetManifest
-    layout_model = $layoutOnnx
-    layout_config = $layoutConfig
-    main_gguf = $mainGguf
-    mmproj = $mmproj
-    runtime_config = $RuntimeConfig
-    runtime_manifest = $runtimeManifest
     scoring_config = $scoringConfig
     benchmark_contract = $benchmarkContract
+    scorer_requirements = $scorerRequirements
+    scorer_preflight = $scorerPreflight
+    score_recovery = $scoreRecovery
     python_executable = $PythonExe
     paddleocr_record = [string]$pythonProvenance.record_paths.paddleocr
     paddlex_record = [string]$pythonProvenance.record_paths.paddlex
@@ -209,7 +223,28 @@ function Get-ImmutableInputs {
     release_contract = (Join-Path $RepoRoot "eval/release_contract.py")
     release_evidence = (Join-Path $RepoRoot "eval/release_evidence.py")
   }
+  if ($inferenceMode) {
+    $inputs["layout_model"] = $layoutOnnx
+    $inputs["layout_config"] = $layoutConfig
+    $inputs["main_gguf"] = $mainGguf
+    $inputs["mmproj"] = $mmproj
+    $inputs["runtime_config"] = $RuntimeConfig
+    $inputs["runtime_manifest"] = $runtimeManifest
+  }
   foreach ($entry in $scorerFiles.GetEnumerator()) { $inputs[$entry.Key] = $entry.Value }
+  if (-not [string]::IsNullOrWhiteSpace($RecoverySourceRoot)) {
+    $sourceInputs = [ordered]@{
+      recovery_source_manifest = (Join-Path $RecoverySourceRoot "manifest.json")
+      recovery_source_state = (Join-Path $RecoverySourceRoot "logs/stages/official.json")
+      recovery_source_commands = (Join-Path $RecoverySourceRoot "logs/stages/official.commands.jsonl")
+      recovery_source_stats = (Join-Path $RecoverySourceRoot "official/_run_stats.json")
+      recovery_source_errors = (Join-Path $RecoverySourceRoot "official/_errors.log")
+    }
+    foreach ($entry in $sourceInputs.GetEnumerator()) {
+      if (-not (Test-Path -LiteralPath $entry.Value -PathType Leaf)) { throw "Required recovery source input is missing: $($entry.Key)" }
+      $inputs[$entry.Key] = $entry.Value
+    }
+  }
   return $inputs
 }
 
@@ -236,19 +271,34 @@ function Assert-OrCreateManifest {
 
 function Invoke-Preflight {
   Invoke-LoggedNative "Preflight" "scorer-contract" $PythonExe @("-m", "eval.benchmark_contract", "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"))
+  Invoke-LoggedNative "Preflight" "scorer-preflight" $PythonExe @("scripts/check_omnidocbench_scorer.py", "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"), "--require-cdm-tools")
+  if (-not [string]::IsNullOrWhiteSpace($RecoverySourceRoot)) { return }
   Invoke-LoggedNative "Preflight" "server-gate" $PythonExe @("scripts/check_server.py", "--server-url", $ServerUrl)
   Invoke-LoggedNative "Preflight" "official-import" $PythonExe @("scripts/check_official_paddleocr.py", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName)
   Invoke-LoggedNative "Preflight" "official-constructor" $PythonExe @("scripts/check_official_paddleocr.py", "--construct", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName)
 }
 
-function Invoke-Official {
+function Invoke-OfficialInference {
   $official = Join-Path $EvidenceRoot "official"
-  $results = Join-Path $EvidenceRoot "results/official"
-  New-Item -ItemType Directory -Force -Path $official, $results | Out-Null
-  Invoke-LoggedNative "Official" "official-infer" $PythonExe @("-m", "eval.run_eval", "--stage", "infer", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $official)
+  New-Item -ItemType Directory -Force -Path $official | Out-Null
+  Invoke-LoggedNative "OfficialInference" "official-infer" $PythonExe @("-m", "eval.run_eval", "--stage", "infer", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $official)
   $stats = Join-Path $official "_run_stats.json"
-  Invoke-LoggedNative "Official" "official-contract" $PythonExe @("-m", "eval.release_contract", "--stats", $stats, "--version", "v16", "--engine", "official")
-  Invoke-LoggedNative "Official" "official-score" $PythonExe @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--dataset-dir", $DatasetDir, "--predictions-dir", $official, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
+  Invoke-LoggedNative "OfficialInference" "official-contract" $PythonExe @("-m", "eval.release_contract", "--stats", $stats, "--version", "v16", "--engine", "official")
+}
+
+function Invoke-RecoveryAuthentication([string]$StageName) {
+  $recovery = Join-Path $EvidenceRoot "recovery"
+  New-Item -ItemType Directory -Force -Path $recovery | Out-Null
+  Invoke-LoggedNative $StageName "score-recovery" $PythonExe @("-m", "eval.score_recovery", "--source-root", $RecoverySourceRoot, "--output", (Join-Path $recovery "source.json"))
+}
+
+function Invoke-OfficialScore {
+  $official = if ([string]::IsNullOrWhiteSpace($RecoverySourceRoot)) { Join-Path $EvidenceRoot "official" } else { Join-Path $RecoverySourceRoot "official" }
+  $results = Join-Path $EvidenceRoot "results/official"
+  New-Item -ItemType Directory -Force -Path $results | Out-Null
+  if (-not [string]::IsNullOrWhiteSpace($RecoverySourceRoot)) { Invoke-RecoveryAuthentication "Official" }
+  Invoke-LoggedNative "Official" "official-score" $PythonExe @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--dataset-dir", $DatasetDir, "--predictions-dir", $official, "--scorer-python", $PythonExe, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
+  Invoke-LoggedNative "Official" "official-score-cdm" $PythonExe @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--dataset-dir", $DatasetDir, "--predictions-dir", $official, "--scorer-python", $PythonExe, "--cdm", "--copy-report", (Join-Path $results "metric-cdm.json"), "--run-summary", (Join-Path $results "run-summary-cdm.json"), "--provenance", (Join-Path $results "provenance-cdm.json"))
 }
 
 function Assert-DirectMlEvidence([string]$StatsPath) {
@@ -291,6 +341,38 @@ function Get-StringSha256([string]$Value) {
   finally { $sha.Dispose() }
 }
 
+function Get-CDMToolEnvironmentSha256 {
+  $records = @()
+  foreach ($name in @("pdflatex", "kpsewhich", "magick")) {
+    $commands = @(Get-Command $name -CommandType Application -ErrorAction SilentlyContinue)
+    if ($commands.Count -ne 1 -or [string]::IsNullOrWhiteSpace([string]$commands[0].Source)) {
+      $records += "$name|missing-or-ambiguous"
+      continue
+    }
+    $path = Resolve-PhysicalPath ([string]$commands[0].Source)
+    $records += "$name|$(Get-StringSha256 $path)|$(Get-Sha256 $path)"
+  }
+  $kpsewhich = @(Get-Command "kpsewhich" -CommandType Application -ErrorAction SilentlyContinue)
+  foreach ($resource in @("CJK.sty", "c70gkai.fd")) {
+    if ($kpsewhich.Count -ne 1) { $records += "$resource|missing-kpsewhich"; continue }
+    $resourcePaths = @(& $kpsewhich[0].Source $resource)
+    if ($LASTEXITCODE -ne 0 -or $resourcePaths.Count -ne 1 -or
+        [string]::IsNullOrWhiteSpace([string]$resourcePaths[0]) -or
+        -not (Test-Path -LiteralPath $resourcePaths[0] -PathType Leaf)) {
+      $records += "$resource|missing"
+      continue
+    }
+    $resolvedResource = Resolve-PhysicalPath ([string]$resourcePaths[0])
+    $records += "$resource|$(Get-StringSha256 $resolvedResource)|$(Get-Sha256 $resolvedResource)"
+  }
+  $magick = @(Get-Command "magick" -CommandType Application -ErrorAction SilentlyContinue)
+  if ($magick.Count -eq 1) {
+    $policy = @(& $magick[0].Source "-list" "policy") -join [Environment]::NewLine
+    $records += "magick-policy|$(Get-StringSha256 $policy)"
+  } else { $records += "magick-policy|missing" }
+  return Get-StringSha256 ($records -join "`n")
+}
+
 function Get-InvocationFingerprint([string]$StageName, [string]$ManifestSha) {
   $pythonProvenance = Get-PythonProvenance
   $values = [ordered]@{
@@ -303,7 +385,8 @@ function Get-InvocationFingerprint([string]$StageName, [string]$ManifestSha) {
     dataset_path_sha256 = Get-StringSha256 (Resolve-PhysicalPath $DatasetDir)
     layout_path_sha256 = Get-StringSha256 (Resolve-PhysicalPath $LayoutModel)
     runtime_config_path_sha256 = Get-StringSha256 (Resolve-PhysicalPath $RuntimeConfig)
-    engine = $(if ($StageName -eq "Official") { "official" } elseif ($StageName -eq "Lightweight") { "lightweight" } else { "none" })
+    recovery_source_path_sha256 = $(if ([string]::IsNullOrWhiteSpace($RecoverySourceRoot)) { Get-StringSha256 "none" } else { Get-StringSha256 (Resolve-PhysicalPath $RecoverySourceRoot) })
+    engine = $(if ($StageName -in @("Official", "OfficialInference")) { "official" } elseif ($StageName -eq "Lightweight") { "lightweight" } else { "none" })
     output_contract_sha256 = Get-StringSha256 "$StageName|official|lightweight|results|decision.json|copy-report|run-summary|provenance|directml-preflight"
     python_path_sha256 = $pythonProvenance.path_sha256
     python_file_sha256 = $pythonProvenance.file_sha256
@@ -312,6 +395,7 @@ function Get-InvocationFingerprint([string]$StageName, [string]$ManifestSha) {
     eval_origin_sha256 = $pythonProvenance.eval_origin_sha256
     package_origin_sha256 = $pythonProvenance.package_origin_sha256
     dependency_environment_sha256 = $pythonProvenance.dependency_environment_sha256
+    cdm_tool_environment_sha256 = Get-CDMToolEnvironmentSha256
     paddleocr_record_sha256 = $pythonProvenance.paddleocr_record_sha256
     paddlex_record_sha256 = $pythonProvenance.paddlex_record_sha256
     paddlepaddle_record_sha256 = $pythonProvenance.paddlepaddle_record_sha256
@@ -328,7 +412,8 @@ function Write-AtomicJson([string]$Path, [object]$Value) {
 function Get-StageOutputs([string]$StageName) {
   $roots = switch ($StageName) {
     "Preflight" { @($ManifestPath) }
-    "Official" { @((Join-Path $EvidenceRoot "official"), (Join-Path $EvidenceRoot "results/official")) }
+    "OfficialInference" { if ([string]::IsNullOrWhiteSpace($RecoverySourceRoot)) { @((Join-Path $EvidenceRoot "official")) } else { @((Join-Path $EvidenceRoot "recovery/source.json")) } }
+    "Official" { @((Join-Path $EvidenceRoot "results/official")) }
     "Lightweight" { @((Join-Path $EvidenceRoot "lightweight"), (Join-Path $EvidenceRoot "results/lightweight")) }
     "Decide" { @((Join-Path $EvidenceRoot "decision.json")) }
   }
@@ -347,7 +432,8 @@ function Get-StageOutputs([string]$StageName) {
 function Clear-StageOutputs([string]$StageName) {
   $paths = switch ($StageName) {
     "Preflight" { @() }
-    "Official" { @((Join-Path $EvidenceRoot "official"), (Join-Path $EvidenceRoot "results/official")) }
+    "OfficialInference" { if ([string]::IsNullOrWhiteSpace($RecoverySourceRoot)) { @((Join-Path $EvidenceRoot "official")) } else { @((Join-Path $EvidenceRoot "recovery")) } }
+    "Official" { @((Join-Path $EvidenceRoot "results/official")) }
     "Lightweight" { @((Join-Path $EvidenceRoot "lightweight"), (Join-Path $EvidenceRoot "results/lightweight")) }
     "Decide" { @((Join-Path $EvidenceRoot "decision.json"), (Join-Path $EvidenceRoot "decision.json.tmp")) }
   }
@@ -425,13 +511,29 @@ function Invoke-DurableStage([string]$StageName, [scriptblock]$Body) {
 try {
   switch ($Stage) {
     "Preflight" { Invoke-DurableStage "Preflight" { Invoke-Preflight } }
-    "Official" { Assert-CompletedStageIntegrity "Preflight"; Invoke-DurableStage "Official" { Invoke-Official } }
-    "Lightweight" { Assert-CompletedStageIntegrity "Preflight"; Assert-CompletedStageIntegrity "Official"; Invoke-DurableStage "Lightweight" { Invoke-Lightweight } }
-    "Decide" { Assert-CompletedStageIntegrity "Preflight"; Assert-CompletedStageIntegrity "Official"; Assert-CompletedStageIntegrity "Lightweight"; Invoke-DurableStage "Decide" { Invoke-Decide } }
-    "All" {
+    "Official" {
+      Assert-CompletedStageIntegrity "Preflight"
+      Invoke-DurableStage "OfficialInference" { Invoke-OfficialInference }
+      Assert-CompletedStageIntegrity "OfficialInference"
+      Invoke-DurableStage "Official" { Invoke-OfficialScore }
+    }
+    "OfficialScore" {
+      if ([string]::IsNullOrWhiteSpace($RecoverySourceRoot)) { throw "OfficialScore requires RecoverySourceRoot." }
       Invoke-DurableStage "Preflight" { Invoke-Preflight }
       Assert-CompletedStageIntegrity "Preflight"
-      Invoke-DurableStage "Official" { Invoke-Official }
+      Invoke-DurableStage "OfficialInference" { Invoke-RecoveryAuthentication "OfficialInference" }
+      Assert-CompletedStageIntegrity "OfficialInference"
+      Invoke-DurableStage "Official" { Invoke-OfficialScore }
+    }
+    "Lightweight" { Assert-CompletedStageIntegrity "Preflight"; Assert-CompletedStageIntegrity "OfficialInference"; Assert-CompletedStageIntegrity "Official"; Invoke-DurableStage "Lightweight" { Invoke-Lightweight } }
+    "Decide" { Assert-CompletedStageIntegrity "Preflight"; Assert-CompletedStageIntegrity "OfficialInference"; Assert-CompletedStageIntegrity "Official"; Assert-CompletedStageIntegrity "Lightweight"; Invoke-DurableStage "Decide" { Invoke-Decide } }
+    "All" {
+      if (-not [string]::IsNullOrWhiteSpace($RecoverySourceRoot)) { throw "All does not accept RecoverySourceRoot; use OfficialScore." }
+      Invoke-DurableStage "Preflight" { Invoke-Preflight }
+      Assert-CompletedStageIntegrity "Preflight"
+      Invoke-DurableStage "OfficialInference" { Invoke-OfficialInference }
+      Assert-CompletedStageIntegrity "OfficialInference"
+      Invoke-DurableStage "Official" { Invoke-OfficialScore }
       Assert-CompletedStageIntegrity "Official"
       Invoke-DurableStage "Lightweight" { Invoke-Lightweight }
       Assert-CompletedStageIntegrity "Lightweight"

@@ -16,7 +16,7 @@ SCRIPT = ROOT / "scripts" / "run_release_evidence_v16.ps1"
 
 def test_release_runner_isolates_and_orders_stages() -> None:
     text = SCRIPT.read_text(encoding="utf-8")
-    assert 'ValidateSet("Preflight", "Official", "Lightweight", "Decide", "All")' in text
+    assert 'ValidateSet("Preflight", "Official", "OfficialScore", "Lightweight", "Decide", "All")' in text
     assert '"-m", "eval.release_evidence", "manifest"' in text
     assert text.index('"Preflight"') < text.index('"Official"')
     assert '"-m", "eval.release_contract"' in text
@@ -25,6 +25,26 @@ def test_release_runner_isolates_and_orders_stages() -> None:
     assert "--copy-report" in text
     assert "--run-summary" in text
     assert "--provenance" in text
+    assert '"OfficialScore"' in text
+    assert "check_omnidocbench_scorer.py" in text
+    assert text.index("scorer-preflight") < text.index("official-infer")
+    assert '"--cdm"' in text
+    assert '"--scorer-python", $PythonExe' in text
+
+
+def test_score_only_source_never_invokes_inference_and_requires_both_scores() -> None:
+    text = SCRIPT.read_text(encoding="utf-8")
+    score_start = text.index("function Invoke-OfficialScore")
+    score_end = text.index("function Assert-DirectMlEvidence", score_start)
+    score_body = text[score_start:score_end]
+    assert "Invoke-RecoveryAuthentication" in score_body
+    assert '"--stage", "infer"' not in score_body
+    assert "metric.json" in score_body
+    assert "metric-cdm.json" in score_body
+    assert "run-summary.json" in score_body
+    assert "run-summary-cdm.json" in score_body
+    assert "provenance.json" in score_body
+    assert "provenance-cdm.json" in score_body
 
 
 def _powershell() -> str:
@@ -60,6 +80,8 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
         "  if x=='--input':\n"
         "   n,p=a[i+1].split('=',1); q=pathlib.Path(p); inputs[n]={'path':str(q.resolve()),'bytes':q.stat().st_size,'sha256':hashlib.sha256(q.read_bytes()).hexdigest()}\n"
         " out=pathlib.Path(a[a.index('--output')+1]); out.write_text(json.dumps({'git_commit':a[a.index('--git-commit')+1],'inputs':inputs},sort_keys=True),encoding='utf-8')\n"
+        "elif 'eval.score_recovery' in a:\n"
+        " out=pathlib.Path(a[a.index('--output')+1]); out.parent.mkdir(parents=True,exist_ok=True); out.write_text(json.dumps({'authenticated':True}),encoding='utf-8')\n"
         "elif 'eval.release_evidence' in a and 'decide' in a: print('{}')\n"
         "elif 'eval.run_eval' in a:\n"
         " pred=pathlib.Path(a[a.index('--predictions-dir')+1]); pred.mkdir(parents=True,exist_ok=True)\n"
@@ -99,6 +121,9 @@ def _clean_repo(tmp_path: Path) -> tuple[Path, Path]:
         "eval/release_evidence.py",
         "eval/release_contract.py",
         "eval/benchmark_contract.py",
+        "eval/score_recovery.py",
+        "eval/requirements-omnidocbench-v16.txt",
+        "scripts/check_omnidocbench_scorer.py",
         "eval/configs/omnidocbench_v16.yaml",
         "src/paddleocr_vl_rocm/assets/runtime-manifest.json",
         "eval/patches/omnidocbench-v16-windows-cdm.patch",
@@ -406,6 +431,7 @@ def test_runner_uses_exact_release_anchors_and_durable_stage_state() -> None:
     assert "invocation_fingerprint" in text
     assert "command_sha256" in text
     assert "output_sha256" in text
+    assert "cdm_tool_environment_sha256" in text
     assert "decision.json" in text
     assert "RELEASE_EVIDENCE_ALLOW_DIRTY" not in text
 
@@ -504,6 +530,179 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
 
     assert resumed.returncode != 0
     assert "output hash/set mismatch" in (resumed.stdout + resumed.stderr)
+
+
+def test_failed_score_retry_preserves_inference_and_both_scores_gate_official(
+    tmp_path: Path,
+) -> None:
+    _, script = _clean_repo(tmp_path)
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    argument_log = tmp_path / "args.log"
+    stub_python = _stub_python(tools, fail_on="--copy-report")
+    dataset = tmp_path / "dataset"
+    layout = tmp_path / "layout"
+    dataset.mkdir()
+    layout.mkdir()
+    (dataset / "OmniDocBench.json").write_text("{}", encoding="utf-8")
+    (layout / "inference.onnx").write_bytes(b"model")
+    (layout / "inference.yml").write_text("config", encoding="utf-8")
+    main = tmp_path / "PaddleOCR-VL-1.6-GGUF.gguf"
+    mmproj = tmp_path / "PaddleOCR-VL-1.6-GGUF-mmproj.gguf"
+    main.write_bytes(b"main")
+    mmproj.write_bytes(b"mm")
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps(
+            {"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}
+        ),
+        encoding="utf-8",
+    )
+    evidence = tmp_path / "evidence"
+    env = os.environ.copy()
+    env.update(STUB_ARG_LOG=str(argument_log), STUB_REPORTED_EXE=str(stub_python))
+    common = (
+        "-EvidenceRoot",
+        str(evidence),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
+    )
+    assert _run(script, "-Stage", "Preflight", *common, env=env, cwd=tmp_path).returncode == 0
+
+    failed = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
+
+    assert failed.returncode != 0
+    stats = evidence / "official" / "_run_stats.json"
+    assert stats.is_file()
+    stats_before = stats.read_bytes()
+    infer_before = argument_log.read_text(encoding="utf-8").splitlines().count("infer")
+
+    _stub_python(tools)
+    retried = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
+
+    assert retried.returncode == 0, retried.stderr
+    assert stats.read_bytes() == stats_before
+    assert argument_log.read_text(encoding="utf-8").splitlines().count("infer") == infer_before
+    result_dir = evidence / "results" / "official"
+    for name in (
+        "metric.json",
+        "run-summary.json",
+        "provenance.json",
+        "metric-cdm.json",
+        "run-summary-cdm.json",
+        "provenance-cdm.json",
+    ):
+        assert (result_dir / name).is_file()
+
+    (result_dir / "metric-cdm.json").unlink()
+    blocked = _run(script, "-Stage", "Lightweight", *common, env=env, cwd=tmp_path)
+    assert blocked.returncode != 0
+    assert "Predecessor output hash/set mismatch: Official" in (
+        blocked.stdout + blocked.stderr
+    )
+
+
+def test_score_only_recovery_does_not_require_inference_assets_or_call_infer(
+    tmp_path: Path,
+) -> None:
+    _, script = _clean_repo(tmp_path)
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    argument_log = tmp_path / "args.log"
+    stub_python = _stub_python(tools)
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    (dataset / "OmniDocBench.json").write_text("{}", encoding="utf-8")
+    source = tmp_path / "immutable source"
+    for relative in (
+        "manifest.json",
+        "logs/stages/official.json",
+        "logs/stages/official.commands.jsonl",
+        "official/_run_stats.json",
+        "official/_errors.log",
+    ):
+        path = source / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+    evidence = tmp_path / "recovery evidence"
+    env = os.environ.copy()
+    env.update(STUB_ARG_LOG=str(argument_log), STUB_REPORTED_EXE=str(stub_python))
+
+    completed = _run(
+        script,
+        "-Stage",
+        "OfficialScore",
+        "-EvidenceRoot",
+        str(evidence),
+        "-RecoverySourceRoot",
+        str(source),
+        "-DatasetDir",
+        str(dataset),
+        env=env,
+        cwd=tmp_path,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    arguments = argument_log.read_text(encoding="utf-8").splitlines()
+    assert "infer" not in arguments
+    assert arguments.count("eval.score_recovery") == 2
+    assert (evidence / "recovery" / "source.json").is_file()
+    assert (evidence / "results" / "official" / "metric.json").is_file()
+    assert (evidence / "results" / "official" / "metric-cdm.json").is_file()
+    ordered = _run(
+        script,
+        "-Stage",
+        "Decide",
+        "-EvidenceRoot",
+        str(evidence),
+        "-RecoverySourceRoot",
+        str(source),
+        "-DatasetDir",
+        str(dataset),
+        env=env,
+        cwd=tmp_path,
+    )
+    assert ordered.returncode != 0
+    assert "Missing completed predecessor: Lightweight" in (ordered.stdout + ordered.stderr)
+
+
+def test_score_only_recovery_rejects_source_output_overlap(tmp_path: Path) -> None:
+    _, script = _clean_repo(tmp_path)
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    argument_log = tmp_path / "args.log"
+    stub_python = _stub_python(tools)
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    (dataset / "OmniDocBench.json").write_text("{}", encoding="utf-8")
+    source = tmp_path / "source"
+    source.mkdir()
+    sentinel = source / "sentinel.txt"
+    sentinel.write_text("immutable", encoding="utf-8")
+    env = os.environ.copy()
+    env.update(STUB_ARG_LOG=str(argument_log), STUB_REPORTED_EXE=str(stub_python))
+
+    completed = _run(
+        script,
+        "-Stage",
+        "OfficialScore",
+        "-EvidenceRoot",
+        str(source),
+        "-RecoverySourceRoot",
+        str(source),
+        "-DatasetDir",
+        str(dataset),
+        env=env,
+        cwd=tmp_path,
+    )
+
+    assert completed.returncode != 0
+    assert "must not overlap" in (completed.stdout + completed.stderr)
+    assert sentinel.read_text(encoding="utf-8") == "immutable"
 
 
 def test_standalone_stage_requires_preflight_before_native_commands(tmp_path: Path) -> None:
