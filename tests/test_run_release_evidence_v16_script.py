@@ -16,9 +16,9 @@ SCRIPT = ROOT / "scripts" / "run_release_evidence_v16.ps1"
 def test_release_runner_isolates_and_orders_stages() -> None:
     text = SCRIPT.read_text(encoding="utf-8")
     assert 'ValidateSet("Preflight", "Official", "Lightweight", "Decide", "All")' in text
-    assert "eval/release_evidence.py manifest" in text
+    assert '"-m", "eval.release_evidence", "manifest"' in text
     assert text.index('"Preflight"') < text.index('"Official"')
-    assert "eval/release_contract.py" in text
+    assert '"-m", "eval.release_contract"' in text
     assert "layout_provider_requested" in text
     assert "DmlExecutionProvider" in text
     assert "--copy-report" in text
@@ -42,14 +42,14 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
         " [f.write(x+'\\n') for x in a]\n"
         f"fail={fail_on!r}\n"
         "if fail and any(fail in x for x in a): sys.exit(23)\n"
-        "if len(a)>1 and a[1]=='manifest':\n"
+        "if 'eval.release_evidence' in a and 'manifest' in a:\n"
         " inputs={}\n"
         " for i,x in enumerate(a):\n"
         "  if x=='--input':\n"
         "   n,p=a[i+1].split('=',1); q=pathlib.Path(p); inputs[n]={'path':str(q.resolve()),'bytes':q.stat().st_size,'sha256':hashlib.sha256(q.read_bytes()).hexdigest()}\n"
         " out=pathlib.Path(a[a.index('--output')+1]); out.write_text(json.dumps({'git_commit':a[a.index('--git-commit')+1],'inputs':inputs},sort_keys=True),encoding='utf-8')\n"
-        "elif len(a)>1 and a[1]=='decide': print('{}')\n"
-        "elif 'run_eval.py' in ' '.join(a):\n"
+        "elif 'eval.release_evidence' in a and 'decide' in a: print('{}')\n"
+        "elif 'eval.run_eval' in a:\n"
         " pred=pathlib.Path(a[a.index('--predictions-dir')+1]); pred.mkdir(parents=True,exist_ok=True)\n"
         " if a[a.index('--stage')+1]=='infer': (pred/'_run_stats.json').write_text(json.dumps({'layout_provider_requested':'auto','layout_providers_active':['DmlExecutionProvider','CPUExecutionProvider'],'layout_fallback_disabled':True}),encoding='utf-8')\n"
         " else:\n"
@@ -136,6 +136,7 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     config = tmp_path / "active config.json"
     config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
     env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
     env.update(
         PATH=f"{tools}{os.pathsep}{env['PATH']}",
         STUB_ARG_LOG=str(argument_log),
@@ -157,7 +158,7 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     assert f"dataset={dataset / 'OmniDocBench.json'}" in arguments
     assert f"layout_model={layout / 'inference.onnx'}" in arguments
     assert "check_server.py" in "\n".join(arguments)
-    assert "run_eval.py" not in "\n".join(arguments)
+    assert "eval.run_eval" not in arguments
     records = [json.loads(line) for line in (evidence / "logs" / "commands.jsonl").read_text().splitlines()]
     assert records[-1]["exit_code"] == 23
     assert records[-1]["arguments"][-1] == "<redacted-url>"
@@ -381,7 +382,7 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     args = argument_log.read_text(encoding="utf-8").splitlines()
     lightweight = next(
         i for i in range(len(args) - 8)
-        if args[i] == "eval/run_eval.py" and args[i + 2] == "infer" and "lightweight" in args[i : i + 10]
+        if args[i] == "eval.run_eval" and "infer" in args[i : i + 6] and "lightweight" in args[i : i + 12]
     )
     lightweight_args = args[lightweight : lightweight + 24]
     assert ["--server-url", "http://127.0.0.1:8111/v1"] == lightweight_args[lightweight_args.index("--server-url") : lightweight_args.index("--server-url") + 2]
@@ -391,11 +392,11 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     assert decide_state["status"] == "completed"
     assert decide_state["output_sha256"]["decision.json"]
     config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(tmp_path / "wrong-layout")}), encoding="utf-8")
-    infer_before = argument_log.read_text().count("eval/run_eval.py")
+    infer_before = argument_log.read_text().count("eval.run_eval")
     mismatch = _run(script, "-Stage", "Lightweight", *common, env=env, cwd=tmp_path)
     assert mismatch.returncode != 0
     assert "layout_model_dir does not match" in (mismatch.stdout + mismatch.stderr)
-    assert argument_log.read_text().count("eval/run_eval.py") == infer_before
+    assert argument_log.read_text().count("eval.run_eval") == infer_before
     config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
     extra = evidence / "official" / "unexpected.txt"
     extra.write_text("unexpected", encoding="utf-8")
@@ -409,11 +410,11 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     log_tampered = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
     assert log_tampered.returncode != 0
     assert "command log hash mismatch" in (log_tampered.stdout + log_tampered.stderr)
-    decisions_before = argument_log.read_text().count("release_evidence.py")
+    decisions_before = argument_log.read_text().count("eval.release_evidence")
     predecessor_tampered = _run(script, "-Stage", "Decide", *common, env=env, cwd=tmp_path)
     assert predecessor_tampered.returncode != 0
     assert "Predecessor command log hash mismatch" in (predecessor_tampered.stdout + predecessor_tampered.stderr)
-    assert argument_log.read_text().count("release_evidence.py") == decisions_before
+    assert argument_log.read_text().count("eval.release_evidence") == decisions_before
     command_log.write_bytes(original_log)
     command_log.unlink()
     log_missing = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
@@ -435,6 +436,21 @@ def test_standalone_stage_requires_preflight_before_native_commands(tmp_path: Pa
     assert completed.returncode != 0
     assert "Missing completed predecessor: Preflight" in (completed.stdout + completed.stderr)
     assert not (tmp_path / "evidence").exists()
+
+
+def test_release_evidence_module_imports_without_pythonpath_from_foreign_cwd(tmp_path: Path) -> None:
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    command = f"Push-Location '{ROOT}'; & '{sys.executable}' -m eval.release_evidence --help"
+    completed = subprocess.run(
+        [_powershell(), "-NoProfile", "-Command", command],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "manifest" in completed.stdout and "decide" in completed.stdout
 
 
 def test_clean_gate_rejects_untracked_file_from_foreign_cwd(tmp_path: Path) -> None:

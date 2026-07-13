@@ -165,12 +165,12 @@ function Get-ImmutableInputs {
 function Assert-OrCreateManifest {
   New-Item -ItemType Directory -Force -Path $EvidenceRoot, $LogDir | Out-Null
   $candidate = Join-Path $LogDir "manifest.candidate.json"
-  $arguments = @("eval/release_evidence.py", "manifest", "--git-commit", $GitCommit)
+  $arguments = @("-m", "eval.release_evidence", "manifest", "--git-commit", $GitCommit)
   foreach ($entry in (Get-ImmutableInputs).GetEnumerator()) {
     $arguments += @("--input", "$($entry.Key)=$($entry.Value)")
   }
   $arguments += @("--output", $candidate)
-  # Contract spelling retained for audit/search: eval/release_evidence.py manifest
+  # Package-module execution keeps repository imports stable without PYTHONPATH.
   Invoke-LoggedNative "Manifest" "manifest" "python" $arguments
   if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { throw "Manifest command did not create $candidate" }
   if (Test-Path -LiteralPath $ManifestPath) {
@@ -184,7 +184,7 @@ function Assert-OrCreateManifest {
 }
 
 function Invoke-Preflight {
-  Invoke-LoggedNative "Preflight" "scorer-contract" "python" @("eval/benchmark_contract.py", "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"))
+  Invoke-LoggedNative "Preflight" "scorer-contract" "python" @("-m", "eval.benchmark_contract", "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"))
   Invoke-LoggedNative "Preflight" "server-gate" "python" @("scripts/check_server.py", "--server-url", $ServerUrl)
   Invoke-LoggedNative "Preflight" "official-import" "python" @("scripts/check_official_paddleocr.py", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName)
   Invoke-LoggedNative "Preflight" "official-constructor" "python" @("scripts/check_official_paddleocr.py", "--construct", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName)
@@ -194,10 +194,10 @@ function Invoke-Official {
   $official = Join-Path $EvidenceRoot "official"
   $results = Join-Path $EvidenceRoot "results/official"
   New-Item -ItemType Directory -Force -Path $official, $results | Out-Null
-  Invoke-LoggedNative "Official" "official-infer" "python" @("eval/run_eval.py", "--stage", "infer", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $official)
+  Invoke-LoggedNative "Official" "official-infer" "python" @("-m", "eval.run_eval", "--stage", "infer", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $official)
   $stats = Join-Path $official "_run_stats.json"
-  Invoke-LoggedNative "Official" "official-contract" "python" @("eval/release_contract.py", "--stats", $stats, "--version", "v16", "--engine", "official")
-  Invoke-LoggedNative "Official" "official-score" "python" @("eval/run_eval.py", "--stage", "eval", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--dataset-dir", $DatasetDir, "--predictions-dir", $official, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
+  Invoke-LoggedNative "Official" "official-contract" "python" @("-m", "eval.release_contract", "--stats", $stats, "--version", "v16", "--engine", "official")
+  Invoke-LoggedNative "Official" "official-score" "python" @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--dataset-dir", $DatasetDir, "--predictions-dir", $official, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
 }
 
 function Assert-DirectMlEvidence([string]$StatsPath) {
@@ -216,14 +216,14 @@ function Invoke-Lightweight {
   $results = Join-Path $EvidenceRoot "results/lightweight"
   New-Item -ItemType Directory -Force -Path $lightweight, $results | Out-Null
   Invoke-LoggedNative "Lightweight" "directml-preflight" "python" @("-m", "paddleocr_vl_rocm", "doctor", "--json", "--config", $RuntimeConfig)
-  Invoke-LoggedNative "Lightweight" "lightweight-infer" "python" @("eval/run_eval.py", "--stage", "infer", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel)
+  Invoke-LoggedNative "Lightweight" "lightweight-infer" "python" @("-m", "eval.run_eval", "--stage", "infer", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel)
   $stats = Join-Path $lightweight "_run_stats.json"
   Assert-DirectMlEvidence $stats
-  Invoke-LoggedNative "Lightweight" "lightweight-score" "python" @("eval/run_eval.py", "--stage", "eval", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
+  Invoke-LoggedNative "Lightweight" "lightweight-score" "python" @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
 }
 
 function Invoke-Decide {
-  $decision = @(Invoke-LoggedNative "Decide" "release-decision" "python" @("eval/release_evidence.py", "decide", "--evidence-root", $EvidenceRoot)) -join [Environment]::NewLine
+  $decision = @(Invoke-LoggedNative "Decide" "release-decision" "python" @("-m", "eval.release_evidence", "decide", "--evidence-root", $EvidenceRoot)) -join [Environment]::NewLine
   $temporary = Join-Path $EvidenceRoot "decision.json.tmp"
   [IO.File]::WriteAllText($temporary, $decision + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
   Move-Item -Force $temporary (Join-Path $EvidenceRoot "decision.json")
