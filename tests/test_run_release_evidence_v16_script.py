@@ -121,14 +121,15 @@ def test_runner_rejects_nonisolated_scorer_interpreters(
 
 
 @pytest.mark.parametrize(
-    ("version", "schema", "omit_key", "accepted", "expected"),
+    ("version", "schema", "omit_key", "extra_schema", "accepted", "expected"),
     (
-        ("3.10", "record-v1", "", True, ""),
-        ("3.10", "legacy-installed-files-v1", "", True, ""),
-        ("3.11", "record-v1", "", False, "Scorer must report CPython 3.10"),
+        ("3.10", "record-v1", "", "", True, ""),
+        ("3.10", "legacy-installed-files-v1", "", "", True, ""),
+        ("3.11", "record-v1", "", "", False, "Scorer must report CPython 3.10"),
         (
             "3.10",
             "unverified",
+            "",
             "",
             False,
             "Scorer dependency attestation schema is invalid",
@@ -137,6 +138,7 @@ def test_runner_rejects_nonisolated_scorer_interpreters(
             "3.10",
             "legacy-installed-files-v1",
             "metadata_sha256",
+            "",
             False,
             "Scorer dependency legacy attestation is invalid",
         ),
@@ -144,8 +146,25 @@ def test_runner_rejects_nonisolated_scorer_interpreters(
             "3.10",
             "record-v1",
             "record_sha256",
+            "",
             False,
             "Scorer dependency RECORD attestation is invalid",
+        ),
+        (
+            "3.10",
+            "record-v1",
+            "",
+            "legacy-installed-files-v1",
+            False,
+            "Scorer dependency attestation schema fields are mixed",
+        ),
+        (
+            "3.10",
+            "legacy-installed-files-v1",
+            "",
+            "record-v1",
+            False,
+            "Scorer dependency attestation schema fields are mixed",
         ),
     ),
 )
@@ -154,6 +173,7 @@ def test_runner_enforces_cpython_310_scorer_before_scoring(
     version: str,
     schema: str,
     omit_key: str,
+    extra_schema: str,
     accepted: bool,
     expected: str,
 ) -> None:
@@ -189,6 +209,7 @@ def test_runner_enforces_cpython_310_scorer_before_scoring(
         STUB_SCORER_VERSION=version,
         STUB_ATTESTATION_SCHEMA=schema,
         STUB_OMIT_ATTESTATION_KEY=omit_key,
+        STUB_EXTRA_ATTESTATION_SCHEMA=extra_schema,
     )
 
     completed = _run(
@@ -243,6 +264,9 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
         " schema=os.environ.get('STUB_ATTESTATION_SCHEMA','record-v1'); dependency={'version':'1.0','attestation_schema':schema,'origin_sha256':'c'*64,'content_sha256':content,'file_count':1}\n"
         " if schema=='record-v1': dependency['record_sha256']='d'*64\n"
         " elif schema=='legacy-installed-files-v1': dependency.update(installed_files_sha256='d'*64,metadata_sha256='e'*64)\n"
+        " extra=os.environ.get('STUB_EXTRA_ATTESTATION_SCHEMA','')\n"
+        " if extra=='record-v1': dependency['record_sha256']='f'*64\n"
+        " elif extra=='legacy-installed-files-v1': dependency.update(installed_files_sha256='f'*64,metadata_sha256='f'*64)\n"
         " dependency.pop(os.environ.get('STUB_OMIT_ATTESTATION_KEY',''),None)\n"
         " value={'python_version':os.environ.get('STUB_SCORER_VERSION','3.10'),'python_executable':str(scorer),'python_executable_sha256':hashlib.sha256(str(scorer).encode()).hexdigest(),'python_prefix':str(prefix),'python_prefix_sha256':hashlib.sha256(str(prefix).encode()).hexdigest(),'python_base_prefix':str(base),'python_base_prefix_sha256':hashlib.sha256(str(base).encode()).hexdigest(),'python_version_sha256':'b'*64,'dependency_environment_sha256':content,'dependencies':{'demo':dependency}}\n"
         " out=pathlib.Path(a[a.index('--output')+1]); out.parent.mkdir(parents=True,exist_ok=True); out.write_text(json.dumps(value,sort_keys=True),encoding='utf-8'); print(json.dumps(value)); sys.exit(0)\n"

@@ -216,11 +216,18 @@ function Get-ScorerProvenance {
     }
     switch ([string]$dependency.attestation_schema) {
       "record-v1" {
+        if ($null -ne $dependency.PSObject.Properties["installed_files_sha256"] -or
+            $null -ne $dependency.PSObject.Properties["metadata_sha256"]) {
+          throw "Scorer dependency attestation schema fields are mixed: $($property.Name)"
+        }
         if ([string]$dependency.record_sha256 -notmatch '^[0-9a-f]{64}$') {
           throw "Scorer dependency RECORD attestation is invalid: $($property.Name)"
         }
       }
       "legacy-installed-files-v1" {
+        if ($null -ne $dependency.PSObject.Properties["record_sha256"]) {
+          throw "Scorer dependency attestation schema fields are mixed: $($property.Name)"
+        }
         foreach ($key in @("installed_files_sha256", "metadata_sha256")) {
           if ([string]$dependency.$key -notmatch '^[0-9a-f]{64}$') {
             throw "Scorer dependency legacy attestation is invalid: $($property.Name).$key"
