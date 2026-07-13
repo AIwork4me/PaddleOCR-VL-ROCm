@@ -214,7 +214,7 @@ function Get-ScorerProvenance {
         [long]$dependency.file_count -lt 1) {
       throw "Scorer dependency attestation identity is invalid: $($property.Name)"
     }
-    switch ([string]$dependency.attestation_schema) {
+    switch -CaseSensitive ([string]$dependency.attestation_schema) {
       "record-v1" {
         if ($null -ne $dependency.PSObject.Properties["installed_files_sha256"] -or
             $null -ne $dependency.PSObject.Properties["metadata_sha256"]) {

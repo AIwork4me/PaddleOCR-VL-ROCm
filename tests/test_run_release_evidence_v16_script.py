@@ -160,6 +160,22 @@ def test_runner_rejects_nonisolated_scorer_interpreters(
         ),
         (
             "3.10",
+            "RECORD-V1",
+            "",
+            "",
+            False,
+            "Scorer dependency attestation schema is invalid",
+        ),
+        (
+            "3.10",
+            "Legacy-Installed-Files-V1",
+            "",
+            "",
+            False,
+            "Scorer dependency attestation schema is invalid",
+        ),
+        (
+            "3.10",
             "legacy-installed-files-v1",
             "",
             "record-v1",
@@ -261,9 +277,9 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
         " print(json.dumps({'version':'stub-version','executable':os.environ['STUB_REPORTED_EXE'],'prefix':str(venv),'base_prefix':str(venv.parent/'base-python'),'eval_origin':str(base/'eval/__init__.py'),'package_origin':str(base/'src/paddleocr_vl_rocm/__init__.py'),'core_versions':versions,'core_origins':origins,'distribution_origins':dist_origins,'record_paths':records,'record_sha256':hashes,'dependency_environment_sha256':os.environ.get('STUB_ENV_HASH','a'*64)})); sys.exit(0)\n"
         "if a and a[0].endswith('check_omnidocbench_scorer.py') and '--output' in a:\n"
         " scorer=pathlib.Path(os.environ['STUB_SCORER_EXE']).resolve(); prefix=scorer.parent.parent; base=prefix if os.environ.get('STUB_SCORER_NON_VENV')=='1' else prefix.parent/'base-python'; package=pathlib.Path(os.environ.get('STUB_SCORER_PACKAGE',str(scorer))); content=hashlib.sha256(package.read_bytes()).hexdigest()\n"
-        " schema=os.environ.get('STUB_ATTESTATION_SCHEMA','record-v1'); dependency={'version':'1.0','attestation_schema':schema,'origin_sha256':'c'*64,'content_sha256':content,'file_count':1}\n"
-        " if schema=='record-v1': dependency['record_sha256']='d'*64\n"
-        " elif schema=='legacy-installed-files-v1': dependency.update(installed_files_sha256='d'*64,metadata_sha256='e'*64)\n"
+        " schema=os.environ.get('STUB_ATTESTATION_SCHEMA','record-v1'); normalized_schema=schema.casefold(); dependency={'version':'1.0','attestation_schema':schema,'origin_sha256':'c'*64,'content_sha256':content,'file_count':1}\n"
+        " if normalized_schema=='record-v1': dependency['record_sha256']='d'*64\n"
+        " elif normalized_schema=='legacy-installed-files-v1': dependency.update(installed_files_sha256='d'*64,metadata_sha256='e'*64)\n"
         " extra=os.environ.get('STUB_EXTRA_ATTESTATION_SCHEMA','')\n"
         " if extra=='record-v1': dependency['record_sha256']='f'*64\n"
         " elif extra=='legacy-installed-files-v1': dependency.update(installed_files_sha256='f'*64,metadata_sha256='f'*64)\n"
