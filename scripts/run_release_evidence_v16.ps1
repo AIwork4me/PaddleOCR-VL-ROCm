@@ -115,7 +115,7 @@ function Invoke-LoggedNative {
 
 function Get-PythonProvenance {
   if ($script:PythonProvenance) { return $script:PythonProvenance }
-  $probe = 'import json,sys; from pathlib import Path; import eval.release_evidence as release_evidence; import paddleocr_vl_rocm as package; print(json.dumps(dict(version=sys.version,executable=sys.executable,eval_origin=str(Path(release_evidence.__file__).resolve()),package_origin=str(Path(package.__file__).resolve()))))'
+  $probe = 'import hashlib,importlib.metadata as metadata,json,sys; from pathlib import Path; import eval.release_evidence as release_evidence; import paddleocr,paddleocr_vl_rocm as package,paddlex,paddle; modules=dict(paddleocr=paddleocr,paddlex=paddlex,paddlepaddle=paddle); distributions={name:metadata.distribution(name) for name in modules}; records={name:next(Path(dist.locate_file(path)).resolve() for path in dist.files if Path(path).name==chr(82)+chr(69)+chr(67)+chr(79)+chr(82)+chr(68)) for name,dist in distributions.items()}; installed=sorted((dist.metadata.get(chr(78)+chr(97)+chr(109)+chr(101)) or dist.name).lower()+chr(61)+chr(61)+dist.version for dist in metadata.distributions()); print(json.dumps(dict(version=sys.version,executable=sys.executable,eval_origin=str(Path(release_evidence.__file__).resolve()),package_origin=str(Path(package.__file__).resolve()),core_versions={name:dist.version for name,dist in distributions.items()},core_origins={name:str(Path(module.__file__).resolve()) for name,module in modules.items()},distribution_origins={name:str(Path(dist.locate_file(chr(46))).resolve()) for name,dist in distributions.items()},record_paths={name:str(path) for name,path in records.items()},record_sha256={name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in records.items()},dependency_environment_sha256=hashlib.sha256(chr(10).join(installed).encode()).hexdigest())))'
   $rendered = @(Invoke-LoggedNative "Manifest" "python-origin-probe" $PythonExe @("-c", $probe)) -join [Environment]::NewLine
   try { $value = $rendered | ConvertFrom-Json } catch { throw "Python module-origin probe returned invalid JSON." }
   if ((Resolve-PhysicalPath ([string]$value.executable)) -ne $PythonExe) { throw "Python origin probe executable does not match PythonExe." }
@@ -123,6 +123,18 @@ function Get-PythonProvenance {
       -not (Test-IsWithin ([string]$value.package_origin) (Join-Path $RepoRoot "src"))) {
     throw "Python module origins are outside this worktree."
   }
+  $venvRoot = Split-Path -Parent (Split-Path -Parent $PythonExe)
+  $expectedVersions = [ordered]@{ paddleocr = "3.7.0"; paddlex = "3.7.2"; paddlepaddle = "3.2.1" }
+  foreach ($entry in $expectedVersions.GetEnumerator()) {
+    if ([string]$value.core_versions.($entry.Key) -ne $entry.Value) { throw "Required dependency version mismatch: $($entry.Key)==$($entry.Value)" }
+    if (-not (Test-IsWithin ([string]$value.core_origins.($entry.Key)) $venvRoot) -or
+        -not (Test-IsWithin ([string]$value.distribution_origins.($entry.Key)) $venvRoot) -or
+        -not (Test-IsWithin ([string]$value.record_paths.($entry.Key)) $venvRoot)) {
+      throw "Dependency origin is outside the pinned worktree venv: $($entry.Key)"
+    }
+    if ([string]$value.record_sha256.($entry.Key) -notmatch '^[0-9a-f]{64}$') { throw "Dependency RECORD hash is invalid: $($entry.Key)" }
+  }
+  if ([string]$value.dependency_environment_sha256 -notmatch '^[0-9a-f]{64}$') { throw "Dependency environment hash is invalid." }
   $script:PythonProvenance = [ordered]@{
     path_sha256 = Get-StringSha256 $PythonExe
     file_sha256 = Get-Sha256 $PythonExe
@@ -130,6 +142,11 @@ function Get-PythonProvenance {
     executable_sha256 = Get-StringSha256 (Resolve-PhysicalPath ([string]$value.executable))
     eval_origin_sha256 = Get-StringSha256 (Resolve-PhysicalPath ([string]$value.eval_origin))
     package_origin_sha256 = Get-StringSha256 (Resolve-PhysicalPath ([string]$value.package_origin))
+    dependency_environment_sha256 = [string]$value.dependency_environment_sha256
+    paddleocr_record_sha256 = [string]$value.record_sha256.paddleocr
+    paddlex_record_sha256 = [string]$value.record_sha256.paddlex
+    paddlepaddle_record_sha256 = [string]$value.record_sha256.paddlepaddle
+    record_paths = $value.record_paths
   }
   return $script:PythonProvenance
 }
@@ -185,6 +202,9 @@ function Get-ImmutableInputs {
     scoring_config = $scoringConfig
     benchmark_contract = $benchmarkContract
     python_executable = $PythonExe
+    paddleocr_record = [string]$pythonProvenance.record_paths.paddleocr
+    paddlex_record = [string]$pythonProvenance.record_paths.paddlex
+    paddlepaddle_record = [string]$pythonProvenance.record_paths.paddlepaddle
     runner = $PSCommandPath
     release_contract = (Join-Path $RepoRoot "eval/release_contract.py")
     release_evidence = (Join-Path $RepoRoot "eval/release_evidence.py")
@@ -291,6 +311,10 @@ function Get-InvocationFingerprint([string]$StageName, [string]$ManifestSha) {
     python_executable_sha256 = $pythonProvenance.executable_sha256
     eval_origin_sha256 = $pythonProvenance.eval_origin_sha256
     package_origin_sha256 = $pythonProvenance.package_origin_sha256
+    dependency_environment_sha256 = $pythonProvenance.dependency_environment_sha256
+    paddleocr_record_sha256 = $pythonProvenance.paddleocr_record_sha256
+    paddlex_record_sha256 = $pythonProvenance.paddlex_record_sha256
+    paddlepaddle_record_sha256 = $pythonProvenance.paddlepaddle_record_sha256
   }
   return Get-StringSha256 ($values | ConvertTo-Json -Compress)
 }

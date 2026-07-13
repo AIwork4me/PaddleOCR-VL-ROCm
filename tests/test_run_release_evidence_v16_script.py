@@ -42,8 +42,16 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
         "with open(os.environ['STUB_ARG_LOG'],'a',encoding='utf-8') as f:\n"
         " [f.write(x+'\\n') for x in a]\n"
         "if '-c' in a:\n"
+        " if os.environ.get('STUB_MISSING_PACKAGE')=='1': sys.exit(1)\n"
         " root=pathlib.Path.cwd(); wrong=os.environ.get('STUB_WRONG_ORIGIN')=='1'; base=pathlib.Path(os.environ.get('TEMP','.')) if wrong else root\n"
-        " print(json.dumps({'version':'stub-version','executable':os.environ['STUB_REPORTED_EXE'],'eval_origin':str(base/'eval/__init__.py'),'package_origin':str(base/'src/paddleocr_vl_rocm/__init__.py')})); sys.exit(0)\n"
+        " venv=pathlib.Path(os.environ['STUB_REPORTED_EXE']).parent.parent; records={}\n"
+        " for name in ('paddleocr','paddlex','paddlepaddle'):\n"
+        "  p=venv/(name+'-dist-info')/'RECORD'; p.parent.mkdir(exist_ok=True); p.write_text(name,encoding='utf-8') if not p.exists() else None; records[name]=str(p)\n"
+        " versions={'paddleocr':'3.7.0','paddlex':'3.7.2','paddlepaddle':'3.2.1'}\n"
+        " if os.environ.get('STUB_WRONG_VERSION')=='1': versions['paddleocr']='0.0.0'\n"
+        " hashes={n:hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for n,p in records.items()}\n"
+        " origins={n:str(base/(n+'.py')) for n in records}; dist_origins={n:str(venv) for n in records}\n"
+        " print(json.dumps({'version':'stub-version','executable':os.environ['STUB_REPORTED_EXE'],'eval_origin':str(base/'eval/__init__.py'),'package_origin':str(base/'src/paddleocr_vl_rocm/__init__.py'),'core_versions':versions,'core_origins':origins,'distribution_origins':dist_origins,'record_paths':records,'record_sha256':hashes,'dependency_environment_sha256':os.environ.get('STUB_ENV_HASH','a'*64)})); sys.exit(0)\n"
         f"fail={fail_on!r}\n"
         "if fail and any(fail in x for x in a): sys.exit(23)\n"
         "if 'eval.release_evidence' in a and 'manifest' in a:\n"
@@ -148,6 +156,23 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
         STUB_ARG_LOG=str(argument_log),
         STUB_REPORTED_EXE=str(stub_python),
     )
+    env["STUB_MISSING_PACKAGE"] = "1"
+    missing_package = _run(
+        script, "-Stage", "Preflight", "-EvidenceRoot", str(evidence),
+        "-DatasetDir", str(dataset), "-LayoutModel", str(layout),
+        "-RuntimeConfig", str(config), env=env, cwd=tmp_path,
+    )
+    assert missing_package.returncode != 0
+    env.pop("STUB_MISSING_PACKAGE")
+    env["STUB_WRONG_VERSION"] = "1"
+    wrong_version = _run(
+        script, "-Stage", "Preflight", "-EvidenceRoot", str(evidence),
+        "-DatasetDir", str(dataset), "-LayoutModel", str(layout),
+        "-RuntimeConfig", str(config), env=env, cwd=tmp_path,
+    )
+    assert wrong_version.returncode != 0
+    assert "dependency version mismatch" in (wrong_version.stdout + wrong_version.stderr)
+    env.pop("STUB_WRONG_VERSION")
     env["STUB_WRONG_ORIGIN"] = "1"
     wrong_origin = _run(
         script, "-Stage", "Preflight", "-EvidenceRoot", str(evidence),
@@ -265,6 +290,28 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     )
     assert changed_interpreter.returncode != 0
     assert "Resume refused" in (changed_interpreter.stdout + changed_interpreter.stderr)
+    changed_environment = env.copy()
+    changed_environment["STUB_ENV_HASH"] = "b" * 64
+    environment_resume = _run(
+        script, "-Stage", "Preflight", *(
+            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
+            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
+        ), env=changed_environment, cwd=tmp_path,
+    )
+    assert environment_resume.returncode != 0
+    assert "invocation fingerprint mismatch" in (environment_resume.stdout + environment_resume.stderr)
+    record = tmp_path / "paddleocr-dist-info" / "RECORD"
+    original_record = record.read_bytes()
+    record.write_bytes(b"mutated")
+    record_resume = _run(
+        script, "-Stage", "Preflight", *(
+            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
+            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
+        ), env=env, cwd=tmp_path,
+    )
+    assert record_resume.returncode != 0
+    assert "Resume refused" in (record_resume.stdout + record_resume.stderr)
+    record.write_bytes(original_record)
 
 
 def test_rejects_historical_output_before_creating_it(tmp_path: Path) -> None:
@@ -523,7 +570,13 @@ def test_exact_origin_probe_survives_windows_powershell_5_native_quoting(tmp_pat
     assert completed.returncode == 0, completed.stderr
     assert "NameError" not in completed.stderr
     value = json.loads(completed.stdout)
-    assert set(value) == {"version", "executable", "eval_origin", "package_origin"}
+    assert {"version", "executable", "eval_origin", "package_origin"} <= set(value)
+    assert value["core_versions"] == {
+        "paddleocr": "3.7.0",
+        "paddlex": "3.7.2",
+        "paddlepaddle": "3.2.1",
+    }
+    assert all(len(digest) == 64 for digest in value["record_sha256"].values())
     assert Path(value["eval_origin"]).is_relative_to(ROOT / "eval")
     assert Path(value["package_origin"]).is_relative_to(ROOT / "src")
 
