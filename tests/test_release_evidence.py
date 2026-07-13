@@ -255,6 +255,69 @@ def test_decide_cli_rejects_malformed_metric_structure(tmp_path: Path) -> None:
     assert "required notebook component" in result.stderr
 
 
+@pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+def test_decide_cli_rejects_nonstandard_json_constants(tmp_path: Path, constant: str) -> None:
+    evidence = write_evidence(tmp_path)
+    (evidence / "results" / "lightweight" / "metric.json").write_text(
+        '{"value": ' + constant + "}", encoding="utf-8"
+    )
+    result = run_decide(evidence)
+    assert result.returncode != 0
+    assert "non-standard JSON constant" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("component", "value"),
+    [
+        ("text", float("nan")),
+        ("text", -0.001),
+        ("text", 1.001),
+        ("formula", float("inf")),
+        ("formula", -0.001),
+        ("formula", 1.001),
+        ("table", float("-inf")),
+        ("table", -0.001),
+        ("table", 1.001),
+    ],
+)
+def test_gate_decision_rejects_nonfinite_or_out_of_domain_components(
+    component: str, value: float
+) -> None:
+    values = {"text": 0.01, "formula": 0.99, "table": 0.99}
+    values[component] = value
+    with pytest.raises(ValueError, match="finite.*0.*1"):
+        decide_release_gates(accepted_known_failure_stats(), metric(**values))
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["missing", "directory", "relative", "changed_size", "changed_content", "fake_hash"],
+)
+def test_decide_cli_revalidates_manifest_files(tmp_path: Path, mutation: str) -> None:
+    evidence = write_evidence(tmp_path)
+    manifest_path = evidence / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    record = manifest["inputs"]["model"]
+    model = Path(record["path"])
+    if mutation == "missing":
+        model.unlink()
+    elif mutation == "directory":
+        model.unlink()
+        model.mkdir()
+    elif mutation == "relative":
+        record["path"] = "model.gguf"
+    elif mutation == "changed_size":
+        model.write_bytes(b"model-expanded")
+    elif mutation == "changed_content":
+        model.write_bytes(b"MODEL")
+    else:
+        record["sha256"] = "0" * 64
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    result = run_decide(evidence)
+    assert result.returncode != 0
+    assert "manifest input" in result.stderr.lower()
+
+
 def test_decide_cli_accepts_representative_persisted_evidence(tmp_path: Path) -> None:
     evidence = write_evidence(tmp_path)
     result = run_decide(evidence)

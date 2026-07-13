@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from collections.abc import Iterable, Mapping
@@ -73,6 +74,19 @@ def decide_release_gates(
     predictions_dir = Path(str(official_stats.get("predictions_dir", ".")))
     validate_approved_failure_predictions(predictions_dir, failures)
 
+    raw_components = {
+        "Text Edit": _metric_number(
+            lightweight_metric, "text_block", "all", "Edit_dist", "ALL_page_avg"
+        ),
+        "Formula CDM": _metric_number(lightweight_metric, "display_formula", "page", "CDM", "ALL"),
+        "Table TEDS": _metric_number(lightweight_metric, "table", "page", "TEDS", "ALL"),
+    }
+    for name, value in raw_components.items():
+        if value is None:
+            raise ValueError("Lightweight metric is missing a required notebook component")
+        if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+            raise ValueError(f"{name} must be finite and within 0..1")
+
     extracted = extract_notebook_metrics(lightweight_metric)
     text = extracted["text_edit_dist"]
     formula_percent = extracted["formula_cdm_percent"]
@@ -84,6 +98,8 @@ def decide_release_gates(
     ):
         raise ValueError("Lightweight metric is missing a required notebook component")
     components, overall = notebook_overall(text, formula_percent / 100.0, table_percent / 100.0)
+    if not math.isfinite(overall):
+        raise ValueError("Overall must be finite")
     quality = analyze_metric_quality(lightweight_metric)
     quality_pass = all(bool(item["valid"]) for item in quality.values())
     return {
@@ -96,8 +112,23 @@ def decide_release_gates(
     }
 
 
+def _metric_number(metric: dict[str, Any], *keys: str) -> float | None:
+    value: object = metric
+    for key in keys:
+        if not isinstance(value, dict) or key not in value:
+            return None
+        value = value[key]
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-standard JSON constant is not allowed: {value}")
+
+
 def _load_object(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
+    value = json.loads(path.read_text(encoding="utf-8"), parse_constant=_reject_json_constant)
     if not isinstance(value, dict):
         raise ValueError(f"JSON document must be an object: {path}")
     return value
@@ -130,6 +161,18 @@ def _validate_manifest(value: dict[str, Any]) -> None:
             raise ValueError(
                 f"Manifest input {name!r} sha256 must be 64 lowercase hexadecimal characters"
             )
+        input_path = Path(path)
+        if not input_path.is_absolute():
+            raise ValueError(f"Manifest input {name!r} path must be absolute")
+        if not input_path.is_file():
+            raise ValueError(f"Manifest input {name!r} must exist as a regular file")
+        resolved = input_path.resolve(strict=True)
+        if resolved != input_path:
+            raise ValueError(f"Manifest input {name!r} resolved path has changed")
+        if input_path.stat().st_size != byte_count:
+            raise ValueError(f"Manifest input {name!r} byte size has changed")
+        if sha256_file(input_path) != digest:
+            raise ValueError(f"Manifest input {name!r} SHA-256 hash has changed")
 
 
 def _input(value: str) -> tuple[str, Path]:
