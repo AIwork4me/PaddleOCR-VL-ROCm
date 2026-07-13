@@ -3,7 +3,9 @@ from __future__ import annotations
 import base64
 import hashlib
 import importlib.util
+from email.message import Message
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import tomllib
@@ -54,12 +56,50 @@ def test_complete_exact_scorer_dependency_contract_includes_pylatexenc() -> None
     assert all("==" in line for line in transitive.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#"))
 
 
-def test_scorer_rejects_python_outside_checkout_supported_range(monkeypatch):
+@pytest.mark.parametrize("version", ((3, 10, 14), (3, 13, 0)))
+def test_scorer_rejects_any_python_other_than_cpython_311(monkeypatch, version):
     module = _load_module()
-    monkeypatch.setattr(module.sys, "version_info", (3, 13, 0))
+    monkeypatch.setattr(module.sys, "version_info", version)
 
-    with pytest.raises(RuntimeError, match="Python 3.10 or 3.11"):
+    with pytest.raises(RuntimeError, match="isolated CPython 3.11"):
         module.check_scorer(Path("checkout"), require_cdm_tools=False)
+
+
+def _distribution(version: str, *requirements: str):
+    package_metadata = Message()
+    for requirement in requirements:
+        package_metadata["Requires-Dist"] = requirement
+    return SimpleNamespace(version=version, metadata=package_metadata)
+
+
+def test_dependency_closure_propagates_requested_extras() -> None:
+    module = _load_module()
+    locked = {
+        "owner": ("owner", "1.0"),
+        "transport": ("transport", "1.0"),
+    }
+    distributions = {
+        "owner": _distribution("1.0", "transport[http]==1.0"),
+        "transport": _distribution("1.0", 'http-helper==2.0; extra == "http"'),
+    }
+
+    with pytest.raises(RuntimeError, match="transport requires http-helper"):
+        module._validate_locked_dependency_closure(distributions, locked)
+
+
+def test_dependency_closure_rejects_locked_specifier_conflict() -> None:
+    module = _load_module()
+    locked = {
+        "owner": ("owner", "1.0"),
+        "transport": ("transport", "1.0"),
+    }
+    distributions = {
+        "owner": _distribution("1.0", "transport>=2.0"),
+        "transport": _distribution("1.0"),
+    }
+
+    with pytest.raises(RuntimeError, match=r"owner requires transport>=2.0; found 1.0"):
+        module._validate_locked_dependency_closure(distributions, locked)
 
 
 def test_distribution_attestation_hashes_record_listed_content_and_rejects_mutation(tmp_path):

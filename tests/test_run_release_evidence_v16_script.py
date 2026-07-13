@@ -50,6 +50,76 @@ def test_score_only_source_never_invokes_inference_and_requires_both_scores() ->
     assert "provenance-cdm.json" in score_body
 
 
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    (
+        ("same-executable", "ScorerPythonExe must differ physically from PythonExe"),
+        ("same-prefix", "Scorer sys.prefix must differ physically from inference sys.prefix"),
+        ("non-venv", "ScorerPythonExe must be inside a real virtual environment"),
+    ),
+)
+def test_runner_rejects_nonisolated_scorer_interpreters(
+    tmp_path: Path, case: str, expected: str
+) -> None:
+    _, script = _clean_repo(tmp_path)
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    argument_log = tmp_path / "args.log"
+    inference_python = _stub_python(tools)
+    scorer_python = inference_python
+    env = os.environ.copy()
+    if case == "same-prefix":
+        scorer_python = inference_python.with_name("scorer-python.cmd")
+        shutil.copy2(inference_python, scorer_python)
+    elif case == "non-venv":
+        scorer_python = tools / "standalone" / "python.cmd"
+        scorer_python.parent.mkdir()
+        shutil.copy2(inference_python, scorer_python)
+        env["STUB_SCORER_NON_VENV"] = "1"
+    dataset = tmp_path / "dataset"
+    layout = tmp_path / "layout"
+    dataset.mkdir()
+    layout.mkdir()
+    (dataset / "OmniDocBench.json").write_text("{}", encoding="utf-8")
+    (layout / "inference.onnx").write_bytes(b"model")
+    (layout / "inference.yml").write_text("config", encoding="utf-8")
+    main = tmp_path / "PaddleOCR-VL-1.6-GGUF.gguf"
+    mmproj = tmp_path / "PaddleOCR-VL-1.6-GGUF-mmproj.gguf"
+    main.write_bytes(b"main")
+    mmproj.write_bytes(b"mm")
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps(
+            {"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}
+        ),
+        encoding="utf-8",
+    )
+    env.update(
+        STUB_ARG_LOG=str(argument_log),
+        STUB_REPORTED_EXE=str(inference_python),
+        STUB_SCORER_EXE=str(scorer_python),
+    )
+
+    completed = _run(
+        script,
+        "-Stage",
+        "Preflight",
+        "-EvidenceRoot",
+        str(tmp_path / "evidence"),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
+        env=env,
+        cwd=tmp_path,
+    )
+
+    assert completed.returncode != 0
+    assert expected in (completed.stdout + completed.stderr)
+
+
 def _powershell() -> str:
     executable = shutil.which("powershell")
     if executable is None:
@@ -74,10 +144,10 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
         " if os.environ.get('STUB_WRONG_VERSION')=='1': versions['paddleocr']='0.0.0'\n"
         " hashes={n:hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for n,p in records.items()}\n"
         " origins={n:str(base/(n+'.py')) for n in records}; dist_origins={n:str(venv) for n in records}\n"
-        " print(json.dumps({'version':'stub-version','executable':os.environ['STUB_REPORTED_EXE'],'eval_origin':str(base/'eval/__init__.py'),'package_origin':str(base/'src/paddleocr_vl_rocm/__init__.py'),'core_versions':versions,'core_origins':origins,'distribution_origins':dist_origins,'record_paths':records,'record_sha256':hashes,'dependency_environment_sha256':os.environ.get('STUB_ENV_HASH','a'*64)})); sys.exit(0)\n"
+        " print(json.dumps({'version':'stub-version','executable':os.environ['STUB_REPORTED_EXE'],'prefix':str(venv),'base_prefix':str(venv.parent/'base-python'),'eval_origin':str(base/'eval/__init__.py'),'package_origin':str(base/'src/paddleocr_vl_rocm/__init__.py'),'core_versions':versions,'core_origins':origins,'distribution_origins':dist_origins,'record_paths':records,'record_sha256':hashes,'dependency_environment_sha256':os.environ.get('STUB_ENV_HASH','a'*64)})); sys.exit(0)\n"
         "if a and a[0].endswith('check_omnidocbench_scorer.py') and '--output' in a:\n"
-        " package=pathlib.Path(os.environ.get('STUB_SCORER_PACKAGE',os.environ['STUB_REPORTED_EXE'])); content=hashlib.sha256(package.read_bytes()).hexdigest()\n"
-        " value={'python_executable_sha256':hashlib.sha256(str(pathlib.Path(sys.argv[0]).resolve()).encode()).hexdigest(),'python_version_sha256':'b'*64,'dependency_environment_sha256':content,'dependencies':{'demo':{'version':'1.0','origin_sha256':'c'*64,'record_sha256':'d'*64,'content_sha256':content,'file_count':1}}}\n"
+        " scorer=pathlib.Path(os.environ['STUB_SCORER_EXE']).resolve(); prefix=scorer.parent.parent; base=prefix if os.environ.get('STUB_SCORER_NON_VENV')=='1' else prefix.parent/'base-python'; package=pathlib.Path(os.environ.get('STUB_SCORER_PACKAGE',str(scorer))); content=hashlib.sha256(package.read_bytes()).hexdigest()\n"
+        " value={'python_executable':str(scorer),'python_executable_sha256':hashlib.sha256(str(scorer).encode()).hexdigest(),'python_prefix':str(prefix),'python_prefix_sha256':hashlib.sha256(str(prefix).encode()).hexdigest(),'python_base_prefix':str(base),'python_base_prefix_sha256':hashlib.sha256(str(base).encode()).hexdigest(),'python_version_sha256':'b'*64,'dependency_environment_sha256':content,'dependencies':{'demo':{'version':'1.0','origin_sha256':'c'*64,'record_sha256':'d'*64,'content_sha256':content,'file_count':1}}}\n"
         " out=pathlib.Path(a[a.index('--output')+1]); out.parent.mkdir(parents=True,exist_ok=True); out.write_text(json.dumps(value,sort_keys=True),encoding='utf-8'); print(json.dumps(value)); sys.exit(0)\n"
         f"fail={fail_on!r}\n"
         "if fail and any(fail in x for x in a): sys.exit(23)\n"
@@ -99,24 +169,34 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
         encoding="utf-8",
     )
     stub = directory / "python.cmd"
-    stub.write_text(
+    command = (
         "@echo off\n"
-        f'"{sys.executable}" "{program}" %*\n',
-        encoding="utf-8",
+        f'"{sys.executable}" "{program}" %*\n'
     )
+    stub.write_text(command, encoding="utf-8")
+    scorer = directory / "scorer-venv" / "Scripts" / "python.cmd"
+    scorer.parent.mkdir(parents=True, exist_ok=True)
+    scorer.write_text(command, encoding="utf-8")
     return stub
 
 
 def _run(script: Path, *arguments: str, env: dict[str, str] | None = None, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
     values = list(arguments)
+    run_env = env.copy() if env else None
     if env and env.get("STUB_REPORTED_EXE") and "-PythonExe" not in values:
         values += ["-PythonExe", env["STUB_REPORTED_EXE"]]
     if env and env.get("STUB_REPORTED_EXE") and "-ScorerPythonExe" not in values:
-        values += ["-ScorerPythonExe", env.get("STUB_SCORER_EXE", env["STUB_REPORTED_EXE"])]
+        scorer = env.get(
+            "STUB_SCORER_EXE",
+            str(Path(env["STUB_REPORTED_EXE"]).parent / "scorer-venv" / "Scripts" / "python.cmd"),
+        )
+        values += ["-ScorerPythonExe", scorer]
+        assert run_env is not None
+        run_env["STUB_SCORER_EXE"] = scorer
     return subprocess.run(
         [_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script), *values],
         cwd=cwd,
-        env=env,
+        env=run_env,
         text=True,
         capture_output=True,
     )

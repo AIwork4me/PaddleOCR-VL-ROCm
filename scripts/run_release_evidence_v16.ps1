@@ -130,7 +130,7 @@ function Invoke-LoggedNative {
 
 function Get-PythonProvenance {
   if ($script:PythonProvenance) { return $script:PythonProvenance }
-  $probe = 'import hashlib,importlib.metadata as metadata,json,sys; from pathlib import Path; import eval.release_evidence as release_evidence; import paddleocr,paddleocr_vl_rocm as package,paddlex,paddle; modules=dict(paddleocr=paddleocr,paddlex=paddlex,paddlepaddle=paddle); distributions={name:metadata.distribution(name) for name in modules}; records={name:next(Path(dist.locate_file(path)).resolve() for path in dist.files if Path(path).name==chr(82)+chr(69)+chr(67)+chr(79)+chr(82)+chr(68)) for name,dist in distributions.items()}; installed=sorted((dist.metadata.get(chr(78)+chr(97)+chr(109)+chr(101)) or dist.name).lower()+chr(61)+chr(61)+dist.version for dist in metadata.distributions()); print(json.dumps(dict(version=sys.version,executable=sys.executable,eval_origin=str(Path(release_evidence.__file__).resolve()),package_origin=str(Path(package.__file__).resolve()),core_versions={name:dist.version for name,dist in distributions.items()},core_origins={name:str(Path(module.__file__).resolve()) for name,module in modules.items()},distribution_origins={name:str(Path(dist.locate_file(chr(46))).resolve()) for name,dist in distributions.items()},record_paths={name:str(path) for name,path in records.items()},record_sha256={name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in records.items()},dependency_environment_sha256=hashlib.sha256(chr(10).join(installed).encode()).hexdigest())))'
+  $probe = 'import hashlib,importlib.metadata as metadata,json,sys; from pathlib import Path; import eval.release_evidence as release_evidence; import paddleocr,paddleocr_vl_rocm as package,paddlex,paddle; modules=dict(paddleocr=paddleocr,paddlex=paddlex,paddlepaddle=paddle); distributions={name:metadata.distribution(name) for name in modules}; records={name:next(Path(dist.locate_file(path)).resolve() for path in dist.files if Path(path).name==chr(82)+chr(69)+chr(67)+chr(79)+chr(82)+chr(68)) for name,dist in distributions.items()}; installed=sorted((dist.metadata.get(chr(78)+chr(97)+chr(109)+chr(101)) or dist.name).lower()+chr(61)+chr(61)+dist.version for dist in metadata.distributions()); print(json.dumps(dict(version=sys.version,executable=sys.executable,prefix=sys.prefix,base_prefix=sys.base_prefix,eval_origin=str(Path(release_evidence.__file__).resolve()),package_origin=str(Path(package.__file__).resolve()),core_versions={name:dist.version for name,dist in distributions.items()},core_origins={name:str(Path(module.__file__).resolve()) for name,module in modules.items()},distribution_origins={name:str(Path(dist.locate_file(chr(46))).resolve()) for name,dist in distributions.items()},record_paths={name:str(path) for name,path in records.items()},record_sha256={name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in records.items()},dependency_environment_sha256=hashlib.sha256(chr(10).join(installed).encode()).hexdigest())))'
   $rendered = @(Invoke-LoggedNative "Manifest" "python-origin-probe" $PythonExe @("-c", $probe)) -join [Environment]::NewLine
   try { $value = $rendered | ConvertFrom-Json } catch { throw "Python module-origin probe returned invalid JSON." }
   if ((Resolve-PhysicalPath ([string]$value.executable)) -ne $PythonExe) { throw "Python origin probe executable does not match PythonExe." }
@@ -155,6 +155,10 @@ function Get-PythonProvenance {
     file_sha256 = Get-Sha256 $PythonExe
     version_sha256 = Get-StringSha256 ([string]$value.version)
     executable_sha256 = Get-StringSha256 (Resolve-PhysicalPath ([string]$value.executable))
+    prefix_sha256 = Get-StringSha256 (Resolve-PhysicalPath ([string]$value.prefix))
+    base_prefix_sha256 = Get-StringSha256 (Resolve-PhysicalPath ([string]$value.base_prefix))
+    prefix_path = Resolve-PhysicalPath ([string]$value.prefix)
+    base_prefix_path = Resolve-PhysicalPath ([string]$value.base_prefix)
     eval_origin_sha256 = Get-StringSha256 (Resolve-PhysicalPath ([string]$value.eval_origin))
     package_origin_sha256 = Get-StringSha256 (Resolve-PhysicalPath ([string]$value.package_origin))
     dependency_environment_sha256 = [string]$value.dependency_environment_sha256
@@ -191,13 +195,28 @@ function Get-ScorerProvenance {
   }
   try { $value = Get-Content -Raw -LiteralPath $attestation | ConvertFrom-Json }
   catch { throw "Scorer attestation returned invalid JSON." }
-  foreach ($key in @("python_executable_sha256", "python_version_sha256", "dependency_environment_sha256")) {
+  foreach ($key in @("python_executable_sha256", "python_prefix_sha256", "python_base_prefix_sha256", "python_version_sha256", "dependency_environment_sha256")) {
     if ([string]$value.$key -notmatch '^[0-9a-f]{64}$') { throw "Scorer attestation hash is invalid: $key" }
+  }
+  $scorerExecutable = Resolve-PhysicalPath ([string]$value.python_executable)
+  $scorerPrefix = Resolve-PhysicalPath ([string]$value.python_prefix)
+  $scorerBasePrefix = Resolve-PhysicalPath ([string]$value.python_base_prefix)
+  $inferenceProvenance = Get-PythonProvenance
+  if ($scorerExecutable -ne $ScorerPythonExe) { throw "Scorer attestation executable does not match ScorerPythonExe." }
+  if ($scorerExecutable -eq $PythonExe) { throw "ScorerPythonExe must differ physically from PythonExe." }
+  if ($scorerPrefix -eq $scorerBasePrefix -or -not (Test-IsWithin $scorerExecutable $scorerPrefix)) {
+    throw "ScorerPythonExe must be inside a real virtual environment."
+  }
+  if ($scorerPrefix -eq $inferenceProvenance.prefix_path) {
+    throw "Scorer sys.prefix must differ physically from inference sys.prefix."
   }
   $script:ScorerProvenance = [ordered]@{
     path_sha256 = Get-StringSha256 $ScorerPythonExe
     file_sha256 = Get-Sha256 $ScorerPythonExe
     environment_sha256 = [string]$value.dependency_environment_sha256
+    executable_sha256 = [string]$value.python_executable_sha256
+    prefix_sha256 = [string]$value.python_prefix_sha256
+    base_prefix_sha256 = [string]$value.python_base_prefix_sha256
     attestation = $attestation
   }
   return $script:ScorerProvenance
@@ -437,11 +456,16 @@ function Get-InvocationFingerprint([string]$StageName, [string]$ManifestSha) {
     python_file_sha256 = $pythonProvenance.file_sha256
     python_version_sha256 = $pythonProvenance.version_sha256
     python_executable_sha256 = $pythonProvenance.executable_sha256
+    python_prefix_sha256 = $pythonProvenance.prefix_sha256
+    python_base_prefix_sha256 = $pythonProvenance.base_prefix_sha256
     eval_origin_sha256 = $pythonProvenance.eval_origin_sha256
     package_origin_sha256 = $pythonProvenance.package_origin_sha256
     dependency_environment_sha256 = $pythonProvenance.dependency_environment_sha256
     scorer_python_path_sha256 = $scorerProvenance.path_sha256
     scorer_python_file_sha256 = $scorerProvenance.file_sha256
+    scorer_python_executable_sha256 = $scorerProvenance.executable_sha256
+    scorer_python_prefix_sha256 = $scorerProvenance.prefix_sha256
+    scorer_python_base_prefix_sha256 = $scorerProvenance.base_prefix_sha256
     scorer_environment_sha256 = $scorerProvenance.environment_sha256
     cdm_tool_environment_sha256 = Get-CDMToolEnvironmentSha256
     paddleocr_record_sha256 = $pythonProvenance.paddleocr_record_sha256

@@ -16,12 +16,8 @@ import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
+import tomllib
 from packaging.requirements import InvalidRequirement, Requirement
-
-try:
-    import tomllib
-except ImportError:  # pragma: no cover - exercised by the supported Python 3.10 scorer
-    import tomli as tomllib
 
 DIRECT_DISTRIBUTIONS = {
     "apted": "1.0.3",
@@ -185,25 +181,46 @@ def _attest_locked_distributions(
         result[normalized] = _attest_distribution(
             name, expected, distribution, environment_root=environment_root
         )
-    for owner, distribution in distributions.items():
-        for raw_requirement in distribution.metadata.get_all("Requires-Dist") or ():
-            try:
-                requirement = Requirement(raw_requirement)
-            except InvalidRequirement as exc:
-                raise RuntimeError(f"Malformed installed dependency metadata: {owner}") from exc
-            if requirement.marker and not requirement.marker.evaluate({"extra": ""}):
-                continue
-            required = _normalized_name(requirement.name)
-            if required not in locked:
-                raise RuntimeError(
-                    f"Transitive lock is incomplete: {owner} requires {requirement.name}"
-                )
-            actual = distributions[required].version
-            if requirement.specifier and actual not in requirement.specifier:
-                raise RuntimeError(
-                    f"Transitive lock conflict: {owner} requires {requirement}; found {actual}"
-                )
+    _validate_locked_dependency_closure(distributions, locked)
     return result
+
+
+def _validate_locked_dependency_closure(
+    distributions: dict[str, metadata.Distribution],
+    locked: dict[str, tuple[str, str]],
+) -> None:
+    activated_extras = {name: set() for name in distributions}
+    changed = True
+    while changed:
+        changed = False
+        for owner, distribution in distributions.items():
+            contexts = {"", *activated_extras[owner]}
+            for raw_requirement in distribution.metadata.get_all("Requires-Dist") or ():
+                try:
+                    requirement = Requirement(raw_requirement)
+                except InvalidRequirement as exc:
+                    raise RuntimeError(
+                        f"Malformed installed dependency metadata: {owner}"
+                    ) from exc
+                if requirement.marker and not any(
+                    requirement.marker.evaluate({"extra": extra}) for extra in contexts
+                ):
+                    continue
+                required = _normalized_name(requirement.name)
+                if required not in locked or required not in distributions:
+                    raise RuntimeError(
+                        f"Transitive lock is incomplete: {owner} requires {requirement.name}"
+                    )
+                actual = distributions[required].version
+                if requirement.specifier and actual not in requirement.specifier:
+                    raise RuntimeError(
+                        f"Transitive lock conflict: {owner} requires {requirement}; "
+                        f"found {actual}"
+                    )
+                new_extras = set(requirement.extras) - activated_extras[required]
+                if new_extras:
+                    activated_extras[required].update(new_extras)
+                    changed = True
 
 
 def _import_registries(checkout: Path) -> dict[str, list[str]]:
@@ -310,8 +327,8 @@ def check_scorer(
     transitive_lock: Path = Path("eval/requirements-omnidocbench-v16-transitive.txt"),
     attest_only: bool = False,
 ) -> dict[str, object]:
-    if sys.version_info[:2] not in ((3, 10), (3, 11)):
-        raise RuntimeError("OmniDocBench scorer requires isolated Python 3.10 or 3.11.")
+    if sys.implementation.name != "cpython" or sys.version_info[:2] != (3, 11):
+        raise RuntimeError("OmniDocBench scorer requires isolated CPython 3.11.")
     direct = _read_lock(direct_lock)
     expected_direct = {
         _normalized_name(name): (name, version) for name, version in DIRECT_DISTRIBUTIONS.items()
@@ -340,9 +357,13 @@ def check_scorer(
     attestations = _attest_locked_distributions(locked, environment_root=Path(sys.prefix))
     installed = json.dumps(attestations, sort_keys=True, separators=(",", ":"))
     result: dict[str, object] = {
+        "python_executable": str(Path(sys.executable).resolve()),
         "python_executable_sha256": _hash_text(str(Path(sys.executable).resolve())),
         "python_file_sha256": hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest(),
+        "python_prefix": str(Path(sys.prefix).resolve()),
         "python_prefix_sha256": _hash_text(str(Path(sys.prefix).resolve())),
+        "python_base_prefix": str(Path(sys.base_prefix).resolve()),
+        "python_base_prefix_sha256": _hash_text(str(Path(sys.base_prefix).resolve())),
         "python_version_sha256": _hash_text(sys.version),
         "dependencies": attestations,
         "dependency_environment_sha256": _hash_text(installed),
