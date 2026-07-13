@@ -23,8 +23,8 @@ def test_official_v16_script_supports_isolated_dataset_and_prediction_paths() ->
 def test_official_v16_script_requires_clean_complete_stats_before_cdm() -> None:
     text = SCRIPT.read_text(encoding="utf-8")
 
-    assert "python eval/release_contract.py" in text
-    assert "--stats $StatsPath --version v16 --engine official" in text
+    assert '"eval/release_contract.py", "--stats", $StatsPath' in text
+    assert '"--version", "v16", "--engine", "official"' in text
     assert "clean 1651-page official run" not in text
 
 
@@ -65,3 +65,19 @@ def test_release_contract_power_shell_call_preserves_stats_path_with_spaces(tmp_
 
     assert completed.returncode == 0, completed.stderr
     assert "complete success coverage" in completed.stdout
+
+
+def test_official_script_uses_explicit_native_argument_arrays() -> None:
+    text = SCRIPT.read_text(encoding="utf-8")
+    assert 'Invoke-Native -FilePath "python" -ArgumentList @(' in text
+
+
+def test_official_script_forwards_isolated_release_artifact_paths() -> None:
+    text = SCRIPT.read_text(encoding="utf-8")
+    assert "[string]$CopyReport" in text
+    assert "[string]$RunSummary" in text
+    assert "[string]$Provenance" in text
+    assert '$EvalArguments += @("--copy-report", $CopyReport)' in text
+    assert '$EvalArguments += @("--run-summary", $RunSummary)' in text
+    assert '$EvalArguments += @("--provenance", $Provenance)' in text
+    assert "Release artifact paths must be supplied together" in text

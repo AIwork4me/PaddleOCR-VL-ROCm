@@ -3,6 +3,9 @@ param(
   [string]$ApiModelName = "PaddleOCR-VL-1.6-GGUF.gguf",
   [string]$DatasetDir = "data/omnidocbench/v16",
   [string]$PredictionsDir = "predictions/paddleocr_official_local_llamacpp_gguf_v16",
+  [string]$CopyReport,
+  [string]$RunSummary,
+  [string]$Provenance,
   [int]$SmokePages = 1,
   [int]$SubsetPages = 16,
   [switch]$Full,
@@ -10,6 +13,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+$ArtifactPathCount = @($CopyReport, $RunSummary, $Provenance).Where({ -not [string]::IsNullOrWhiteSpace($_) }).Count
+if ($ArtifactPathCount -ne 0 -and $ArtifactPathCount -ne 3) {
+  throw "Release artifact paths must be supplied together: CopyReport, RunSummary, and Provenance."
+}
 
 function Invoke-Native {
   param(
@@ -37,7 +45,9 @@ function Assert-FullPredictionStats {
   if (-not (Test-Path $StatsPath)) {
     throw "CDM scoring requires full official predictions first. Missing $StatsPath; run with -Full."
   }
-  Invoke-Native python eval/release_contract.py --stats $StatsPath --version v16 --engine official
+  Invoke-Native -FilePath "python" -ArgumentList @(
+    "eval/release_contract.py", "--stats", $StatsPath, "--version", "v16", "--engine", "official"
+  )
 }
 
 Invoke-Step "server gate" {
@@ -74,7 +84,21 @@ if ($Full) {
   Invoke-Step "official full non-CDM inference" {
     Invoke-Native python eval/run_eval.py --stage infer --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --dataset-dir $DatasetDir --predictions-dir $PredictionsDir
   }
+  Invoke-Step "official full prediction release contract" {
+    Assert-FullPredictionStats
+  }
   Invoke-Step "official full non-CDM scoring" {
-    Invoke-Native python eval/run_eval.py --stage eval --version v16 --engine official --artifact-profile official-local --server-url $ServerUrl --api-model-name $ApiModelName --dataset-dir $DatasetDir --predictions-dir $PredictionsDir
+    $EvalArguments = @(
+      "eval/run_eval.py", "--stage", "eval", "--version", "v16", "--engine", "official",
+      "--artifact-profile", "official-local", "--server-url", $ServerUrl,
+      "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir,
+      "--predictions-dir", $PredictionsDir
+    )
+    if ($ArtifactPathCount -eq 3) {
+      $EvalArguments += @("--copy-report", $CopyReport)
+      $EvalArguments += @("--run-summary", $RunSummary)
+      $EvalArguments += @("--provenance", $Provenance)
+    }
+    Invoke-Native -FilePath "python" -ArgumentList $EvalArguments
   }
 }
