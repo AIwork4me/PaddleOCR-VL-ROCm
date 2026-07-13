@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 from eval.release_contract import KNOWN_V16_OFFICIAL_FAILURE
 
@@ -21,6 +22,23 @@ LAYOUT_MODELSCOPE = "https://modelscope.cn/models/PaddlePaddle/PP-DocLayoutV3_on
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _assert_quality_ci_contract(workflow: str) -> None:
+    parsed = yaml.safe_load(workflow)
+    assert isinstance(parsed, dict)
+    quality = parsed["jobs"]["quality"]
+    matrix = {(entry["os"], entry["python"]) for entry in quality["strategy"]["matrix"]["include"]}
+    assert ("windows-latest", "3.10") in matrix
+    assert ("ubuntu-latest", "3.10") in matrix
+    setup_python = [
+        step
+        for step in quality["steps"]
+        if step.get("uses", "").startswith("actions/setup-python@")
+    ]
+    assert len(setup_python) == 1
+    assert setup_python[0]["with"]["python-version"] == "${{ matrix.python }}"
+    assert any(step.get("run") == "python -m pytest -q" for step in quality["steps"])
 
 
 def test_bilingual_readmes_lock_verified_historical_claims() -> None:
@@ -128,20 +146,7 @@ def test_bilingual_readmes_document_the_single_page_exception_without_score_infl
 def test_offline_ci_covers_supported_python_matrix_and_quality_gates() -> None:
     workflow = _read(CI)
 
-    quality = re.search(r"(?ms)^  quality:\n(?P<body>(?:^    .*\n|^\s*$)+)", workflow)
-    assert quality is not None
-    quality_block = quality.group("body")
-    matrix = {
-        (os_name, python)
-        for os_name, python in re.findall(
-            r'^          - \{os: ([^,]+), python: "([^"]+)"\}$',
-            quality_block,
-            re.MULTILINE,
-        )
-    }
-    assert ("windows-latest", "3.10") in matrix
-    assert ("ubuntu-latest", "3.10") in matrix
-    assert "      - run: python -m pytest -q" in quality_block
+    _assert_quality_ci_contract(workflow)
 
     for value in (
         "windows-latest",
@@ -158,6 +163,26 @@ def test_offline_ci_covers_supported_python_matrix_and_quality_gates() -> None:
         assert value in workflow
     for forbidden in ("download_omnidocbench", "setup --auto", "run --server-url"):
         assert forbidden not in workflow
+
+
+def test_ci_contract_rejects_full_pytest_moved_to_another_job() -> None:
+    workflow = _read(CI).replace("      - run: python -m pytest -q\n", "")
+    workflow += (
+        "\n  tests-elsewhere:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - run: python -m pytest -q\n"
+    )
+
+    with pytest.raises(AssertionError):
+        _assert_quality_ci_contract(workflow)
+
+
+def test_ci_contract_rejects_setup_python_fixed_to_313() -> None:
+    workflow = _read(CI).replace("${{ matrix.python }}", "3.13")
+
+    with pytest.raises(AssertionError):
+        _assert_quality_ci_contract(workflow)
 
 
 def test_release_readiness_fails_closed_until_all_gates_pass() -> None:

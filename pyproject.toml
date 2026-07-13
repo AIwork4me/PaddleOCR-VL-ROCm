@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["build>=1.2.2", "pytest>=8.0.0", "ruff>=0.6.0", "mypy>=1.11.0", "tomli==2.2.1; python_version < '3.11'"]
+dev = ["build>=1.2.2", "pytest>=8.0.0", "ruff>=0.6.0", "mypy>=1.11.0", "PyYAML==6.0.2", "tomli==2.2.1; python_version < '3.11'"]
 download = ["huggingface_hub>=0.25.0"]
 gpu = ["onnxruntime-directml>=1.18.0; platform_system == 'Windows'"]
 # Note: OmniDocBench's own dependencies (including CDM's Node.js, ImageMagick 7,

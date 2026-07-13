@@ -137,6 +137,7 @@ def test_dev_extra_pins_tomli_for_python_before_311() -> None:
     project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]
 
     assert "tomli==2.2.1; python_version < '3.11'" in project["optional-dependencies"]["dev"]
+    assert "PyYAML==6.0.2" in project["optional-dependencies"]["dev"]
 
 
 def test_interpreter_probe_rejects_pypy_310(monkeypatch: pytest.MonkeyPatch) -> None:
