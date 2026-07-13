@@ -206,6 +206,12 @@ def _assert_approved_v16_contract(text: str) -> None:
     assert re.search(r"no (?:failed-page )?prediction file", contract, re.IGNORECASE)
     assert re.search(r"all 1,651 GT pages (?:are )?scored", contract, re.IGNORECASE)
     normalized_text = re.sub(r"[`\s]+", " ", text)
+    obsolete_assignment_pair = re.compile(
+        r"(?:\bok\s*=\s*1651\b.{0,120}\bfail\s*=\s*0\b"
+        r"|\bfail\s*=\s*0\b.{0,120}\bok\s*=\s*1651\b)",
+        re.IGNORECASE,
+    )
+    assert not obsolete_assignment_pair.search(normalized_text)
     assert not re.search(
         r"(?:1,?651\s+(?:successful|success(?:es)?)|all\s+1,?651\s+pages\s+succeed)",
         normalized_text,
@@ -243,6 +249,9 @@ file, and all 1,651 GT pages are scored.
         VALID_CONTRACT.replace("no failed-page prediction\nfile", "an empty prediction file"),
         VALID_CONTRACT.replace("all 1,651 GT pages are scored", "1,650 GT pages are scored"),
         VALID_CONTRACT + " 1,651 successful predictions are required.",
+        VALID_CONTRACT + "\n\nOfficial evidence requires ok=1651, fail=0.",
+        VALID_CONTRACT + "\n\nObsolete gate: `count=1651`, **ok = 1651**; `fail = 0`.",
+        VALID_CONTRACT + "\n\nLegacy requirement: fail\n=\n0 / ok\t=\t1651.",
     ],
 )
 def test_release_contract_parser_rejects_realistic_regressions(mutated: str) -> None:
