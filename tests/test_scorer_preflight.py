@@ -13,8 +13,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-import tomllib
 from packaging import markers
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised by the real CPython 3.10 test
+    import tomli as tomllib
 
 
 def _load_module():
@@ -24,6 +28,28 @@ def _load_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _is_usable_cpython_310(candidate: Path) -> bool:
+    completed = subprocess.run(
+        [
+            str(candidate),
+            "-c",
+            "import json,packaging,sys; "
+            "print(json.dumps({'implementation':sys.implementation.name,"
+            "'version':list(sys.version_info[:2])}))",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return False
+    try:
+        identity = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        return False
+    return identity == {"implementation": "cpython", "version": [3, 10]}
 
 
 def _cpython_310() -> Path:
@@ -50,15 +76,7 @@ def _cpython_310() -> Path:
     for candidate in candidates:
         if candidate is None or not candidate.is_file():
             continue
-        completed = subprocess.run(
-            [
-                str(candidate),
-                "-c",
-                "import packaging,sys; raise SystemExit(sys.version_info[:2] != (3, 10))",
-            ],
-            check=False,
-        )
-        if completed.returncode == 0:
+        if _is_usable_cpython_310(candidate):
             return candidate
     pytest.fail("A real CPython 3.10 interpreter is required for the import-boundary gate")
 
@@ -93,6 +111,63 @@ def test_checker_imports_and_parses_toml_at_real_cpython_310_boundary(tmp_path: 
 
     assert completed.returncode == 0, completed.stderr
     assert json.loads(completed.stdout) == {"answer": 42}
+
+
+def test_test_module_imports_with_tomli_at_real_cpython_310_boundary(tmp_path: Path) -> None:
+    python = _cpython_310()
+    (tmp_path / "tomli.py").write_text(
+        "def loads(value):\n    return {'answer': 42}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "pytest.py").write_text(
+        "class _Mark:\n"
+        "    def parametrize(self, *args, **kwargs):\n"
+        "        return lambda function: function\n"
+        "mark = _Mark()\n",
+        encoding="utf-8",
+    )
+    test_module = Path(__file__).resolve()
+    program = (
+        "import importlib.util,json,pathlib; "
+        f"p=pathlib.Path({str(test_module)!r}); "
+        "s=importlib.util.spec_from_file_location('test_scorer_preflight_boundary',p); "
+        "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+        "print(json.dumps(m.tomllib.loads('answer = 42'),sort_keys=True))"
+    )
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(tmp_path), value] if (value := env.get("PYTHONPATH")) else [str(tmp_path)]
+    )
+
+    completed = subprocess.run(
+        [str(python), "-c", program],
+        text=True,
+        capture_output=True,
+        env=env,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == {"answer": 42}
+
+
+def test_dev_extra_pins_tomli_for_python_before_311() -> None:
+    project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]
+
+    assert "tomli==2.2.1; python_version < '3.11'" in project["optional-dependencies"]["dev"]
+
+
+def test_interpreter_probe_rejects_pypy_310(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({"implementation": "pypy", "version": [3, 10]}),
+        ),
+    )
+
+    assert not _is_usable_cpython_310(Path("pypy3.10"))
 
 
 def test_complete_exact_scorer_dependency_contract_includes_pylatexenc() -> None:
