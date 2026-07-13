@@ -40,6 +40,9 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
         "a=sys.argv[1:]\n"
         "with open(os.environ['STUB_ARG_LOG'],'a',encoding='utf-8') as f:\n"
         " [f.write(x+'\\n') for x in a]\n"
+        "if '-c' in a:\n"
+        " root=pathlib.Path.cwd(); wrong=os.environ.get('STUB_WRONG_ORIGIN')=='1'; base=pathlib.Path(os.environ.get('TEMP','.')) if wrong else root\n"
+        " print(json.dumps({'version':'stub-version','executable':os.environ['STUB_REPORTED_EXE'],'eval_origin':str(base/'eval/__init__.py'),'package_origin':str(base/'src/paddleocr_vl_rocm/__init__.py')})); sys.exit(0)\n"
         f"fail={fail_on!r}\n"
         "if fail and any(fail in x for x in a): sys.exit(23)\n"
         "if 'eval.release_evidence' in a and 'manifest' in a:\n"
@@ -67,8 +70,11 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
 
 
 def _run(script: Path, *arguments: str, env: dict[str, str] | None = None, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
+    values = list(arguments)
+    if env and env.get("STUB_REPORTED_EXE") and "-PythonExe" not in values:
+        values += ["-PythonExe", env["STUB_REPORTED_EXE"]]
     return subprocess.run(
-        [_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script), *arguments],
+        [_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script), *values],
         cwd=cwd,
         env=env,
         text=True,
@@ -119,7 +125,7 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     tools = tmp_path / "stub tools"
     tools.mkdir()
     argument_log = tmp_path / "argument log.txt"
-    _stub_python(tools, fail_on="check_server.py")
+    stub_python = _stub_python(tools, fail_on="check_server.py")
     evidence = tmp_path / "fresh evidence root"
     dataset = tmp_path / "dataset with spaces"
     layout = tmp_path / "layout model with spaces"
@@ -138,9 +144,18 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
     env.update(
-        PATH=f"{tools}{os.pathsep}{env['PATH']}",
         STUB_ARG_LOG=str(argument_log),
+        STUB_REPORTED_EXE=str(stub_python),
     )
+    env["STUB_WRONG_ORIGIN"] = "1"
+    wrong_origin = _run(
+        script, "-Stage", "Preflight", "-EvidenceRoot", str(evidence),
+        "-DatasetDir", str(dataset), "-LayoutModel", str(layout),
+        "-RuntimeConfig", str(config), env=env, cwd=tmp_path,
+    )
+    assert wrong_origin.returncode != 0
+    assert "module origins are outside this worktree" in (wrong_origin.stdout + wrong_origin.stderr)
+    env.pop("STUB_WRONG_ORIGIN")
 
     completed = _run(
         script,
@@ -236,6 +251,19 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     )
     assert changed_model.returncode != 0
     assert "invocation fingerprint mismatch" in (changed_model.stdout + changed_model.stderr)
+    other_tools = tmp_path / "other interpreter"
+    other_tools.mkdir()
+    other_python = _stub_python(other_tools)
+    changed_env = env.copy()
+    changed_env["STUB_REPORTED_EXE"] = str(other_python)
+    changed_interpreter = _run(
+        script, "-Stage", "Preflight", *(
+            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
+            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
+        ), env=changed_env, cwd=tmp_path,
+    )
+    assert changed_interpreter.returncode != 0
+    assert "Resume refused" in (changed_interpreter.stdout + changed_interpreter.stderr)
 
 
 def test_rejects_historical_output_before_creating_it(tmp_path: Path) -> None:
@@ -277,9 +305,9 @@ def test_resume_rejects_changed_immutable_input(tmp_path: Path) -> None:
     tools = tmp_path / "tools"
     tools.mkdir()
     argument_log = tmp_path / "args.log"
-    _stub_python(tools, fail_on="check_server.py")
+    stub_python = _stub_python(tools, fail_on="check_server.py")
     env = os.environ.copy()
-    env.update(PATH=f"{tools}{os.pathsep}{env['PATH']}", STUB_ARG_LOG=str(argument_log))
+    env.update(STUB_ARG_LOG=str(argument_log), STUB_REPORTED_EXE=str(stub_python))
 
     first = _run(
         script,
@@ -350,7 +378,7 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     tools = tmp_path / "tools"
     tools.mkdir()
     argument_log = tmp_path / "args.log"
-    _stub_python(tools)
+    stub_python = _stub_python(tools)
     dataset = tmp_path / "dataset"
     layout = tmp_path / "layout"
     dataset.mkdir()
@@ -365,7 +393,7 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
     evidence = tmp_path / "evidence"
     env = os.environ.copy()
-    env.update(PATH=f"{tools}{os.pathsep}{env['PATH']}", STUB_ARG_LOG=str(argument_log))
+    env.update(STUB_ARG_LOG=str(argument_log), STUB_REPORTED_EXE=str(stub_python))
     common = (
         "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
         "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
@@ -410,11 +438,11 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     log_tampered = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
     assert log_tampered.returncode != 0
     assert "command log hash mismatch" in (log_tampered.stdout + log_tampered.stderr)
-    decisions_before = argument_log.read_text().count("eval.release_evidence")
+    decisions_before = argument_log.read_text().splitlines().count("decide")
     predecessor_tampered = _run(script, "-Stage", "Decide", *common, env=env, cwd=tmp_path)
     assert predecessor_tampered.returncode != 0
     assert "Predecessor command log hash mismatch" in (predecessor_tampered.stdout + predecessor_tampered.stderr)
-    assert argument_log.read_text().count("eval.release_evidence") == decisions_before
+    assert argument_log.read_text().splitlines().count("decide") == decisions_before
     command_log.write_bytes(original_log)
     command_log.unlink()
     log_missing = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
@@ -432,7 +460,7 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
 
 def test_standalone_stage_requires_preflight_before_native_commands(tmp_path: Path) -> None:
     _, script = _clean_repo(tmp_path)
-    completed = _run(script, "-Stage", "Official", "-EvidenceRoot", str(tmp_path / "evidence"), cwd=tmp_path)
+    completed = _run(script, "-Stage", "Official", "-EvidenceRoot", str(tmp_path / "evidence"), "-PythonExe", sys.executable, cwd=tmp_path)
     assert completed.returncode != 0
     assert "Missing completed predecessor: Preflight" in (completed.stdout + completed.stderr)
     assert not (tmp_path / "evidence").exists()
@@ -453,12 +481,31 @@ def test_release_evidence_module_imports_without_pythonpath_from_foreign_cwd(tmp
     assert "manifest" in completed.stdout and "decide" in completed.stdout
 
 
+def test_worktree_venv_reports_worktree_module_origins() -> None:
+    probe = (
+        "import eval.release_evidence,json,paddleocr_vl_rocm,sys; "
+        "print(json.dumps({'executable':sys.executable,'eval':eval.release_evidence.__file__,"
+        "'package':paddleocr_vl_rocm.__file__}))"
+    )
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    completed = subprocess.run(
+        [sys.executable, "-c", probe], cwd=ROOT, env=env, text=True, capture_output=True
+    )
+    assert completed.returncode == 0, completed.stderr
+    origins = json.loads(completed.stdout)
+    assert Path(origins["executable"]).resolve() == Path(sys.executable).resolve()
+    assert Path(origins["eval"]).resolve().is_relative_to((ROOT / "eval").resolve())
+    assert Path(origins["package"]).resolve().is_relative_to((ROOT / "src").resolve())
+
+
 def test_clean_gate_rejects_untracked_file_from_foreign_cwd(tmp_path: Path) -> None:
     repo, script = _clean_repo(tmp_path)
     (repo / "unexpected.txt").write_text("dirty", encoding="utf-8")
     completed = _run(
         script,
         "-EvidenceRoot", str(tmp_path / "external evidence"),
+        "-PythonExe", sys.executable,
         cwd=tmp_path,
     )
     assert completed.returncode != 0

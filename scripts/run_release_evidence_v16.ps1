@@ -6,7 +6,8 @@ param(
   [string]$ApiModelName = "PaddleOCR-VL-1.6-GGUF.gguf",
   [string]$DatasetDir = "data/omnidocbench/v16",
   [string]$LayoutModel = "models/PP-DocLayoutV3-onnx",
-  [string]$RuntimeConfig = "$HOME/.paddleocr-vl-rocm/config.json"
+  [string]$RuntimeConfig = "$HOME/.paddleocr-vl-rocm/config.json",
+  [string]$PythonExe
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,6 +48,13 @@ function Test-IsWithin([string]$Candidate, [string]$Parent) {
     $candidatePath.StartsWith($parentPath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
 }
 
+if ([string]::IsNullOrWhiteSpace($PythonExe)) {
+  $PythonExe = if ($IsWindows -or $env:OS -eq "Windows_NT") { Join-Path $RepoRoot ".venv/Scripts/python.exe" } else { Join-Path $RepoRoot ".venv/bin/python" }
+}
+if (-not [IO.Path]::IsPathRooted($PythonExe)) { throw "PythonExe must be an absolute path." }
+$PythonExe = Resolve-PhysicalPath $PythonExe
+if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) { throw "PythonExe must be an existing regular executable file." }
+
 $ProtectedPaths = @(
   (Join-Path $RepoRoot "results/omnidocbench/v16"),
   (Join-Path $RepoRoot "predictions/paddleocr_official_local_llamacpp_gguf_v16"),
@@ -77,7 +85,7 @@ function ConvertTo-SafeArgument([string]$Value) {
   if ($Value -match '^(?i)https?://') { return "<redacted-url>" }
   if ($Value -match '(?i)(api[_-]?key|token|secret)=') { return "REDACTED" }
   if ($Value -match '^([^=]+)=([A-Za-z]:[\\/]|/)') { return "$($Matches[1])=<redacted-path>" }
-  if ([IO.Path]::IsPathRooted($Value)) { return "<redacted-path>" }
+  if ($Value -match '^([A-Za-z]:[\\/]|/)') { return "<redacted-path>" }
   return $Value
 }
 
@@ -105,7 +113,29 @@ function Invoke-LoggedNative {
   return $nativeOutput
 }
 
+function Get-PythonProvenance {
+  if ($script:PythonProvenance) { return $script:PythonProvenance }
+  $probe = 'import eval.release_evidence,json,paddleocr_vl_rocm,sys; print(json.dumps({"version":sys.version,"executable":sys.executable,"eval_origin":eval.release_evidence.__file__,"package_origin":paddleocr_vl_rocm.__file__}))'
+  $rendered = @(Invoke-LoggedNative "Manifest" "python-origin-probe" $PythonExe @("-c", $probe)) -join [Environment]::NewLine
+  try { $value = $rendered | ConvertFrom-Json } catch { throw "Python module-origin probe returned invalid JSON." }
+  if ((Resolve-PhysicalPath ([string]$value.executable)) -ne $PythonExe) { throw "Python origin probe executable does not match PythonExe." }
+  if (-not (Test-IsWithin ([string]$value.eval_origin) (Join-Path $RepoRoot "eval")) -or
+      -not (Test-IsWithin ([string]$value.package_origin) (Join-Path $RepoRoot "src"))) {
+    throw "Python module origins are outside this worktree."
+  }
+  $script:PythonProvenance = [ordered]@{
+    path_sha256 = Get-StringSha256 $PythonExe
+    file_sha256 = Get-Sha256 $PythonExe
+    version_sha256 = Get-StringSha256 ([string]$value.version)
+    executable_sha256 = Get-StringSha256 (Resolve-PhysicalPath ([string]$value.executable))
+    eval_origin_sha256 = Get-StringSha256 (Resolve-PhysicalPath ([string]$value.eval_origin))
+    package_origin_sha256 = Get-StringSha256 (Resolve-PhysicalPath ([string]$value.package_origin))
+  }
+  return $script:PythonProvenance
+}
+
 function Get-ImmutableInputs {
+  $pythonProvenance = Get-PythonProvenance
   if (-not (Test-Path -LiteralPath $DatasetDir -PathType Container)) { throw "DatasetDir does not exist: $DatasetDir" }
   if (-not (Test-Path -LiteralPath $LayoutModel -PathType Container)) { throw "LayoutModel does not exist: $LayoutModel" }
   $datasetManifest = Join-Path $DatasetDir "OmniDocBench.json"
@@ -154,6 +184,7 @@ function Get-ImmutableInputs {
     runtime_manifest = $runtimeManifest
     scoring_config = $scoringConfig
     benchmark_contract = $benchmarkContract
+    python_executable = $PythonExe
     runner = $PSCommandPath
     release_contract = (Join-Path $RepoRoot "eval/release_contract.py")
     release_evidence = (Join-Path $RepoRoot "eval/release_evidence.py")
@@ -171,7 +202,7 @@ function Assert-OrCreateManifest {
   }
   $arguments += @("--output", $candidate)
   # Package-module execution keeps repository imports stable without PYTHONPATH.
-  Invoke-LoggedNative "Manifest" "manifest" "python" $arguments
+  Invoke-LoggedNative "Manifest" "manifest" $PythonExe $arguments
   if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { throw "Manifest command did not create $candidate" }
   if (Test-Path -LiteralPath $ManifestPath) {
     if ((Get-Content -Raw -LiteralPath $ManifestPath) -cne (Get-Content -Raw -LiteralPath $candidate)) {
@@ -184,20 +215,20 @@ function Assert-OrCreateManifest {
 }
 
 function Invoke-Preflight {
-  Invoke-LoggedNative "Preflight" "scorer-contract" "python" @("-m", "eval.benchmark_contract", "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"))
-  Invoke-LoggedNative "Preflight" "server-gate" "python" @("scripts/check_server.py", "--server-url", $ServerUrl)
-  Invoke-LoggedNative "Preflight" "official-import" "python" @("scripts/check_official_paddleocr.py", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName)
-  Invoke-LoggedNative "Preflight" "official-constructor" "python" @("scripts/check_official_paddleocr.py", "--construct", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName)
+  Invoke-LoggedNative "Preflight" "scorer-contract" $PythonExe @("-m", "eval.benchmark_contract", "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"))
+  Invoke-LoggedNative "Preflight" "server-gate" $PythonExe @("scripts/check_server.py", "--server-url", $ServerUrl)
+  Invoke-LoggedNative "Preflight" "official-import" $PythonExe @("scripts/check_official_paddleocr.py", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName)
+  Invoke-LoggedNative "Preflight" "official-constructor" $PythonExe @("scripts/check_official_paddleocr.py", "--construct", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName)
 }
 
 function Invoke-Official {
   $official = Join-Path $EvidenceRoot "official"
   $results = Join-Path $EvidenceRoot "results/official"
   New-Item -ItemType Directory -Force -Path $official, $results | Out-Null
-  Invoke-LoggedNative "Official" "official-infer" "python" @("-m", "eval.run_eval", "--stage", "infer", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $official)
+  Invoke-LoggedNative "Official" "official-infer" $PythonExe @("-m", "eval.run_eval", "--stage", "infer", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $official)
   $stats = Join-Path $official "_run_stats.json"
-  Invoke-LoggedNative "Official" "official-contract" "python" @("-m", "eval.release_contract", "--stats", $stats, "--version", "v16", "--engine", "official")
-  Invoke-LoggedNative "Official" "official-score" "python" @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--dataset-dir", $DatasetDir, "--predictions-dir", $official, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
+  Invoke-LoggedNative "Official" "official-contract" $PythonExe @("-m", "eval.release_contract", "--stats", $stats, "--version", "v16", "--engine", "official")
+  Invoke-LoggedNative "Official" "official-score" $PythonExe @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "official", "--artifact-profile", "official-local", "--dataset-dir", $DatasetDir, "--predictions-dir", $official, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
 }
 
 function Assert-DirectMlEvidence([string]$StatsPath) {
@@ -215,15 +246,15 @@ function Invoke-Lightweight {
   $lightweight = Join-Path $EvidenceRoot "lightweight"
   $results = Join-Path $EvidenceRoot "results/lightweight"
   New-Item -ItemType Directory -Force -Path $lightweight, $results | Out-Null
-  Invoke-LoggedNative "Lightweight" "directml-preflight" "python" @("-m", "paddleocr_vl_rocm", "doctor", "--json", "--config", $RuntimeConfig)
-  Invoke-LoggedNative "Lightweight" "lightweight-infer" "python" @("-m", "eval.run_eval", "--stage", "infer", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel)
+  Invoke-LoggedNative "Lightweight" "directml-preflight" $PythonExe @("-m", "paddleocr_vl_rocm", "doctor", "--json", "--config", $RuntimeConfig)
+  Invoke-LoggedNative "Lightweight" "lightweight-infer" $PythonExe @("-m", "eval.run_eval", "--stage", "infer", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel)
   $stats = Join-Path $lightweight "_run_stats.json"
   Assert-DirectMlEvidence $stats
-  Invoke-LoggedNative "Lightweight" "lightweight-score" "python" @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
+  Invoke-LoggedNative "Lightweight" "lightweight-score" $PythonExe @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
 }
 
 function Invoke-Decide {
-  $decision = @(Invoke-LoggedNative "Decide" "release-decision" "python" @("-m", "eval.release_evidence", "decide", "--evidence-root", $EvidenceRoot)) -join [Environment]::NewLine
+  $decision = @(Invoke-LoggedNative "Decide" "release-decision" $PythonExe @("-m", "eval.release_evidence", "decide", "--evidence-root", $EvidenceRoot)) -join [Environment]::NewLine
   $temporary = Join-Path $EvidenceRoot "decision.json.tmp"
   [IO.File]::WriteAllText($temporary, $decision + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
   Move-Item -Force $temporary (Join-Path $EvidenceRoot "decision.json")
@@ -241,6 +272,7 @@ function Get-StringSha256([string]$Value) {
 }
 
 function Get-InvocationFingerprint([string]$StageName, [string]$ManifestSha) {
+  $pythonProvenance = Get-PythonProvenance
   $values = [ordered]@{
     stage = $StageName
     producing_commit = $GitCommit
@@ -253,6 +285,12 @@ function Get-InvocationFingerprint([string]$StageName, [string]$ManifestSha) {
     runtime_config_path_sha256 = Get-StringSha256 (Resolve-PhysicalPath $RuntimeConfig)
     engine = $(if ($StageName -eq "Official") { "official" } elseif ($StageName -eq "Lightweight") { "lightweight" } else { "none" })
     output_contract_sha256 = Get-StringSha256 "$StageName|official|lightweight|results|decision.json|copy-report|run-summary|provenance|directml-preflight"
+    python_path_sha256 = $pythonProvenance.path_sha256
+    python_file_sha256 = $pythonProvenance.file_sha256
+    python_version_sha256 = $pythonProvenance.version_sha256
+    python_executable_sha256 = $pythonProvenance.executable_sha256
+    eval_origin_sha256 = $pythonProvenance.eval_origin_sha256
+    package_origin_sha256 = $pythonProvenance.package_origin_sha256
   }
   return Get-StringSha256 ($values | ConvertTo-Json -Compress)
 }
