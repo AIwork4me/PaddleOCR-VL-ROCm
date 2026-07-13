@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -17,20 +18,28 @@ from eval.release_contract import (
 )
 
 G3_MINIMUM_OVERALL = 96.13
+LOGICAL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
+SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def build_input_manifest(paths: Mapping[str, Path], *, git_commit: str) -> dict[str, object]:
+    if not isinstance(git_commit, str) or not git_commit.strip():
+        raise ValueError("Manifest git_commit must be a non-empty string")
+    if not paths:
+        raise ValueError("Manifest inputs must be a non-empty object")
     inputs: dict[str, object] = {}
     for name, path in sorted(paths.items()):
+        if not isinstance(name, str) or LOGICAL_NAME.fullmatch(name) is None:
+            raise ValueError(f"Invalid manifest input logical name: {name!r}")
         if not path.is_file():
             raise ValueError(f"Immutable input must be an existing regular file: {path}")
         digest = sha256_file(path)
-        if len(digest) != 64:
+        if SHA256.fullmatch(digest) is None:
             raise ValueError(f"Input hash must be a 64-character SHA-256 value: {path}")
         inputs[name] = {
             "path": str(path.resolve()),
             "sha256": digest,
-            "size_bytes": path.stat().st_size,
+            "bytes": path.stat().st_size,
         }
     return {"git_commit": git_commit, "inputs": inputs}
 
@@ -94,15 +103,33 @@ def _load_object(path: Path) -> dict[str, Any]:
     return value
 
 
-def _validate_manifest_hashes(value: object) -> None:
-    if isinstance(value, dict):
-        for key, item in value.items():
-            if key == "sha256" and (not isinstance(item, str) or len(item) != 64):
-                raise ValueError("Manifest hashes must be 64-character SHA-256 values")
-            _validate_manifest_hashes(item)
-    elif isinstance(value, list):
-        for item in value:
-            _validate_manifest_hashes(item)
+def _validate_manifest(value: dict[str, Any]) -> None:
+    if set(value) != {"git_commit", "inputs"}:
+        raise ValueError("Manifest must contain exactly git_commit and inputs")
+    git_commit = value["git_commit"]
+    inputs = value["inputs"]
+    if not isinstance(git_commit, str) or not git_commit.strip():
+        raise ValueError("Manifest git_commit must be a non-empty string")
+    if not isinstance(inputs, dict) or not inputs:
+        raise ValueError("Manifest inputs must be a non-empty object")
+    for name, record in inputs.items():
+        if not isinstance(name, str) or LOGICAL_NAME.fullmatch(name) is None:
+            raise ValueError(f"Invalid manifest input logical name: {name!r}")
+        if not isinstance(record, dict) or set(record) != {"path", "bytes", "sha256"}:
+            raise ValueError(
+                f"Manifest input {name!r} must contain exactly path, bytes, and sha256"
+            )
+        path = record["path"]
+        byte_count = record["bytes"]
+        digest = record["sha256"]
+        if not isinstance(path, str) or not path.strip():
+            raise ValueError(f"Manifest input {name!r} path must be a non-empty string")
+        if not isinstance(byte_count, int) or isinstance(byte_count, bool) or byte_count < 0:
+            raise ValueError(f"Manifest input {name!r} bytes must be a nonnegative integer")
+        if not isinstance(digest, str) or SHA256.fullmatch(digest) is None:
+            raise ValueError(
+                f"Manifest input {name!r} sha256 must be 64 lowercase hexadecimal characters"
+            )
 
 
 def _input(value: str) -> tuple[str, Path]:
@@ -110,6 +137,15 @@ def _input(value: str) -> tuple[str, Path]:
     if not separator or not name or not raw_path:
         raise argparse.ArgumentTypeError("inputs must use NAME=PATH")
     return name, Path(raw_path)
+
+
+def _unique_inputs(values: list[tuple[str, Path]]) -> dict[str, Path]:
+    paths: dict[str, Path] = {}
+    for name, path in values:
+        if name in paths:
+            raise ValueError(f"Duplicate manifest input logical name: {name!r}")
+        paths[name] = path
+    return paths
 
 
 def _find_metric(evidence_root: Path) -> Path:
@@ -135,7 +171,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "manifest":
-            manifest = build_input_manifest(dict(args.input), git_commit=args.git_commit)
+            manifest = build_input_manifest(_unique_inputs(args.input), git_commit=args.git_commit)
             rendered = json.dumps(manifest, indent=2)
             if args.output:
                 args.output.write_text(rendered + "\n", encoding="utf-8")
@@ -144,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         manifest_path = args.evidence_root / "manifest.json"
-        _validate_manifest_hashes(_load_object(manifest_path))
+        _validate_manifest(_load_object(manifest_path))
         stats_path = args.official_stats or args.evidence_root / "official" / "_run_stats.json"
         official_stats = _load_object(stats_path)
         official_stats["predictions_dir"] = str(stats_path.parent)

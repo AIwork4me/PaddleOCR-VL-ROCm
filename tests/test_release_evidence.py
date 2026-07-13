@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -69,6 +70,7 @@ def test_manifest_hashes_every_immutable_input(tmp_path: Path) -> None:
     manifest = build_input_manifest({"main_model": model}, git_commit="ac77c5b")
     assert manifest["git_commit"] == "ac77c5b"
     assert manifest["inputs"]["main_model"]["sha256"] == hashlib.sha256(b"model").hexdigest()
+    assert manifest["inputs"]["main_model"]["bytes"] == 5
 
 
 @pytest.mark.parametrize("kind", ["missing", "directory"])
@@ -97,6 +99,32 @@ def test_isolation_rejects_protected_root_but_not_prefix_sibling(
         validate_isolated_output_paths([protected], [protected])
 
 
+def test_isolation_normalizes_parent_segments(tmp_path: Path) -> None:
+    protected = tmp_path / "history"
+    with pytest.raises(ValueError, match="protected historical path"):
+        validate_isolated_output_paths([protected / "staging" / ".." / "result.json"], [protected])
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows path semantics")
+def test_isolation_case_folds_and_accepts_mixed_separators(tmp_path: Path) -> None:
+    protected = tmp_path / "History"
+    mixed = Path(str(tmp_path / "history" / "nested").replace("\\", "/"))
+    with pytest.raises(ValueError, match="protected historical path"):
+        validate_isolated_output_paths([mixed], [protected])
+
+
+def test_isolation_resolves_symlinked_output(tmp_path: Path) -> None:
+    protected = tmp_path / "history"
+    protected.mkdir()
+    link = tmp_path / "evidence-link"
+    try:
+        link.symlink_to(protected, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"directory symlinks unavailable: {exc}")
+    with pytest.raises(ValueError, match="protected historical path"):
+        validate_isolated_output_paths([link / "result.json"], [protected])
+
+
 def test_gate_decision_requires_notebook_rounded_overall() -> None:
     decision = decide_release_gates(
         official_stats=accepted_known_failure_stats(),
@@ -120,7 +148,7 @@ def test_gate_decision_fails_closed_on_invalid_metric_quality() -> None:
     assert decision["g3"] is False
 
 
-def test_decide_cli_writes_json_and_rejects_bad_hash(tmp_path: Path) -> None:
+def write_evidence(tmp_path: Path) -> Path:
     evidence = tmp_path / "evidence"
     (evidence / "official").mkdir(parents=True)
     (evidence / "results" / "lightweight").mkdir(parents=True)
@@ -130,10 +158,17 @@ def test_decide_cli_writes_json_and_rejects_bad_hash(tmp_path: Path) -> None:
     (evidence / "results" / "lightweight" / "metric.json").write_text(
         json.dumps(metric(text=0.01, formula=0.99, table=0.99)), encoding="utf-8"
     )
+    model = evidence / "model.gguf"
+    model.write_bytes(b"model")
     (evidence / "manifest.json").write_text(
-        json.dumps({"inputs": {"model": {"sha256": "short"}}}), encoding="utf-8"
+        json.dumps(build_input_manifest({"model": model}, git_commit="abc123")),
+        encoding="utf-8",
     )
-    result = subprocess.run(
+    return evidence
+
+
+def run_decide(evidence: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         [
             sys.executable,
             "eval/release_evidence.py",
@@ -145,5 +180,110 @@ def test_decide_cli_writes_json_and_rejects_bad_hash(tmp_path: Path) -> None:
         capture_output=True,
         check=False,
     )
+
+
+@pytest.mark.parametrize(
+    "manifest",
+    [
+        {"foo": 1},
+        {"git_commit": "", "inputs": {"model": {}}},
+        {"git_commit": "abc123", "inputs": {}},
+        {
+            "git_commit": "abc123",
+            "inputs": {
+                "model": {
+                    "path": "model.gguf",
+                    "bytes": 5,
+                    "sha256": "z" * 64,
+                }
+            },
+        },
+        {
+            "git_commit": "abc123",
+            "inputs": {"model": {"path": "model.gguf", "sha256": "a" * 64}},
+        },
+        {
+            "git_commit": "abc123",
+            "inputs": {"bad name": {"path": "model.gguf", "bytes": 5, "sha256": "a" * 64}},
+        },
+        {
+            "git_commit": "abc123",
+            "inputs": {"model": {"path": "", "bytes": 5, "sha256": "a" * 64}},
+        },
+        {
+            "git_commit": "abc123",
+            "inputs": {"model": {"path": "model.gguf", "bytes": True, "sha256": "a" * 64}},
+        },
+        {
+            "git_commit": "abc123",
+            "inputs": {
+                "model": {
+                    "path": "model.gguf",
+                    "bytes": 5,
+                    "sha256": "a" * 64,
+                    "extra": True,
+                }
+            },
+        },
+    ],
+)
+def test_decide_cli_rejects_invalid_manifest_schema(
+    tmp_path: Path, manifest: dict[str, object]
+) -> None:
+    evidence = write_evidence(tmp_path)
+    (evidence / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    result = run_decide(evidence)
     assert result.returncode != 0
-    assert "64-character" in result.stderr
+    assert "manifest" in result.stderr.lower()
+
+
+def test_decide_cli_rejects_non_object_manifest(tmp_path: Path) -> None:
+    evidence = write_evidence(tmp_path)
+    (evidence / "manifest.json").write_text("[]", encoding="utf-8")
+    result = run_decide(evidence)
+    assert result.returncode != 0
+    assert "must be an object" in result.stderr
+
+
+def test_decide_cli_rejects_malformed_metric_structure(tmp_path: Path) -> None:
+    evidence = write_evidence(tmp_path)
+    (evidence / "results" / "lightweight" / "metric.json").write_text(
+        json.dumps({"display_formula": {}}), encoding="utf-8"
+    )
+    result = run_decide(evidence)
+    assert result.returncode != 0
+    assert "required notebook component" in result.stderr
+
+
+def test_decide_cli_accepts_representative_persisted_evidence(tmp_path: Path) -> None:
+    evidence = write_evidence(tmp_path)
+    result = run_decide(evidence)
+    assert result.returncode == 0, result.stderr
+    decision = json.loads(result.stdout)
+    assert decision["g0"] is True
+    assert decision["g3"] is True
+
+
+def test_manifest_cli_rejects_duplicate_logical_names(tmp_path: Path) -> None:
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "eval/release_evidence.py",
+            "manifest",
+            "--git-commit",
+            "abc123",
+            "--input",
+            f"model={first}",
+            "--input",
+            f"model={second}",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "duplicate" in result.stderr.lower()
