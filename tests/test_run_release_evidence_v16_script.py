@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -497,6 +498,34 @@ def test_worktree_venv_reports_worktree_module_origins() -> None:
     assert Path(origins["executable"]).resolve() == Path(sys.executable).resolve()
     assert Path(origins["eval"]).resolve().is_relative_to((ROOT / "eval").resolve())
     assert Path(origins["package"]).resolve().is_relative_to((ROOT / "src").resolve())
+
+
+def test_exact_origin_probe_survives_windows_powershell_5_native_quoting(tmp_path: Path) -> None:
+    foreign = tmp_path / "foreign cwd with spaces"
+    foreign.mkdir()
+    text = SCRIPT.read_text(encoding="utf-8")
+    match = re.search(r"\$probe = '([^']+)'", text)
+    assert match is not None
+    probe = match.group(1)
+    assert '"' not in probe and "'" not in probe
+    command = f"Push-Location '{ROOT}'; $probe = '{probe}'; & '{sys.executable}' -c $probe"
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+
+    completed = subprocess.run(
+        [_powershell(), "-NoProfile", "-Command", command],
+        cwd=foreign,
+        env=env,
+        text=True,
+        capture_output=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "NameError" not in completed.stderr
+    value = json.loads(completed.stdout)
+    assert set(value) == {"version", "executable", "eval_origin", "package_origin"}
+    assert Path(value["eval_origin"]).is_relative_to(ROOT / "eval")
+    assert Path(value["package_origin"]).is_relative_to(ROOT / "src")
 
 
 def test_clean_gate_rejects_untracked_file_from_foreign_cwd(tmp_path: Path) -> None:

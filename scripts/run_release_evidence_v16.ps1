@@ -115,7 +115,7 @@ function Invoke-LoggedNative {
 
 function Get-PythonProvenance {
   if ($script:PythonProvenance) { return $script:PythonProvenance }
-  $probe = 'import eval.release_evidence,json,paddleocr_vl_rocm,sys; print(json.dumps({"version":sys.version,"executable":sys.executable,"eval_origin":eval.release_evidence.__file__,"package_origin":paddleocr_vl_rocm.__file__}))'
+  $probe = 'import json,sys; from pathlib import Path; import eval.release_evidence as release_evidence; import paddleocr_vl_rocm as package; print(json.dumps(dict(version=sys.version,executable=sys.executable,eval_origin=str(Path(release_evidence.__file__).resolve()),package_origin=str(Path(package.__file__).resolve()))))'
   $rendered = @(Invoke-LoggedNative "Manifest" "python-origin-probe" $PythonExe @("-c", $probe)) -join [Environment]::NewLine
   try { $value = $rendered | ConvertFrom-Json } catch { throw "Python module-origin probe returned invalid JSON." }
   if ((Resolve-PhysicalPath ([string]$value.executable)) -ne $PythonExe) { throw "Python origin probe executable does not match PythonExe." }
