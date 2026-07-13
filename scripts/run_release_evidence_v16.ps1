@@ -201,6 +201,35 @@ function Get-ScorerProvenance {
   foreach ($key in @("python_executable_sha256", "python_prefix_sha256", "python_base_prefix_sha256", "python_version_sha256", "dependency_environment_sha256")) {
     if ([string]$value.$key -notmatch '^[0-9a-f]{64}$') { throw "Scorer attestation hash is invalid: $key" }
   }
+  $dependencies = @($value.dependencies.PSObject.Properties)
+  if ($dependencies.Count -eq 0) { throw "Scorer dependency attestations are absent." }
+  foreach ($property in $dependencies) {
+    $dependency = $property.Value
+    foreach ($key in @("origin_sha256", "content_sha256")) {
+      if ([string]$dependency.$key -notmatch '^[0-9a-f]{64}$') {
+        throw "Scorer dependency attestation hash is invalid: $($property.Name).$key"
+      }
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$dependency.version) -or
+        [long]$dependency.file_count -lt 1) {
+      throw "Scorer dependency attestation identity is invalid: $($property.Name)"
+    }
+    switch ([string]$dependency.attestation_schema) {
+      "record-v1" {
+        if ([string]$dependency.record_sha256 -notmatch '^[0-9a-f]{64}$') {
+          throw "Scorer dependency RECORD attestation is invalid: $($property.Name)"
+        }
+      }
+      "legacy-installed-files-v1" {
+        foreach ($key in @("installed_files_sha256", "metadata_sha256")) {
+          if ([string]$dependency.$key -notmatch '^[0-9a-f]{64}$') {
+            throw "Scorer dependency legacy attestation is invalid: $($property.Name).$key"
+          }
+        }
+      }
+      default { throw "Scorer dependency attestation schema is invalid: $($property.Name)" }
+    }
+  }
   $scorerExecutable = Resolve-PhysicalPath ([string]$value.python_executable)
   $scorerPrefix = Resolve-PhysicalPath ([string]$value.python_prefix)
   $scorerBasePrefix = Resolve-PhysicalPath ([string]$value.python_base_prefix)

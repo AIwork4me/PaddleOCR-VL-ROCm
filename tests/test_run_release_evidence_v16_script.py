@@ -120,9 +120,42 @@ def test_runner_rejects_nonisolated_scorer_interpreters(
     assert expected in (completed.stdout + completed.stderr)
 
 
-@pytest.mark.parametrize(("version", "accepted"), (("3.10", True), ("3.11", False)))
+@pytest.mark.parametrize(
+    ("version", "schema", "omit_key", "accepted", "expected"),
+    (
+        ("3.10", "record-v1", "", True, ""),
+        ("3.10", "legacy-installed-files-v1", "", True, ""),
+        ("3.11", "record-v1", "", False, "Scorer must report CPython 3.10"),
+        (
+            "3.10",
+            "unverified",
+            "",
+            False,
+            "Scorer dependency attestation schema is invalid",
+        ),
+        (
+            "3.10",
+            "legacy-installed-files-v1",
+            "metadata_sha256",
+            False,
+            "Scorer dependency legacy attestation is invalid",
+        ),
+        (
+            "3.10",
+            "record-v1",
+            "record_sha256",
+            False,
+            "Scorer dependency RECORD attestation is invalid",
+        ),
+    ),
+)
 def test_runner_enforces_cpython_310_scorer_before_scoring(
-    tmp_path: Path, version: str, accepted: bool
+    tmp_path: Path,
+    version: str,
+    schema: str,
+    omit_key: str,
+    accepted: bool,
+    expected: str,
 ) -> None:
     _, script = _clean_repo(tmp_path)
     tools = tmp_path / "tools"
@@ -154,6 +187,8 @@ def test_runner_enforces_cpython_310_scorer_before_scoring(
         STUB_REPORTED_EXE=str(inference_python),
         STUB_SCORER_EXE=str(scorer),
         STUB_SCORER_VERSION=version,
+        STUB_ATTESTATION_SCHEMA=schema,
+        STUB_OMIT_ATTESTATION_KEY=omit_key,
     )
 
     completed = _run(
@@ -174,7 +209,7 @@ def test_runner_enforces_cpython_310_scorer_before_scoring(
 
     assert (completed.returncode == 0) is accepted
     if not accepted:
-        assert "Scorer must report CPython 3.10" in (completed.stdout + completed.stderr)
+        assert expected in (completed.stdout + completed.stderr)
     assert "eval.run_eval" not in argument_log.read_text(encoding="utf-8")
 
 
@@ -205,7 +240,11 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
         " print(json.dumps({'version':'stub-version','executable':os.environ['STUB_REPORTED_EXE'],'prefix':str(venv),'base_prefix':str(venv.parent/'base-python'),'eval_origin':str(base/'eval/__init__.py'),'package_origin':str(base/'src/paddleocr_vl_rocm/__init__.py'),'core_versions':versions,'core_origins':origins,'distribution_origins':dist_origins,'record_paths':records,'record_sha256':hashes,'dependency_environment_sha256':os.environ.get('STUB_ENV_HASH','a'*64)})); sys.exit(0)\n"
         "if a and a[0].endswith('check_omnidocbench_scorer.py') and '--output' in a:\n"
         " scorer=pathlib.Path(os.environ['STUB_SCORER_EXE']).resolve(); prefix=scorer.parent.parent; base=prefix if os.environ.get('STUB_SCORER_NON_VENV')=='1' else prefix.parent/'base-python'; package=pathlib.Path(os.environ.get('STUB_SCORER_PACKAGE',str(scorer))); content=hashlib.sha256(package.read_bytes()).hexdigest()\n"
-        " value={'python_version':os.environ.get('STUB_SCORER_VERSION','3.10'),'python_executable':str(scorer),'python_executable_sha256':hashlib.sha256(str(scorer).encode()).hexdigest(),'python_prefix':str(prefix),'python_prefix_sha256':hashlib.sha256(str(prefix).encode()).hexdigest(),'python_base_prefix':str(base),'python_base_prefix_sha256':hashlib.sha256(str(base).encode()).hexdigest(),'python_version_sha256':'b'*64,'dependency_environment_sha256':content,'dependencies':{'demo':{'version':'1.0','origin_sha256':'c'*64,'record_sha256':'d'*64,'content_sha256':content,'file_count':1}}}\n"
+        " schema=os.environ.get('STUB_ATTESTATION_SCHEMA','record-v1'); dependency={'version':'1.0','attestation_schema':schema,'origin_sha256':'c'*64,'content_sha256':content,'file_count':1}\n"
+        " if schema=='record-v1': dependency['record_sha256']='d'*64\n"
+        " elif schema=='legacy-installed-files-v1': dependency.update(installed_files_sha256='d'*64,metadata_sha256='e'*64)\n"
+        " dependency.pop(os.environ.get('STUB_OMIT_ATTESTATION_KEY',''),None)\n"
+        " value={'python_version':os.environ.get('STUB_SCORER_VERSION','3.10'),'python_executable':str(scorer),'python_executable_sha256':hashlib.sha256(str(scorer).encode()).hexdigest(),'python_prefix':str(prefix),'python_prefix_sha256':hashlib.sha256(str(prefix).encode()).hexdigest(),'python_base_prefix':str(base),'python_base_prefix_sha256':hashlib.sha256(str(base).encode()).hexdigest(),'python_version_sha256':'b'*64,'dependency_environment_sha256':content,'dependencies':{'demo':dependency}}\n"
         " out=pathlib.Path(a[a.index('--output')+1]); out.parent.mkdir(parents=True,exist_ok=True); out.write_text(json.dumps(value,sort_keys=True),encoding='utf-8'); print(json.dumps(value)); sys.exit(0)\n"
         f"fail={fail_on!r}\n"
         "if fail and any(fail in x for x in a): sys.exit(23)\n"

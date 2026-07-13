@@ -331,6 +331,136 @@ def test_distribution_attestation_hashes_record_listed_content_and_rejects_mutat
         module._attest_distribution("demo", "1.0", distribution, environment_root=tmp_path)
 
 
+def _legacy_distribution(module, tmp_path: Path):
+    site = tmp_path / "Lib" / "site-packages"
+    package = site / "demo"
+    egg_info = site / "demo-1.0-py3.10.egg-info"
+    scripts = tmp_path / "Scripts"
+    package.mkdir(parents=True)
+    egg_info.mkdir()
+    scripts.mkdir()
+    source = package / "__init__.py"
+    bytecode = package / "__pycache__" / "__init__.cpython-310.pyc"
+    script = scripts / "demo.exe"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    bytecode.parent.mkdir()
+    bytecode.write_bytes(b"installed-bytecode")
+    script.write_bytes(b"installed-script")
+    (egg_info / "PKG-INFO").write_text("Name: demo\nVersion: 1.0\n", encoding="utf-8")
+    (egg_info / "top_level.txt").write_text("demo\n", encoding="utf-8")
+    (egg_info / "SOURCES.txt").write_text("demo/__init__.py\n", encoding="utf-8")
+    (egg_info / "dependency_links.txt").write_text("\n", encoding="utf-8")
+    (egg_info / "installed-files.txt").write_text(
+        "../demo/__init__.py\n"
+        "../demo/__pycache__/__init__.cpython-310.pyc\n"
+        "../../../Scripts/demo.exe\n"
+        "PKG-INFO\nSOURCES.txt\ndependency_links.txt\ntop_level.txt\n",
+        encoding="utf-8",
+    )
+    return module.metadata.Distribution.at(egg_info), source, bytecode, script, egg_info
+
+
+def test_distribution_attestation_hashes_every_legacy_owned_file_and_metadata(tmp_path):
+    module = _load_module()
+    distribution, source, bytecode, script, egg_info = _legacy_distribution(module, tmp_path)
+
+    before = module._attest_distribution("demo", "1.0", distribution, environment_root=tmp_path)
+    assert before["attestation_schema"] == "legacy-installed-files-v1"
+    assert before["file_count"] == 8
+    assert (
+        module._attest_distribution("demo", "1.0", distribution, environment_root=tmp_path)
+        == before
+    )
+
+    for owned in (source, bytecode, script, egg_info / "PKG-INFO"):
+        owned.write_bytes(owned.read_bytes() + b"mutation")
+        after = module._attest_distribution("demo", "1.0", distribution, environment_root=tmp_path)
+        assert after["content_sha256"] != before["content_sha256"]
+        before = after
+
+
+def test_legacy_attestation_rejects_unlisted_package_content(tmp_path: Path) -> None:
+    module = _load_module()
+    distribution, _, _, _, egg_info = _legacy_distribution(module, tmp_path)
+    (egg_info.parent / "demo" / "injected.py").write_text("INJECTED = True\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="inventory is incomplete"):
+        module._attest_distribution("demo", "1.0", distribution, environment_root=tmp_path)
+
+
+def test_legacy_attestation_allows_only_missing_derived_cache_entries(tmp_path: Path) -> None:
+    module = _load_module()
+    distribution, source, bytecode, _, _ = _legacy_distribution(module, tmp_path)
+    bytecode.unlink()
+
+    attestation = module._attest_distribution(
+        "demo", "1.0", distribution, environment_root=tmp_path
+    )
+    assert attestation["file_count"] == 7
+
+    source.unlink()
+    with pytest.raises(RuntimeError, match="inventory entry is invalid"):
+        module._attest_distribution("demo", "1.0", distribution, environment_root=tmp_path)
+
+
+@pytest.mark.parametrize("bad_entry", ("", "ABSOLUTE"))
+def test_legacy_attestation_rejects_malformed_or_out_of_root_inventory(
+    tmp_path: Path, bad_entry: str
+) -> None:
+    module = _load_module()
+    distribution, _, _, _, egg_info = _legacy_distribution(module, tmp_path)
+    inventory = egg_info / "installed-files.txt"
+    if bad_entry == "":
+        inventory.write_text(inventory.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    else:
+        outside = tmp_path.parent / "outside-owned.py"
+        outside.write_text("OUTSIDE = True\n", encoding="utf-8")
+        inventory.write_text(
+            inventory.read_text(encoding="utf-8") + f"{outside}\n", encoding="utf-8"
+        )
+
+    with pytest.raises(RuntimeError, match="inventory entry is invalid"):
+        module._attest_distribution("demo", "1.0", distribution, environment_root=tmp_path)
+
+
+def test_legacy_attestation_rejects_duplicate_inventory_entry(tmp_path: Path) -> None:
+    module = _load_module()
+    distribution, _, _, _, egg_info = _legacy_distribution(module, tmp_path)
+    inventory = egg_info / "installed-files.txt"
+    inventory.write_text(
+        inventory.read_text(encoding="utf-8") + "../demo/__init__.py\n", encoding="utf-8"
+    )
+
+    with pytest.raises(RuntimeError, match="inventory entry is invalid"):
+        module._attest_distribution("demo", "1.0", distribution, environment_root=tmp_path)
+
+
+@pytest.mark.parametrize("same_identity", (False, True))
+def test_legacy_attestation_rejects_ambiguous_metadata_or_top_level_ownership(
+    tmp_path: Path, same_identity: bool
+) -> None:
+    module = _load_module()
+    distribution, _, _, _, egg_info = _legacy_distribution(module, tmp_path)
+    peer = egg_info.parent / "peer-1.0.egg-info"
+    peer.mkdir()
+    peer_name = "demo" if same_identity else "peer"
+    (peer / "PKG-INFO").write_text(f"Name: {peer_name}\nVersion: 1.0\n", encoding="utf-8")
+    (peer / "top_level.txt").write_text("peer\n" if same_identity else "demo\n", encoding="utf-8")
+
+    expected = "metadata identity is ambiguous" if same_identity else "ownership is ambiguous"
+    with pytest.raises(RuntimeError, match=expected):
+        module._attest_distribution("demo", "1.0", distribution, environment_root=tmp_path)
+
+
+def test_legacy_attestation_rejects_metadata_name_mismatch(tmp_path: Path) -> None:
+    module = _load_module()
+    distribution, _, _, _, egg_info = _legacy_distribution(module, tmp_path)
+    (egg_info / "PKG-INFO").write_text("Name: impostor\nVersion: 1.0\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="metadata identity is invalid"):
+        module._attest_distribution("demo", "1.0", distribution, environment_root=tmp_path)
+
+
 def test_missing_dependency_fails_before_registry_import(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_module()
     imported = False

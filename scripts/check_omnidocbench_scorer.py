@@ -101,6 +101,144 @@ def _is_within(candidate: Path, parent: Path) -> bool:
     return True
 
 
+def _content_record(path: Path, root: Path) -> str:
+    payload = path.read_bytes()
+    return (
+        f"{path.relative_to(root).as_posix()}\0"
+        f"{hashlib.sha256(payload).hexdigest()}\0{len(payload)}"
+    )
+
+
+def _is_derived_cache_entry(path: Path) -> bool:
+    return "__pycache__" in path.parts and path.suffix.lower() in {".pyc", ".pyo"}
+
+
+def _legacy_inventory_paths(metadata_path: Path, root: Path, name: str) -> set[Path]:
+    inventory = metadata_path / "installed-files.txt"
+    if not inventory.is_file():
+        raise RuntimeError(f"Legacy scorer dependency inventory is absent: {name}")
+    declared: set[Path] = set()
+    paths: set[Path] = set()
+    for raw in inventory.read_text(encoding="utf-8").splitlines():
+        relative = Path(raw)
+        candidate = (metadata_path / relative).resolve()
+        if (
+            not raw
+            or relative.is_absolute()
+            or candidate in declared
+            or not _is_within(candidate, root)
+        ):
+            raise RuntimeError(f"Legacy scorer dependency inventory entry is invalid: {name}")
+        declared.add(candidate)
+        if not candidate.is_file():
+            if _is_derived_cache_entry(relative):
+                continue
+            raise RuntimeError(f"Legacy scorer dependency inventory entry is invalid: {name}")
+        paths.add(candidate)
+    if not paths:
+        raise RuntimeError(f"Legacy scorer dependency inventory is absent: {name}")
+    return paths
+
+
+def _attest_legacy_distribution(
+    name: str,
+    distribution: metadata.Distribution,
+    *,
+    root: Path,
+    origin: Path,
+) -> dict[str, object]:
+    metadata_path = Path(getattr(distribution, "_path", "")).resolve()
+    if (
+        metadata_path.suffix.lower() != ".egg-info"
+        or not metadata_path.is_dir()
+        or not _is_within(metadata_path, root)
+    ):
+        raise RuntimeError(f"Scorer dependency RECORD is absent or ambiguous: {name}")
+    metadata_name = distribution.metadata.get("Name")
+    metadata_version = distribution.metadata.get("Version")
+    if (
+        not metadata_name
+        or _normalized_name(metadata_name) != _normalized_name(name)
+        or metadata_version != distribution.version
+    ):
+        raise RuntimeError(f"Legacy scorer dependency metadata identity is invalid: {name}")
+
+    top_level_path = metadata_path / "top_level.txt"
+    if not top_level_path.is_file():
+        raise RuntimeError(f"Legacy scorer dependency inventory is absent: {name}")
+    top_levels = top_level_path.read_text(encoding="utf-8").splitlines()
+    if (
+        not top_levels
+        or len(top_levels) != len(set(top_levels))
+        or any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", item) for item in top_levels)
+    ):
+        raise RuntimeError(f"Legacy scorer dependency top-level ownership is invalid: {name}")
+
+    listed_files = _legacy_inventory_paths(metadata_path, root, name)
+    for peer in metadata.distributions(path=[str(origin)]):
+        peer_path = Path(getattr(peer, "_path", "")).resolve()
+        if peer_path == metadata_path:
+            continue
+        peer_name = peer.metadata.get("Name")
+        if peer_name and _normalized_name(peer_name) == _normalized_name(name):
+            raise RuntimeError(f"Legacy scorer dependency metadata identity is ambiguous: {name}")
+        peer_top_levels = (peer.read_text("top_level.txt") or "").splitlines()
+        if set(top_levels) & set(peer_top_levels):
+            raise RuntimeError(f"Legacy scorer dependency ownership is ambiguous: {name}")
+        peer_owned: set[Path] = set()
+        peer_inventory = peer_path / "installed-files.txt"
+        if peer_path.suffix.lower() == ".egg-info" and peer_inventory.is_file():
+            for raw in peer_inventory.read_text(encoding="utf-8").splitlines():
+                relative = Path(raw)
+                if raw and not relative.is_absolute():
+                    candidate = (peer_path / relative).resolve()
+                    if candidate.is_file() and _is_within(candidate, root):
+                        peer_owned.add(candidate)
+        elif peer_path.suffix.lower() == ".dist-info":
+            peer_owned.update(
+                Path(peer.locate_file(item)).resolve()
+                for item in peer.files or ()
+                if Path(peer.locate_file(item)).resolve().is_file()
+                and _is_within(Path(peer.locate_file(item)).resolve(), root)
+            )
+        if listed_files & peer_owned:
+            raise RuntimeError(f"Legacy scorer dependency ownership is ambiguous: {name}")
+
+    package_files: set[Path] = set()
+    for item in top_levels:
+        candidates = (origin / f"{item}.py", origin / item)
+        owned_roots = [candidate.resolve() for candidate in candidates if candidate.exists()]
+        if len(owned_roots) != 1 or not _is_within(owned_roots[0], root):
+            raise RuntimeError(f"Legacy scorer dependency ownership is ambiguous: {name}")
+        owned = owned_roots[0]
+        if owned.is_file():
+            package_files.add(owned)
+        elif owned.is_dir():
+            package_files.update(path.resolve() for path in owned.rglob("*") if path.is_file())
+        else:
+            raise RuntimeError(f"Legacy scorer dependency ownership is ambiguous: {name}")
+    if not package_files or not package_files.issubset(listed_files):
+        raise RuntimeError(f"Legacy scorer dependency inventory is incomplete: {name}")
+
+    metadata_files = {path.resolve() for path in metadata_path.rglob("*") if path.is_file()}
+    if not metadata_files or any(not _is_within(path, root) for path in metadata_files):
+        raise RuntimeError(f"Legacy scorer dependency metadata is outside its interpreter: {name}")
+    owned_files = listed_files | metadata_files
+    canonical = "\n".join(sorted(_content_record(path, root) for path in owned_files))
+    metadata_canonical = "\n".join(sorted(_content_record(path, root) for path in metadata_files))
+    return {
+        "version": distribution.version,
+        "attestation_schema": "legacy-installed-files-v1",
+        "origin_sha256": _hash_text(origin.as_posix().casefold()),
+        "installed_files_sha256": hashlib.sha256(
+            (metadata_path / "installed-files.txt").read_bytes()
+        ).hexdigest(),
+        "metadata_sha256": _hash_text(metadata_canonical),
+        "content_sha256": _hash_text(canonical),
+        "file_count": len(owned_files),
+    }
+
+
 def _attest_distribution(
     name: str,
     expected: str,
@@ -118,6 +256,8 @@ def _attest_distribution(
     if not _is_within(origin, root):
         raise RuntimeError(f"Scorer dependency origin is outside its interpreter: {name}")
     record_entries = [path for path in distribution.files or () if Path(path).name == "RECORD"]
+    if not record_entries:
+        return _attest_legacy_distribution(name, distribution, root=root, origin=origin)
     if len(record_entries) != 1:
         raise RuntimeError(f"Scorer dependency RECORD is absent or ambiguous: {name}")
     record_path = Path(distribution.locate_file(record_entries[0])).resolve()
@@ -160,6 +300,7 @@ def _attest_distribution(
     canonical = "\n".join(sorted(content_records))
     return {
         "version": distribution.version,
+        "attestation_schema": "record-v1",
         "origin_sha256": _hash_text(origin.as_posix().casefold()),
         "record_sha256": hashlib.sha256(record_path.read_bytes()).hexdigest(),
         "content_sha256": _hash_text(canonical),
