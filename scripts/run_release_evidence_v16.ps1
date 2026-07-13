@@ -128,6 +128,11 @@ function Get-ImmutableInputs {
   $config = Get-Content -Raw $RuntimeConfig | ConvertFrom-Json
   $mainGguf = [string]$config.main_gguf
   $mmproj = [string]$config.mmproj
+  $configuredLayout = [string]$config.layout_model_dir
+  if ([string]::IsNullOrWhiteSpace($configuredLayout) -or
+      (Resolve-PhysicalPath $configuredLayout) -ne (Resolve-PhysicalPath $LayoutModel)) {
+    throw "Active RuntimeConfig layout_model_dir does not match LayoutModel."
+  }
   $runtime = Get-Content -Raw $runtimeManifest | ConvertFrom-Json
   $mainRecords = @($runtime.resources | Where-Object name -eq "paddleocr-vl-main-gguf")
   $mmprojRecords = @($runtime.resources | Where-Object name -eq "paddleocr-vl-mmproj")
@@ -211,10 +216,10 @@ function Invoke-Lightweight {
   $results = Join-Path $EvidenceRoot "results/lightweight"
   New-Item -ItemType Directory -Force -Path $lightweight, $results | Out-Null
   Invoke-LoggedNative "Lightweight" "directml-preflight" "python" @("-m", "paddleocr_vl_rocm", "doctor", "--json", "--config", $RuntimeConfig)
-  Invoke-LoggedNative "Lightweight" "lightweight-infer" "python" @("eval/run_eval.py", "--stage", "infer", "--version", "v16", "--engine", "lightweight", "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel)
+  Invoke-LoggedNative "Lightweight" "lightweight-infer" "python" @("eval/run_eval.py", "--stage", "infer", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel)
   $stats = Join-Path $lightweight "_run_stats.json"
   Assert-DirectMlEvidence $stats
-  Invoke-LoggedNative "Lightweight" "lightweight-score" "python" @("eval/run_eval.py", "--stage", "eval", "--version", "v16", "--engine", "lightweight", "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
+  Invoke-LoggedNative "Lightweight" "lightweight-score" "python" @("eval/run_eval.py", "--stage", "eval", "--version", "v16", "--engine", "lightweight", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName, "--dataset-dir", $DatasetDir, "--predictions-dir", $lightweight, "--layout-model", $LayoutModel, "--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json"))
 }
 
 function Invoke-Decide {
@@ -299,6 +304,24 @@ function Test-OutputHashes([string]$StageName, [object]$Expected) {
   return $Expected.PSObject.Properties.Count -gt 0
 }
 
+function Assert-CompletedStageIntegrity([string]$StageName) {
+  if (-not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) { throw "Missing completed predecessor: $StageName" }
+  $manifestSha = Get-Sha256 $ManifestPath
+  $stateDir = Join-Path $LogDir "stages"
+  $statePath = Join-Path $stateDir "$($StageName.ToLowerInvariant()).json"
+  $stageCommandLog = Join-Path $stateDir "$($StageName.ToLowerInvariant()).commands.jsonl"
+  if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) { throw "Missing completed predecessor: $StageName" }
+  $prior = Get-Content -Raw $statePath | ConvertFrom-Json
+  if ($prior.status -ne "completed" -or $prior.producing_commit -ne $GitCommit -or
+      $prior.input_manifest_sha256 -ne $manifestSha -or
+      $prior.invocation_fingerprint -ne (Get-InvocationFingerprint $StageName $manifestSha)) {
+    throw "Predecessor state integrity mismatch: $StageName"
+  }
+  if (-not (Test-Path -LiteralPath $stageCommandLog -PathType Leaf) -or
+      (Get-Sha256 $stageCommandLog) -ne $prior.command_sha256) { throw "Predecessor command log hash mismatch: $StageName" }
+  if (-not (Test-OutputHashes $StageName $prior.output_sha256)) { throw "Predecessor output hash/set mismatch: $StageName" }
+}
+
 function Invoke-DurableStage([string]$StageName, [scriptblock]$Body) {
   Assert-OrCreateManifest
   $manifestSha = Get-Sha256 $ManifestPath
@@ -340,13 +363,16 @@ function Invoke-DurableStage([string]$StageName, [scriptblock]$Body) {
 try {
   switch ($Stage) {
     "Preflight" { Invoke-DurableStage "Preflight" { Invoke-Preflight } }
-    "Official" { Invoke-DurableStage "Official" { Invoke-Official } }
-    "Lightweight" { Invoke-DurableStage "Lightweight" { Invoke-Lightweight } }
-    "Decide" { Invoke-DurableStage "Decide" { Invoke-Decide } }
+    "Official" { Assert-CompletedStageIntegrity "Preflight"; Invoke-DurableStage "Official" { Invoke-Official } }
+    "Lightweight" { Assert-CompletedStageIntegrity "Preflight"; Invoke-DurableStage "Lightweight" { Invoke-Lightweight } }
+    "Decide" { Assert-CompletedStageIntegrity "Preflight"; Assert-CompletedStageIntegrity "Official"; Assert-CompletedStageIntegrity "Lightweight"; Invoke-DurableStage "Decide" { Invoke-Decide } }
     "All" {
       Invoke-DurableStage "Preflight" { Invoke-Preflight }
+      Assert-CompletedStageIntegrity "Preflight"
       Invoke-DurableStage "Official" { Invoke-Official }
+      Assert-CompletedStageIntegrity "Official"
       Invoke-DurableStage "Lightweight" { Invoke-Lightweight }
+      Assert-CompletedStageIntegrity "Lightweight"
       Invoke-DurableStage "Decide" { Invoke-Decide }
       if (-not (Test-Path (Join-Path $EvidenceRoot "decision.json") -PathType Leaf)) { throw "All requires durable decision.json" }
     }

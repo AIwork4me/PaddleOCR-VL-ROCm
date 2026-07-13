@@ -134,7 +134,7 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     main.write_bytes(b"main")
     mmproj.write_bytes(b"mmproj")
     config = tmp_path / "active config.json"
-    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj)}), encoding="utf-8")
+    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
     env = os.environ.copy()
     env.update(
         PATH=f"{tools}{os.pathsep}{env['PATH']}",
@@ -247,7 +247,7 @@ def test_resume_rejects_changed_immutable_input(tmp_path: Path) -> None:
     main.write_bytes(b"main")
     mmproj.write_bytes(b"mm")
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj)}), encoding="utf-8")
+    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
     tools = tmp_path / "tools"
     tools.mkdir()
     argument_log = tmp_path / "args.log"
@@ -336,7 +336,7 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     main.write_bytes(b"main")
     mmproj.write_bytes(b"mm")
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj)}), encoding="utf-8")
+    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
     evidence = tmp_path / "evidence"
     env = os.environ.copy()
     env.update(PATH=f"{tools}{os.pathsep}{env['PATH']}", STUB_ARG_LOG=str(argument_log))
@@ -353,6 +353,15 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     assert completed.returncode == 0, completed.stderr
     assert not stale.exists()
     assert json.loads((evidence / "decision.json").read_text()) == {}
+    args = argument_log.read_text(encoding="utf-8").splitlines()
+    lightweight = next(
+        i for i in range(len(args) - 8)
+        if args[i] == "eval/run_eval.py" and args[i + 2] == "infer" and "lightweight" in args[i : i + 10]
+    )
+    lightweight_args = args[lightweight : lightweight + 24]
+    assert ["--server-url", "http://127.0.0.1:8111/v1"] == lightweight_args[lightweight_args.index("--server-url") : lightweight_args.index("--server-url") + 2]
+    assert ["--api-model-name", "PaddleOCR-VL-1.6-GGUF.gguf"] == lightweight_args[lightweight_args.index("--api-model-name") : lightweight_args.index("--api-model-name") + 2]
+    assert ["--layout-model", str(layout)] == lightweight_args[lightweight_args.index("--layout-model") : lightweight_args.index("--layout-model") + 2]
     decide_state = json.loads((evidence / "logs" / "stages" / "decide.json").read_text())
     assert decide_state["status"] == "completed"
     assert decide_state["output_sha256"]["decision.json"]
@@ -368,6 +377,11 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     log_tampered = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
     assert log_tampered.returncode != 0
     assert "command log hash mismatch" in (log_tampered.stdout + log_tampered.stderr)
+    decisions_before = argument_log.read_text().count("release_evidence.py")
+    predecessor_tampered = _run(script, "-Stage", "Decide", *common, env=env, cwd=tmp_path)
+    assert predecessor_tampered.returncode != 0
+    assert "Predecessor command log hash mismatch" in (predecessor_tampered.stdout + predecessor_tampered.stderr)
+    assert argument_log.read_text().count("release_evidence.py") == decisions_before
     command_log.write_bytes(original_log)
     command_log.unlink()
     log_missing = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
@@ -381,6 +395,20 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
 
     assert resumed.returncode != 0
     assert "output hash/set mismatch" in (resumed.stdout + resumed.stderr)
+    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(tmp_path / "wrong-layout")}), encoding="utf-8")
+    infer_before = argument_log.read_text().count("eval/run_eval.py")
+    mismatch = _run(script, "-Stage", "Lightweight", *common, env=env, cwd=tmp_path)
+    assert mismatch.returncode != 0
+    assert "layout_model_dir does not match" in (mismatch.stdout + mismatch.stderr)
+    assert argument_log.read_text().count("eval/run_eval.py") == infer_before
+
+
+def test_standalone_stage_requires_preflight_before_native_commands(tmp_path: Path) -> None:
+    _, script = _clean_repo(tmp_path)
+    completed = _run(script, "-Stage", "Official", "-EvidenceRoot", str(tmp_path / "evidence"), cwd=tmp_path)
+    assert completed.returncode != 0
+    assert "Missing completed predecessor: Preflight" in (completed.stdout + completed.stderr)
+    assert not (tmp_path / "evidence").exists()
 
 
 def test_clean_gate_rejects_untracked_file_from_foreign_cwd(tmp_path: Path) -> None:
