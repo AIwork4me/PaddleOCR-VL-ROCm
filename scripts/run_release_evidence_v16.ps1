@@ -195,6 +195,9 @@ function Get-ScorerProvenance {
   }
   try { $value = Get-Content -Raw -LiteralPath $attestation | ConvertFrom-Json }
   catch { throw "Scorer attestation returned invalid JSON." }
+  if ([string]$value.python_version -ne "3.10") {
+    throw "Scorer must report CPython 3.10; official lxml 4.9.1 Windows wheels do not support CPython 3.11."
+  }
   foreach ($key in @("python_executable_sha256", "python_prefix_sha256", "python_base_prefix_sha256", "python_version_sha256", "dependency_environment_sha256")) {
     if ([string]$value.$key -notmatch '^[0-9a-f]{64}$') { throw "Scorer attestation hash is invalid: $key" }
   }

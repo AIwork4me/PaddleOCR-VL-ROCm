@@ -327,8 +327,11 @@ def check_scorer(
     transitive_lock: Path = Path("eval/requirements-omnidocbench-v16-transitive.txt"),
     attest_only: bool = False,
 ) -> dict[str, object]:
-    if sys.implementation.name != "cpython" or sys.version_info[:2] != (3, 11):
-        raise RuntimeError("OmniDocBench scorer requires isolated CPython 3.11.")
+    if sys.implementation.name != "cpython" or sys.version_info[:2] != (3, 10):
+        raise RuntimeError(
+            "OmniDocBench scorer requires isolated CPython 3.10 on Windows because "
+            "official lxml 4.9.1 Windows wheels do not support CPython 3.11."
+        )
     direct = _read_lock(direct_lock)
     expected_direct = {
         _normalized_name(name): (name, version) for name, version in DIRECT_DISTRIBUTIONS.items()
@@ -357,6 +360,7 @@ def check_scorer(
     attestations = _attest_locked_distributions(locked, environment_root=Path(sys.prefix))
     installed = json.dumps(attestations, sort_keys=True, separators=(",", ":"))
     result: dict[str, object] = {
+        "python_version": f"{sys.version_info[0]}.{sys.version_info[1]}",
         "python_executable": str(Path(sys.executable).resolve()),
         "python_executable_sha256": _hash_text(str(Path(sys.executable).resolve())),
         "python_file_sha256": hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest(),

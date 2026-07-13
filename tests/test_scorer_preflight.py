@@ -53,16 +53,34 @@ def test_complete_exact_scorer_dependency_contract_includes_pylatexenc() -> None
     } == lock
     transitive = Path("eval/requirements-omnidocbench-v16-transitive.txt")
     assert transitive.is_file()
+    assert "targeted only at CPython 3.10 on Windows" in transitive.read_text(
+        encoding="utf-8"
+    )
     assert all("==" in line for line in transitive.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#"))
 
 
-@pytest.mark.parametrize("version", ((3, 10, 14), (3, 13, 0)))
-def test_scorer_rejects_any_python_other_than_cpython_311(monkeypatch, version):
+@pytest.mark.parametrize("version", ((3, 9, 19), (3, 11, 15), (3, 13, 0)))
+def test_scorer_rejects_any_python_other_than_cpython_310(monkeypatch, version):
     module = _load_module()
     monkeypatch.setattr(module.sys, "version_info", version)
 
-    with pytest.raises(RuntimeError, match="isolated CPython 3.11"):
+    with pytest.raises(RuntimeError, match=r"CPython 3\.10.*lxml 4\.9\.1"):
         module.check_scorer(Path("checkout"), require_cdm_tools=False)
+
+
+def test_scorer_accepts_cpython_310(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_module()
+    monkeypatch.setattr(module.sys, "version_info", (3, 10, 14))
+    monkeypatch.setattr(module, "_validate_checkout_dependency_contract", lambda *args: None)
+    monkeypatch.setattr(
+        module.metadata, "version", lambda name: module.DIRECT_DISTRIBUTIONS[name]
+    )
+    monkeypatch.setattr(module, "_attest_locked_distributions", lambda *args, **kwargs: {})
+    monkeypatch.setattr(module, "_import_registries", lambda checkout: {})
+
+    result = module.check_scorer(Path("checkout"), require_cdm_tools=False)
+
+    assert result["python_version"] == "3.10"
 
 
 def _distribution(version: str, *requirements: str):
@@ -135,7 +153,7 @@ def test_distribution_attestation_hashes_record_listed_content_and_rejects_mutat
 def test_missing_dependency_fails_before_registry_import(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_module()
     imported = False
-    monkeypatch.setattr(module.sys, "version_info", (3, 11, 0))
+    monkeypatch.setattr(module.sys, "version_info", (3, 10, 0))
     monkeypatch.setattr(module, "_validate_checkout_dependency_contract", lambda *args: None)
 
     def version(name: str) -> str:
@@ -158,7 +176,7 @@ def test_missing_dependency_fails_before_registry_import(monkeypatch: pytest.Mon
 
 def test_version_mutation_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_module()
-    monkeypatch.setattr(module.sys, "version_info", (3, 11, 0))
+    monkeypatch.setattr(module.sys, "version_info", (3, 10, 0))
     monkeypatch.setattr(module, "_validate_checkout_dependency_contract", lambda *args: None)
     monkeypatch.setattr(
         module.metadata,
@@ -175,7 +193,7 @@ def test_cdm_preflight_exercises_tex_cjk_and_imagemagick(
 ) -> None:
     module = _load_module()
     exercised: list[Path] = []
-    monkeypatch.setattr(module.sys, "version_info", (3, 11, 0))
+    monkeypatch.setattr(module.sys, "version_info", (3, 10, 0))
     monkeypatch.setattr(module, "_validate_checkout_dependency_contract", lambda *args: None)
     monkeypatch.setattr(
         module.metadata,
