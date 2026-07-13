@@ -3,12 +3,18 @@ from __future__ import annotations
 import base64
 import hashlib
 import importlib.util
+import json
+import os
+import shutil
+import subprocess
+import sys
 from email.message import Message
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 import tomllib
+from packaging import markers
 
 
 def _load_module():
@@ -18,6 +24,75 @@ def _load_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _cpython_310() -> Path:
+    configured = os.environ.get("SCORER_PYTHON_310")
+    candidates = [
+        Path(sys.executable) if sys.version_info[:2] == (3, 10) else None,
+        Path(configured) if configured else None,
+        Path(discovered) if (discovered := shutil.which("python3.10")) else None,
+        Path(
+            r"C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-scorer-v16-py310"
+            r"\Scripts\python.exe"
+        ),
+    ]
+    launcher = shutil.which("py")
+    if launcher:
+        completed = subprocess.run(
+            [launcher, "-3.10", "-c", "import sys; print(sys.executable)"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode == 0:
+            candidates.append(Path(completed.stdout.strip()))
+    for candidate in candidates:
+        if candidate is None or not candidate.is_file():
+            continue
+        completed = subprocess.run(
+            [
+                str(candidate),
+                "-c",
+                "import packaging,sys; raise SystemExit(sys.version_info[:2] != (3, 10))",
+            ],
+            check=False,
+        )
+        if completed.returncode == 0:
+            return candidate
+    pytest.fail("A real CPython 3.10 interpreter is required for the import-boundary gate")
+
+
+def test_checker_imports_and_parses_toml_at_real_cpython_310_boundary(tmp_path: Path) -> None:
+    python = _cpython_310()
+    fallback = tmp_path / "tomli.py"
+    fallback.write_text(
+        "def loads(value):\n    assert value == \"answer = 42\\n\"\n    return {'answer': 42}\n",
+        encoding="utf-8",
+    )
+    script = Path("scripts/check_omnidocbench_scorer.py").resolve()
+    program = (
+        "import importlib.util,json,pathlib; "
+        f"p=pathlib.Path({str(script)!r}); "
+        "s=importlib.util.spec_from_file_location('checker',p); "
+        "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+        "print(json.dumps(m.tomllib.loads('answer = 42\\n'),sort_keys=True))"
+    )
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(tmp_path), value] if (value := env.get("PYTHONPATH")) else [str(tmp_path)]
+    )
+
+    completed = subprocess.run(
+        [str(python), "-c", program],
+        text=True,
+        capture_output=True,
+        env=env,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == {"answer": 42}
 
 
 def test_complete_exact_scorer_dependency_contract_includes_pylatexenc() -> None:
@@ -41,22 +116,26 @@ def test_complete_exact_scorer_dependency_contract_includes_pylatexenc() -> None
             if line
         )
     }
-    assert lock == {
-        name.lower(): version for name, version in module.DIRECT_DISTRIBUTIONS.items()
-    }
+    assert lock == {name.lower(): version for name, version in module.DIRECT_DISTRIBUTIONS.items()}
 
     checkout = tomllib.loads(Path("eval/.omnidocbench/pyproject.toml").read_text(encoding="utf-8"))
     assert checkout["project"]["requires-python"] == ">=3.10,<3.12"
     assert {
         name.lower(): version
-        for name, version in (dependency.split("==", 1) for dependency in checkout["project"]["dependencies"])
+        for name, version in (
+            dependency.split("==", 1) for dependency in checkout["project"]["dependencies"]
+        )
     } == lock
     transitive = Path("eval/requirements-omnidocbench-v16-transitive.txt")
     assert transitive.is_file()
-    assert "targeted only at CPython 3.10 on Windows" in transitive.read_text(
-        encoding="utf-8"
+    transitive_lock = module._read_lock(transitive)
+    assert transitive_lock["tomli"] == ("tomli", "2.2.1")
+    assert "targeted only at CPython 3.10 on Windows" in transitive.read_text(encoding="utf-8")
+    assert all(
+        "==" in line
+        for line in transitive.read_text(encoding="utf-8").splitlines()
+        if line and not line.startswith("#")
     )
-    assert all("==" in line for line in transitive.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#"))
 
 
 @pytest.mark.parametrize("version", ((3, 9, 19), (3, 11, 15), (3, 13, 0)))
@@ -72,9 +151,7 @@ def test_scorer_accepts_cpython_310(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_module()
     monkeypatch.setattr(module.sys, "version_info", (3, 10, 14))
     monkeypatch.setattr(module, "_validate_checkout_dependency_contract", lambda *args: None)
-    monkeypatch.setattr(
-        module.metadata, "version", lambda name: module.DIRECT_DISTRIBUTIONS[name]
-    )
+    monkeypatch.setattr(module.metadata, "version", lambda name: module.DIRECT_DISTRIBUTIONS[name])
     monkeypatch.setattr(module, "_attest_locked_distributions", lambda *args, **kwargs: {})
     monkeypatch.setattr(module, "_import_registries", lambda checkout: {})
 
@@ -120,6 +197,24 @@ def test_dependency_closure_rejects_locked_specifier_conflict() -> None:
         module._validate_locked_dependency_closure(distributions, locked)
 
 
+def test_dependency_closure_includes_real_aiohttp_cpython_310_marker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    locked = module._read_lock(Path("eval/requirements-omnidocbench-v16-transitive.txt"))
+    environment = markers.default_environment()
+    environment.update(python_version="3.10", python_full_version="3.10.20")
+    monkeypatch.setattr(markers, "default_environment", lambda: environment)
+    distributions = {
+        "aiohttp": _distribution("3.10.11", 'async-timeout <6.0,>=4.0 ; python_version < "3.11"'),
+    }
+    if "async-timeout" in locked:
+        distributions["async-timeout"] = _distribution(locked["async-timeout"][1])
+
+    module._validate_locked_dependency_closure(distributions, locked)
+    assert locked["async-timeout"] == ("async-timeout", "5.0.1")
+
+
 def test_distribution_attestation_hashes_record_listed_content_and_rejects_mutation(tmp_path):
     module = _load_module()
     site = tmp_path / "Lib" / "site-packages"
@@ -128,7 +223,9 @@ def test_distribution_attestation_hashes_record_listed_content_and_rejects_mutat
     dist_info.mkdir(parents=True)
     package.write_text("VALUE = 1\n", encoding="utf-8")
     (dist_info / "METADATA").write_text("Name: demo\nVersion: 1.0\n", encoding="utf-8")
-    digest = base64.urlsafe_b64encode(hashlib.sha256(package.read_bytes()).digest()).decode().rstrip("=")
+    digest = (
+        base64.urlsafe_b64encode(hashlib.sha256(package.read_bytes()).digest()).decode().rstrip("=")
+    )
     (dist_info / "RECORD").write_text(
         f"demo.py,sha256={digest},{package.stat().st_size}\n"
         "demo-1.0.dist-info/METADATA,,\n"
@@ -140,9 +237,10 @@ def test_distribution_attestation_hashes_record_listed_content_and_rejects_mutat
     attestation = module._attest_distribution(
         "demo", "1.0", distribution, environment_root=tmp_path
     )
-    assert attestation["record_sha256"] == hashlib.sha256(
-        (dist_info / "RECORD").read_bytes()
-    ).hexdigest()
+    assert (
+        attestation["record_sha256"]
+        == hashlib.sha256((dist_info / "RECORD").read_bytes()).hexdigest()
+    )
     assert attestation["file_count"] == 3
 
     package.write_text("VALUE = 2\n", encoding="utf-8")
@@ -181,7 +279,7 @@ def test_version_mutation_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         module.metadata,
         "version",
-            lambda name: "0.0.0" if name == "pylatexenc" else module.DIRECT_DISTRIBUTIONS[name],
+        lambda name: "0.0.0" if name == "pylatexenc" else module.DIRECT_DISTRIBUTIONS[name],
     )
 
     with pytest.raises(RuntimeError, match="pylatexenc==2.10"):

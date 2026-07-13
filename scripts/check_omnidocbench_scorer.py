@@ -16,7 +16,10 @@ import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised by the real CPython 3.10 test
+    import tomli as tomllib
 from packaging.requirements import InvalidRequirement, Requirement
 
 DIRECT_DISTRIBUTIONS = {
@@ -199,9 +202,7 @@ def _validate_locked_dependency_closure(
                 try:
                     requirement = Requirement(raw_requirement)
                 except InvalidRequirement as exc:
-                    raise RuntimeError(
-                        f"Malformed installed dependency metadata: {owner}"
-                    ) from exc
+                    raise RuntimeError(f"Malformed installed dependency metadata: {owner}") from exc
                 if requirement.marker and not any(
                     requirement.marker.evaluate({"extra": extra}) for extra in contexts
                 ):
@@ -214,8 +215,7 @@ def _validate_locked_dependency_closure(
                 actual = distributions[required].version
                 if requirement.specifier and actual not in requirement.specifier:
                     raise RuntimeError(
-                        f"Transitive lock conflict: {owner} requires {requirement}; "
-                        f"found {actual}"
+                        f"Transitive lock conflict: {owner} requires {requirement}; found {actual}"
                     )
                 new_extras = set(requirement.extras) - activated_extras[required]
                 if new_extras:
