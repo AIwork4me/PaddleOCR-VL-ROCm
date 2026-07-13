@@ -1,3 +1,4 @@
+import hashlib
 import re
 from pathlib import Path
 
@@ -13,6 +14,7 @@ EVAL_README = ROOT / "eval" / "README.md"
 EVIDENCE_README = ROOT / "results" / "omnidocbench" / "v16" / "README.md"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 RELEASE_READINESS = ROOT / "docs" / "releases" / "0.1.0-readiness.md"
+G0_EVIDENCE = ROOT / "docs" / "releases" / "0.1.0-g0-evidence.md"
 WINDOWS_VALIDATION = ROOT / "docs" / "releases" / "0.1.0-windows-validation.md"
 
 OMNIDOCBENCH_V16_COMMIT = "147cd5ac9472002f5751221d390bf00abdbc0d2f"
@@ -204,6 +206,55 @@ def test_release_readiness_fails_closed_until_all_gates_pass() -> None:
     ):
         assert evidence in text
     assert "Do not bump" in text
+
+
+def test_g0_readiness_binds_independently_reviewed_r7_receipt() -> None:
+    assert G0_EVIDENCE.is_file(), "tracked r7 G0 receipt must exist"
+    receipt = _read(G0_EVIDENCE)
+    normalized_receipt = re.sub(r"\s+", " ", receipt)
+    receipt_bytes = G0_EVIDENCE.read_bytes().replace(b"\r\n", b"\n")
+    receipt_sha256 = hashlib.sha256(receipt_bytes).hexdigest()
+    readiness = _read(RELEASE_READINESS)
+    evidence_index = _read(EVIDENCE_README)
+
+    assert not re.search(r"\b[A-Za-z]:\\", receipt)
+    for value in (
+        "v16-2026-07-13-official-r5",
+        "v16-2026-07-14-official-r7-score-recovery-py310",
+        "recovery-task-4b-portable-gs-score-20260714-045911",
+        "fd91cb0a2d75b0a18d16b1bb34652a148cb59b9e",
+        "count=1651",
+        "ok=1650",
+        "fail=1",
+        "fallback=0",
+        "limit_pages=null",
+        KNOWN_V16_OFFICIAL_FAILURE["image"],
+        KNOWN_V16_OFFICIAL_FAILURE["error_signature"],
+        KNOWN_V16_OFFICIAL_FAILURE["issue_url"],
+        "no failed-page prediction file",
+        "Text Edit distance: 0.035",
+        "display_formula.page.CDM.ALL: 96.485%",
+        "sample_count=2352, timeout_case_count=0, exception_case_count=0",
+        "table.page.TEDS.ALL: 94.244%",
+        "sample_count=665, timeout_case_count=0, error_case_count=0",
+        "Overall: 95.743",
+        "Reading order is excluded",
+        "runner exit code: 0",
+        "no orphan",
+        "adapter_command",
+        "original r5 inference source",
+        "r7 did not run inference",
+    ):
+        assert value in normalized_receipt
+
+    assert "Audit date: 2026-07-14" in readiness
+    assert re.search(r"\| G0 evidence integrity \| PASS \|", readiness)
+    assert "Status: BLOCKED" in readiness
+    for gate in ("G2", "G3", "G4", "G5"):
+        assert re.search(rf"\| {gate} .* \| BLOCKED \|", readiness)
+    for text in (readiness, evidence_index):
+        assert "0.1.0-g0-evidence.md" in text
+        assert receipt_sha256 in text
 
 
 def test_windows_validation_distinguishes_cached_install_from_network_setup() -> None:

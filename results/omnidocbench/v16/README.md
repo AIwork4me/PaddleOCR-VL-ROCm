@@ -27,6 +27,19 @@ successful pages plus one project-approved known `peg-native` failure linked to
 PaddleOCR issue #18248. Scoring retains all 1,651 GT pages and treats that page
 as an empty prediction.
 
+## Fresh Official-Local r7 G0 Evidence
+
+The independently reviewed score-only r7 recovery reports Text Edit-distance
+**0.035**, Formula CDM **96.485%**, Table TEDS **94.244%**, and Overall
+**95.743** under three-decimal component rounding, with reading order excluded.
+It authenticates and reuses the immutable r5 inference source; r7 did not rerun
+inference. See the [tracked G0 evidence receipt](../../../docs/releases/0.1.0-g0-evidence.md),
+SHA-256 `d0b7fcbe389e03439b5ba65126008fa5ee828a59e358ae0347c5bb6a51648a04`, produced from commit
+`fd91cb0a2d75b0a18d16b1bb34652a148cb59b9e`.
+
+This is fresh official-local G0 integrity evidence. It is not a Lightweight/G3
+score and is not a Linux reference score.
+
 The lower-level raw all-values from `metric_result` are retained for audit:
 Table TEDS **93.1345** and Formula CDM **96.7129**. These values are not
 contradictory; always name the artifact and convention when comparing scores.
