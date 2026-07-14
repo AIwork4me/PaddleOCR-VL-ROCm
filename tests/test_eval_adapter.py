@@ -527,7 +527,7 @@ def test_crop_pixels_and_prehashed_image_sha256_use_one_representation():
     )
 
 
-def test_trace_write_failure_removes_stale_and_partial_trace(tmp_path, monkeypatch):
+def test_trace_write_failure_removes_partial_temporary_trace(tmp_path, monkeypatch):
     mod = _load_adapter()
     img_dir = tmp_path / "images"
     out_dir = tmp_path / "out"
@@ -536,7 +536,6 @@ def test_trace_write_failure_removes_stale_and_partial_trace(tmp_path, monkeypat
     trace_dir.mkdir()
     (img_dir / "page.png").write_bytes(b"image")
     target = trace_dir / "page.jsonl"
-    target.write_text("stale", encoding="utf-8")
 
     class FakeResult:
         markdown_text = "markdown"
@@ -564,7 +563,7 @@ def test_trace_write_failure_removes_stale_and_partial_trace(tmp_path, monkeypat
     assert list(trace_dir.iterdir()) == []
 
 
-def test_official_fallback_removes_stale_trace(tmp_path, monkeypatch):
+def test_official_fallback_leaves_empty_trace_directory(tmp_path, monkeypatch):
     mod = _load_adapter()
     img_dir = tmp_path / "images"
     out_dir = tmp_path / "out"
@@ -575,8 +574,6 @@ def test_official_fallback_removes_stale_trace(tmp_path, monkeypatch):
     trace_dir.mkdir()
     (img_dir / "page.png").write_bytes(b"image")
     (fallback_dir / "page.md").write_text("fallback", encoding="utf-8")
-    stale = trace_dir / "page.jsonl"
-    stale.write_text("stale", encoding="utf-8")
 
     class FailingOfficial:
         def __init__(self, **kwargs):
@@ -600,7 +597,56 @@ def test_official_fallback_removes_stale_trace(tmp_path, monkeypatch):
     )
 
     assert summary["fallback"] == 1
-    assert not stale.exists()
+    assert list(trace_dir.iterdir()) == []
+
+
+@pytest.mark.parametrize("engine", ["lightweight", "official"])
+def test_nonempty_trace_directory_is_rejected_before_pipeline_initialization(
+    tmp_path, monkeypatch, engine
+):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    trace_dir = tmp_path / "traces"
+    img_dir.mkdir()
+    trace_dir.mkdir()
+    (img_dir / "new-page.png").write_bytes(b"image")
+    (trace_dir / "old-page.jsonl").write_text("old run", encoding="utf-8")
+
+    if engine == "lightweight":
+        class ForbiddenPipeline:
+            def __init__(self, **kwargs):
+                raise AssertionError("pipeline initialized before trace-dir validation")
+
+        monkeypatch.setattr(mod, "PaddleOCRVLROCm", ForbiddenPipeline, raising=False)
+
+        def call():
+            return mod.run_lightweight_folder(
+                img_dir=img_dir,
+                out_dir=tmp_path / "out",
+                trace_dir=trace_dir,
+                limit_pages=1,
+            )
+    else:
+        class ForbiddenOfficial:
+            def __init__(self, **kwargs):
+                raise AssertionError("pipeline initialized before trace-dir validation")
+
+        monkeypatch.setitem(
+            sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=ForbiddenOfficial)
+        )
+
+        def call():
+            return mod.run_official_folder(
+                img_dir=img_dir,
+                out_dir=tmp_path / "out",
+                trace_dir=trace_dir,
+                limit_pages=1,
+                server_url="http://server/v1",
+                api_model_name="model",
+            )
+
+    with pytest.raises(ValueError, match="empty"):
+        call()
 
 
 @pytest.mark.parametrize("engine", ["lightweight", "official"])
@@ -644,7 +690,9 @@ def test_official_page_trace_without_authenticated_blocks_is_page_level_unknown(
 
     events = mod._official_page_trace_events("page", {"markdown": "body"}, "body\r\n")
 
-    assert events == [mod.official_page_trace("page", {"markdown": "body"}, "body\r\n")]
+    assert events == [
+        mod.unobservable_page_trace("page", "body\r\n")
+    ]
     event = events[0]
     assert event["block_index"] is None
     assert event["block_structure"] == {"status": "unobservable"}

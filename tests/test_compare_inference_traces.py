@@ -127,8 +127,18 @@ def test_canonical_comparison_prioritizes_fail_over_unknown():
             "postprocess",
         )
     }
-    reference = {"page": "page", "block_index": 0, "boundaries": dict(boundaries)}
-    candidate = {"page": "page", "block_index": 0, "boundaries": dict(boundaries)}
+    reference = {
+        "page": "page",
+        "block_index": 0,
+        "boundaries": dict(boundaries),
+        "page_postprocess": observation("page markdown"),
+    }
+    candidate = {
+        "page": "page",
+        "block_index": 0,
+        "boundaries": dict(boundaries),
+        "page_postprocess": observation("page markdown"),
+    }
     reference["boundaries"]["raw_result"] = unobservable()
     candidate["boundaries"]["postprocess"] = observation("different")
 
@@ -157,11 +167,27 @@ def test_cli_detects_nested_canonical_boundaries(tmp_path, monkeypatch, capsys):
     changed = dict(boundaries)
     changed["postprocess"] = observation("different")
     reference.write_text(
-        json.dumps({"page": "page", "block_index": 0, "boundaries": boundaries}) + "\n",
+        json.dumps(
+            {
+                "page": "page",
+                "block_index": 0,
+                "boundaries": boundaries,
+                "page_postprocess": observation("page markdown"),
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
     candidate.write_text(
-        json.dumps({"page": "page", "block_index": 0, "boundaries": changed}) + "\n",
+        json.dumps(
+            {
+                "page": "page",
+                "block_index": 0,
+                "boundaries": changed,
+                "page_postprocess": observation("page markdown"),
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(sys, "argv", ["compare", str(reference), str(candidate)])
@@ -206,6 +232,7 @@ def test_cli_rejects_mixed_flat_and_canonical_events(tmp_path, monkeypatch):
                 "postprocess",
             )
         },
+        "page_postprocess": observation("page markdown"),
     }
     rendered = json.dumps(canonical) + "\n" + json.dumps(_event()) + "\n"
     reference.write_text(rendered, encoding="utf-8")

@@ -113,7 +113,16 @@ def compare_prediction_dirs(
             "official_present": official_exclusion_present,
             "lightweight_present": lightweight_exclusion_present,
         },
-        "evidence_fingerprint": fingerprint(evidence),
+        "evidence_fingerprint": fingerprint(
+            {
+                "approved_exclusion": {
+                    "stem": APPROVED_EXCLUDED_STEM,
+                    "official_present": official_exclusion_present,
+                    "lightweight_present": lightweight_exclusion_present,
+                },
+                "pages": evidence,
+            }
+        ),
         "details": details,
         "details_truncated": total_details > len(details),
     }
@@ -125,6 +134,8 @@ def compare_boundary_documents(
     """Compare validated canonical events with FAIL > UNKNOWN > PASS precedence."""
     official_events, official_page_records = _index_events(official, "official")
     lightweight_events, lightweight_page_records = _index_events(lightweight, "lightweight")
+    official_page_postprocess = _page_postprocesses(official, "official")
+    lightweight_page_postprocess = _page_postprocesses(lightweight, "lightweight")
     official_pages = {key[0] for key in official_events} | set(official_page_records)
     lightweight_pages = {key[0] for key in lightweight_events} | set(lightweight_page_records)
     missing_pages = official_pages ^ lightweight_pages
@@ -163,6 +174,32 @@ def compare_boundary_documents(
         different_records = 1
         counts["event_structure"] += 1
         record({"relation": "different", "boundary": "event_structure", "reason": "zero_evidence"})
+
+    for page in sorted(shared_pages):
+        reference_page = official_page_postprocess[page]
+        candidate_page = lightweight_page_postprocess[page]
+        relation = boundary_relation(reference_page, candidate_page)
+        record(
+            {
+                "page": page,
+                "relation": relation,
+                "boundary": "page_postprocess",
+                "official": dict(reference_page),
+                "lightweight": dict(candidate_page),
+            },
+            detail=False,
+        )
+        if relation == "different":
+            different_records += 1
+            counts["page_postprocess"] += 1
+            if len(details) < DETAIL_LIMIT:
+                details.append(
+                    {
+                        "page": page,
+                        "relation": "different",
+                        "boundary": "page_postprocess",
+                    }
+                )
 
     for page in sorted(missing_pages):
         counts["event_structure"] += 1
@@ -283,6 +320,7 @@ def compare_boundary_documents(
     verdict = "FAIL" if different_records else "UNKNOWN" if unobservable_records else "PASS"
     ordered_counts = {"event_structure": counts["event_structure"]}
     ordered_counts.update({name: counts[name] for name in BOUNDARIES})
+    ordered_counts["page_postprocess"] = counts["page_postprocess"]
     return {
         "verdict": verdict,
         "official_records": len(official),
@@ -303,6 +341,10 @@ def compare_boundary_documents(
 def compare_canonical_traces(official_dir: Path, lightweight_dir: Path) -> dict[str, object]:
     official_files = _trace_files(official_dir)
     lightweight_files = _trace_files(lightweight_dir)
+    official_exclusion_present = APPROVED_EXCLUDED_STEM in official_files
+    lightweight_exclusion_present = APPROVED_EXCLUDED_STEM in lightweight_files
+    official_files.pop(APPROVED_EXCLUDED_STEM, None)
+    lightweight_files.pop(APPROVED_EXCLUDED_STEM, None)
     official_pages = set(official_files)
     lightweight_pages = set(lightweight_files)
     common_pages = official_pages & lightweight_pages
@@ -340,6 +382,11 @@ def compare_canonical_traces(official_dir: Path, lightweight_dir: Path) -> dict[
         report["verdict"] = "FAIL"
     report["evidence_fingerprint"] = fingerprint(
         {
+            "approved_exclusion": {
+                "stem": APPROVED_EXCLUDED_STEM,
+                "official_present": official_exclusion_present,
+                "lightweight_present": lightweight_exclusion_present,
+            },
             "coverage": {
                 "official_pages": sorted(official_pages),
                 "lightweight_pages": sorted(lightweight_pages),
@@ -350,6 +397,11 @@ def compare_canonical_traces(official_dir: Path, lightweight_dir: Path) -> dict[
         }
     )
     report.update(coverage)
+    report["approved_exclusion"] = {
+        "stem": APPROVED_EXCLUDED_STEM,
+        "official_present": official_exclusion_present,
+        "lightweight_present": lightweight_exclusion_present,
+    }
     return report
 
 
@@ -390,6 +442,12 @@ def _validate_event(event: dict[str, object]) -> tuple[str, int | None]:
         raise ValueError("Trace event requires exactly the eight canonical boundaries")
     for value in boundaries.values():
         _validate_observation(value)
+    page_postprocess = event.get("page_postprocess")
+    if not isinstance(page_postprocess, Mapping):
+        raise ValueError("Trace event requires observable page_postprocess")
+    _validate_observation(page_postprocess)
+    if page_postprocess.get("status") != "observable":
+        raise ValueError("Trace event page_postprocess must be observable")
     if block_index is None:
         block_structure = event.get("block_structure")
         if not isinstance(block_structure, Mapping):
@@ -397,10 +455,23 @@ def _validate_event(event: dict[str, object]) -> tuple[str, int | None]:
         _validate_observation(block_structure)
         if block_structure.get("status") != "unobservable":
             raise ValueError("Page-level trace block_structure must be unobservable")
-        page_postprocess = event.get("page_postprocess")
-        if page_postprocess is not None:
-            _validate_observation(page_postprocess)
     return page, block_index
+
+
+def _page_postprocesses(
+    events: list[dict[str, object]], side: str
+) -> dict[str, Mapping[str, str]]:
+    page_values: dict[str, Mapping[str, str]] = {}
+    for event in events:
+        page = event["page"]
+        value = event["page_postprocess"]
+        assert isinstance(page, str)
+        assert isinstance(value, Mapping)
+        existing = page_values.get(page)
+        if existing is not None and dict(existing) != dict(value):
+            raise ValueError(f"{side} page_postprocess must be consistent within page {page!r}")
+        page_values[page] = value
+    return page_values
 
 
 def _index_events(

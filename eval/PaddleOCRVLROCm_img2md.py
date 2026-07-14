@@ -54,6 +54,18 @@ def _validated_images(img_dir: Path, limit_pages: int | None) -> list[Path]:
     return all_images[: max(0, int(limit_pages))]
 
 
+def _prepare_trace_dir(trace_dir: Path | None) -> None:
+    if trace_dir is None:
+        return
+    if trace_dir.exists():
+        if not trace_dir.is_dir():
+            raise ValueError(f"Trace path must be a directory: {trace_dir}")
+        if next(trace_dir.iterdir(), None) is not None:
+            raise ValueError(f"Trace directory must be empty before inference: {trace_dir}")
+        return
+    trace_dir.mkdir(parents=True)
+
+
 def _read_env_local(repo_root: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     env_file = repo_root / ".env.local"
@@ -155,6 +167,7 @@ def run_lightweight_folder(
     if not img_dir.is_dir():
         raise SystemExit(f"Image directory not found: {img_dir}")
     images = _validated_images(img_dir, limit_pages)
+    _prepare_trace_dir(trace_dir)
     try:
         PipelineClass = PaddleOCRVLROCm  # type: ignore[name-defined]
     except NameError:
@@ -300,7 +313,7 @@ def _lightweight_page_trace_events(
     }
     page_postprocess = observation(normalize_scorer_markdown(markdown))
     if not events:
-        return [official_page_trace(page, None, markdown)]
+        return [unobservable_page_trace(page, markdown)]
     canonical: list[dict[str, object]] = []
     for block_index, event in enumerate(events):
         boundaries: dict[str, dict[str, str]] = {}
@@ -433,8 +446,8 @@ def _extract_authenticated_official_blocks(
     return blocks
 
 
-def official_page_trace(page: str, result: object, markdown: str) -> dict[str, object]:
-    """Return the conservative page-level record used when blocks are unavailable."""
+def unobservable_page_trace(page: str, markdown: str) -> dict[str, object]:
+    """Return a page record when no authenticated block collection is available."""
     return {
         "page": page,
         "block_index": None,
@@ -444,12 +457,17 @@ def official_page_trace(page: str, result: object, markdown: str) -> dict[str, o
     }
 
 
+def official_page_trace(page: str, result: object, markdown: str) -> dict[str, object]:
+    """Compatibility wrapper for conservative Official page traces."""
+    return unobservable_page_trace(page, markdown)
+
+
 def _official_page_trace_events(
     page: str, result: object, markdown: str
 ) -> list[dict[str, object]]:
     blocks = _extract_authenticated_official_blocks(result)
     if not blocks:
-        return [official_page_trace(page, result, markdown)]
+        return [unobservable_page_trace(page, markdown)]
     page_postprocess = observation(normalize_scorer_markdown(markdown))
     events: list[dict[str, object]] = []
     for block_index, block in enumerate(blocks):
@@ -541,6 +559,7 @@ def run_official_folder(
     if not img_dir.is_dir():
         raise SystemExit(f"Image directory not found: {img_dir}")
     images = _validated_images(img_dir, limit_pages)
+    _prepare_trace_dir(trace_dir)
     try:
         from paddleocr import PaddleOCRVL
     except ImportError as exc:
