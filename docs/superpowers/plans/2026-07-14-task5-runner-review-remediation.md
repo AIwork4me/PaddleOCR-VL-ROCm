@@ -33,7 +33,7 @@
 - Extends CLI: `python -m eval.task5_decision validate-selection --task5-root ROOT [--pointer PATH]`.
 - Receipt authority: `attempts/<id>/receipt.sha256.json`; selection candidate: `attempts/<id>/selected-attempt.json`; root pointer: `selected-attempt.json`.
 
-- [ ] **Step 1: Write failing path-authority tests**
+- [x] **Step 1: Write failing path-authority tests**
 
 Add tests which assert that the receipt allowlist accepts only these attempt-local compact patterns:
 
@@ -50,7 +50,7 @@ assert_receiptable("attempts/a1/compact/comparison/decision.json")
 
 Reject root-level `results/**`, `comparison/**`, root `receipt.sha256.json`, attempt raw `work/**`, another attempt's path, unknown compact names, symlinks, and path escape.
 
-- [ ] **Step 2: Run RED for the new authority**
+- [x] **Step 2: Run RED for the new authority**
 
 Run:
 
@@ -60,7 +60,7 @@ Run:
 
 Expected: the attempt-local compact paths are rejected and the root-level legacy paths remain incorrectly accepted.
 
-- [ ] **Step 3: Write failing selection-validation tests**
+- [x] **Step 3: Write failing selection-validation tests**
 
 Build a complete temporary attempt and assert all of the following:
 
@@ -73,7 +73,7 @@ assert validated["amd_adaptation"] in {"PASS", "FAIL"}
 
 Mutation cases must fail: pointer/candidate byte mismatch; malformed AttemptId; missing/invalid receipt; receipt omits one required path; receipt includes an extra path; manifest digest mismatch; before/after G0 mismatch; candidate verdict differs from compact decision; candidate attempt differs from stage state; stage state is not sealed; symlinked attempt or pointer.
 
-- [ ] **Step 4: Implement exact attempt-local validation**
+- [x] **Step 4: Implement exact attempt-local validation**
 
 Use an exact AttemptId expression and an exact path set:
 
@@ -96,7 +96,7 @@ def required_attempt_receipt_paths(attempt_id: str) -> tuple[str, ...]:
 
 `validate_task5_selection` must stable-read strict JSON, require root pointer bytes to equal the attempt candidate bytes, validate the attempt-local receipt, require its file keys to equal `required_attempt_receipt_paths`, compare canonical G0 snapshots, compare the candidate with stage state, manifest SHA, and compact decision, and reject any absolute path disclosure in the candidate.
 
-- [ ] **Step 5: Run Task 1 GREEN and mutation checks**
+- [x] **Step 5: Run Task 1 GREEN and mutation checks**
 
 Run:
 
@@ -108,7 +108,7 @@ git diff --check
 
 Expected: all pass, with only the existing Windows symlink-permission skip.
 
-- [ ] **Step 6: Commit Task 1**
+- [x] **Step 6: Commit Task 1**
 
 ```powershell
 git add eval/task5_decision.py tests/test_task5_decision.py
@@ -126,19 +126,19 @@ git commit -m "fix(eval): validate attempt-local Task 5 selection"
 - Produces an exact normalized environment object bound into the manifest and recomputed before every stage.
 - `Invoke-LoggedNative` records strict command JSONL, redacted logs, timeout status, and recursive orphan audit.
 
-- [ ] **Step 1: Write executable RED tests for input and commit drift**
+- [x] **Step 1: Write executable RED tests for input and commit drift**
 
 Create a temporary stub harness that completes Preflight, changes one bound file, and invokes Official. Parameterize over dataset manifest, layout ONNX, runtime config, worktree Python, and scorer Python. Each resumed stage must exit nonzero with `manifest integrity mismatch`. Add an existing-manifest case whose `git_commit` differs from HEAD and require rejection before inference.
 
-- [ ] **Step 2: Write executable RED tests for command-log integrity**
+- [x] **Step 2: Write executable RED tests for command-log integrity**
 
 After a completed stub stage, mutate, delete, and exchange the raw `.log` files. Also inject duplicate JSON keys, NaN, a duplicate command name, nonzero exit, missing orphan audit, and a JSONL/log digest mismatch. The next stage must reject every case before launching its command.
 
-- [ ] **Step 3: Write executable RED tests for timeout and descendants**
+- [x] **Step 3: Write executable RED tests for timeout and descendants**
 
 Use a stub Python command that sleeps, one that leaves a direct child alive, and one that leaves a grandchild alive. Invoke with `-CommandTimeoutSeconds 1 -TerminationGraceSeconds 2`. Assert bounded completion, invalid attempt state, durable timeout/orphan evidence, and no surviving recorded PID.
 
-- [ ] **Step 4: Implement stage-start chain-of-custody validation**
+- [x] **Step 4: Implement stage-start chain-of-custody validation**
 
 At every stage entry, before any stage command, run manifest validation and compare commits:
 
@@ -157,7 +157,7 @@ if ($manifest.git_commit -cne (Get-GitCommit) -or
 
 Repeat the check immediately before decision sealing and receipt generation. Recompute the normalized environment object and require canonical strict-JSON equality with `manifest.environment`.
 
-- [ ] **Step 5: Bind the complete normalized environment**
+- [x] **Step 5: Bind the complete normalized environment**
 
 The exact environment keys are:
 
@@ -169,7 +169,7 @@ lightweight_adapter, server_model_runtime
 
 `gpu_devices` is a stable Name/PNPDeviceID/DriverVersion list sorted by PNPDeviceID from `Win32_VideoController`. Python package versions come from the bound interpreter. Adapter identities are full SHA-256 identities of `eval/PaddleOCRVLROCm_img2md.py`, `eval/run_eval.py`, `src/paddleocr_vl_rocm/layout.py`, and `src/paddleocr_vl_rocm/pipeline.py`. `server_model_runtime` is a redacted, canonically hashed `/v1/models` identity plus the requested API model name. Missing fields or a changed recomputation fail closed.
 
-- [ ] **Step 6: Implement strict command/log verification and redaction**
+- [x] **Step 6: Implement strict command/log verification and redaction**
 
 Parse every JSONL line with a strict Python helper or an equivalent duplicate-key/non-finite rejecting parser. Require exact record keys, unique command names, exit code zero, `orphan_audit == "PASS"`, a real log path relative to the attempt, and current log SHA equality.
 
@@ -189,11 +189,11 @@ signature=<redacted>
 
 Captured stdout returned to the caller may remain raw in memory; only the redacted form is persisted. Tests must verify none of the original sentinel secrets appears anywhere below `attempts/<id>/commands`.
 
-- [ ] **Step 7: Implement bounded process-tree lifecycle**
+- [x] **Step 7: Implement bounded process-tree lifecycle**
 
 Use timed `WaitForExit(milliseconds)`. On timeout, recursively snapshot descendants by ParentProcessId, terminate deepest descendants before the root, wait the configured grace period, rescan, and fail if any PID remains. After normal exit, perform the same recursive descendant scan and reject any survivor. Record `timed_out`, all observed descendant PIDs, termination result, exit code, and orphan verdict in the command record.
 
-- [ ] **Step 8: Run Task 2 GREEN**
+- [x] **Step 8: Run Task 2 GREEN**
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests\test_run_task5_paired_v16_script.py -q
@@ -203,7 +203,7 @@ git diff --check
 
 Expected: all executable drift, redaction, timeout, direct-child, and grandchild probes pass.
 
-- [ ] **Step 9: Commit Task 2**
+- [x] **Step 9: Commit Task 2**
 
 ```powershell
 git add scripts/run_task5_paired_v16.ps1 tests/test_run_task5_paired_v16_script.py
