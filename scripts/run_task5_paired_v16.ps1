@@ -31,6 +31,7 @@ try {
   $Task5Root = Join-Path $R7Root "task5"
   $AttemptRoot = Join-Path (Join-Path $Task5Root "attempts") $AttemptId
   $WorkRoot = Join-Path $AttemptRoot "work"
+  $CompactRoot = Join-Path $AttemptRoot "compact"
   $CommandRoot = Join-Path $AttemptRoot "commands"
   $StageStatePath = Join-Path $AttemptRoot "stage-state.json"
   $ManifestPath = Join-Path $Task5Root "manifest.json"
@@ -744,7 +745,7 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
 
   function Invoke-EngineScores([string]$Engine, [string]$StageName) {
     $predictions = Join-Path $WorkRoot $(if ($Engine -eq "official") { "paired-official" } else { "lightweight" })
-    $results = Join-Path $WorkRoot "results/$Engine"
+    $results = Join-Path $CompactRoot "results/$Engine"
     New-Item -ItemType Directory -Force -Path $results | Out-Null
     $common = @("-m", "eval.run_eval", "--stage", "eval", "--version", "v16", "--engine", $Engine, "--dataset-dir", $DatasetDir, "--predictions-dir", $predictions, "--scorer-python", $ScorerPythonExe)
     Invoke-LoggedNative $StageName "$Engine-score" $PythonExe ($common + @("--copy-report", (Join-Path $results "metric.json"), "--run-summary", (Join-Path $results "run-summary.json"), "--provenance", (Join-Path $results "provenance.json")))
@@ -762,7 +763,7 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
   }
 
   function Invoke-Compare {
-    $comparison = Join-Path $WorkRoot "comparison"
+    $comparison = Join-Path $CompactRoot "comparison"
     New-Item -ItemType Directory -Force -Path $comparison | Out-Null
     $inline = 'import json,sys; from pathlib import Path; from eval.task5_comparison import compare_prediction_dirs; p=compare_prediction_dirs(Path(sys.argv[1]),Path(sys.argv[2]),sys.argv[3]); Path(sys.argv[4]).write_text(json.dumps(p,ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")'
     Invoke-LoggedNative "Compare" "normalized-output" $PythonExe @("-c", $inline, (Join-Path $WorkRoot "paired-official"), (Join-Path $WorkRoot "lightweight"), $ApprovedExcludedStem, (Join-Path $comparison "normalized-output.json"))
@@ -772,29 +773,24 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
     Add-InternalCommandRecord "Compare" "input-contract" ($contract | ConvertTo-Json -Compress)
   }
 
-  function Copy-CompactEvidence {
-    function Publish-FileAtomic([string]$Source, [string]$Destination) {
-      if (Test-Path -LiteralPath $Destination) { throw "Published evidence already exists" }
-      $temporary = "$Destination.$AttemptId.tmp"
-      if (Test-Path -LiteralPath $temporary) { throw "Stale publication temporary exists" }
-      Copy-Item -LiteralPath $Source -Destination $temporary
-      if ((Get-Sha256 $Source) -ne (Get-Sha256 $temporary)) { throw "Published evidence staging hash mismatch" }
-      Move-Item -LiteralPath $temporary -Destination $Destination
-      if ((Get-Sha256 $Source) -ne (Get-Sha256 $Destination)) { throw "Published evidence final hash mismatch" }
-    }
-    foreach ($engine in @("official", "lightweight")) {
-      $destination = Join-Path $Task5Root "results/$engine"
-      if (Test-Path -LiteralPath $destination) { throw "Published compact result already exists; old-attempt file reuse is forbidden" }
-      New-Item -ItemType Directory -Path $destination | Out-Null
-      foreach ($file in Get-ChildItem -LiteralPath (Join-Path $WorkRoot "results/$engine") -File) {
-        Publish-FileAtomic $file.FullName (Join-Path $destination $file.Name)
-      }
-    }
-    $destination = Join-Path $Task5Root "comparison"
-    if (Test-Path -LiteralPath $destination) { throw "Published comparison already exists; old-attempt file reuse is forbidden" }
-    New-Item -ItemType Directory -Path $destination | Out-Null
-    foreach ($file in Get-ChildItem -LiteralPath (Join-Path $WorkRoot "comparison") -File) {
-      Publish-FileAtomic $file.FullName (Join-Path $destination $file.Name)
+  function Assert-ExactFileSet([string]$Directory, [string[]]$Expected) {
+    if (-not (Test-Path -LiteralPath $Directory -PathType Container)) { throw "Compact evidence directory is missing" }
+    $actual = @(Get-ChildItem -LiteralPath $Directory -File | ForEach-Object Name | Sort-Object)
+    $wanted = @($Expected | Sort-Object)
+    if (($actual -join "`n") -cne ($wanted -join "`n")) { throw "Compact evidence exact filename set mismatch" }
+    if (@(Get-ChildItem -LiteralPath $Directory -Directory).Count -ne 0) { throw "Unexpected compact evidence subdirectory" }
+  }
+
+  function Assert-CompactEvidenceComplete {
+    $resultFiles = @("metric.json", "metric-cdm.json", "run-summary.json", "run-summary-cdm.json", "provenance.json", "provenance-cdm.json")
+    Assert-ExactFileSet (Join-Path $CompactRoot "results/official") $resultFiles
+    Assert-ExactFileSet (Join-Path $CompactRoot "results/lightweight") $resultFiles
+    Assert-ExactFileSet (Join-Path $CompactRoot "comparison") @("input-contract.json", "normalized-output.json", "trace-diff.json", "directml-attestation.json", "decision.json")
+  }
+
+  function Assert-NoRootCompactAuthority {
+    foreach ($name in @("results", "comparison", "receipt.sha256.json")) {
+      if (Test-Path -LiteralPath (Join-Path $Task5Root $name)) { throw "Forbidden root-level Task 5 evidence authority exists: $name" }
     }
   }
 
@@ -808,14 +804,14 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
   }
 
   function Invoke-Decide {
-    $comparison = Join-Path $WorkRoot "comparison"
+    $comparison = Join-Path $CompactRoot "comparison"
     $profiles = @(Get-ChildItem -LiteralPath (Join-Path $WorkRoot "profiles") -Filter "layout-profile*.json" -File)
     if ($profiles.Count -ne 1) { throw "missing profile" }
     $attestation = Invoke-LoggedNative "Decide" "directml-attestation" $PythonExe @("-m", "eval.directml_attestation", "--profile", $profiles[0].FullName, "--stats", (Join-Path $WorkRoot "lightweight/_run_stats.json"), "--allow-fail-verdict") -Capture
     $strictJson = 'import json,sys; seen=lambda pairs: (_ for _ in ()).throw(ValueError("duplicate JSON key")) if len(pairs)!=len(dict(pairs)) else dict(pairs); value=json.loads(sys.argv[1],parse_constant=lambda x: (_ for _ in ()).throw(ValueError("non-finite JSON")),object_pairs_hook=seen); assert isinstance(value,dict)'
     Invoke-LoggedNative "Decide" "directml-strict-json" $PythonExe @("-c", $strictJson, $attestation)
     Write-AtomicText (Join-Path $comparison "directml-attestation.json") ($attestation + [Environment]::NewLine)
-    $r = Join-Path $WorkRoot "results"
+    $r = Join-Path $CompactRoot "results"
     Invoke-LoggedNative "Decide" "decision" $PythonExe @("-m", "eval.task5_decision", "decide", "--official-non-cdm", (Join-Path $r "official/metric.json"), "--official-cdm", (Join-Path $r "official/metric-cdm.json"), "--lightweight-non-cdm", (Join-Path $r "lightweight/metric.json"), "--lightweight-cdm", (Join-Path $r "lightweight/metric-cdm.json"), "--output-report", (Join-Path $comparison "normalized-output.json"), "--trace-report", (Join-Path $comparison "trace-diff.json"), "--provider-attestation", (Join-Path $comparison "directml-attestation.json"), "--lightweight-stats", (Join-Path $WorkRoot "lightweight/_run_stats.json"), "--public-contracts-pass", "--output", (Join-Path $comparison "decision.json"))
     $measuredDecision = Read-Json (Join-Path $comparison "decision.json")
     if ($measuredDecision.amd_adaptation.verdict -eq "PASS") { Assert-ProviderMajority (Read-Json (Join-Path $comparison "directml-attestation.json")) }
@@ -825,43 +821,106 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
     $afterObject = Read-Json (Join-Path $AttemptRoot "snapshot-after.json")
     if (($beforeObject | ConvertTo-Json -Compress -Depth 20) -cne ($afterObject | ConvertTo-Json -Compress -Depth 20)) { throw "G0 integrity mismatch" }
     Assert-StageStartIntegrity (Read-State) "Decide" "manifest-revalidate-seal"
-    Copy-CompactEvidence
-    $decision = Read-Json (Join-Path $comparison "decision.json")
-    $selected = [ordered]@{schema=1;attempt_id=$AttemptId;manifest_sha256=Get-Sha256 $ManifestPath;strict_equivalence=$decision.strict_equivalence.verdict;amd_adaptation=$decision.amd_adaptation.verdict;effective_only_with_valid_receipt=$true;g0_closure="PASS";selected_at_utc=[DateTimeOffset]::UtcNow.ToString("o")}
-    Write-AtomicJson (Join-Path $Task5Root "selected-attempt.json") $selected
+  }
+
+  function Invoke-DecisionTool([string[]]$Arguments) {
+    $code = 'import sys; from eval.task5_decision import main; raise SystemExit(main(sys.argv[1:]))'
+    Invoke-DirectPython $code $Arguments | Out-Null
+  }
+
+  function Test-ByteEqual([string]$Left, [string]$Right) {
+    if (-not (Test-Path -LiteralPath $Left -PathType Leaf) -or -not (Test-Path -LiteralPath $Right -PathType Leaf)) { return $false }
+    $a = [IO.File]::ReadAllBytes($Left); $b = [IO.File]::ReadAllBytes($Right)
+    if ($a.Length -ne $b.Length) { return $false }
+    for ($i=0; $i -lt $a.Length; $i++) { if ($a[$i] -ne $b[$i]) { return $false } }
+    return $true
+  }
+
+  function Write-CandidateAtomic {
+    Assert-CompactEvidenceComplete
+    $state = Read-State
+    Assert-RecordedStagesIntegrity $state
+    if ($state.status -ne "active") { throw "Attempt is not active at seal boundary" }
+    $state.status = "sealed"
+    Write-AtomicJson $StageStatePath $state
+    $decision = Read-Json (Join-Path $CompactRoot "comparison/decision.json")
+    $candidate = [ordered]@{schema=1;attempt_id=$AttemptId;manifest_sha256=Get-Sha256 $ManifestPath;strict_equivalence=$decision.strict_equivalence.verdict;amd_adaptation=$decision.amd_adaptation.verdict;g0_closure="PASS";effective_only_with_valid_receipt=$true}
+    $candidatePath = Join-Path $AttemptRoot "selected-attempt.json"
+    if (Test-Path -LiteralPath $candidatePath) { throw "Selection candidate already exists" }
+    Write-AtomicJson $candidatePath $candidate
+  }
+
+  function Get-AttemptReceiptPaths {
+    $base = "attempts/$AttemptId"
+    $paths = @("manifest.json", "$base/stage-state.json", "$base/snapshot-before.json", "$base/snapshot-after.json", "$base/selected-attempt.json")
+    foreach ($engine in @("official", "lightweight")) {
+      foreach ($name in @("metric.json", "metric-cdm.json", "run-summary.json", "run-summary-cdm.json", "provenance.json", "provenance-cdm.json")) { $paths += "$base/compact/results/$engine/$name" }
+    }
+    foreach ($name in @("input-contract.json", "normalized-output.json", "trace-diff.json", "directml-attestation.json", "decision.json")) { $paths += "$base/compact/comparison/$name" }
+    return @($paths | Sort-Object)
+  }
+
+  function New-TemporaryCandidatePointer {
+    $candidate = Join-Path $AttemptRoot "selected-attempt.json"
+    $temporary = Join-Path $Task5Root (".selected-attempt.{0}.validate.tmp" -f [Guid]::NewGuid().ToString("N"))
+    [IO.File]::WriteAllBytes($temporary, [IO.File]::ReadAllBytes($candidate))
+    return $temporary
+  }
+
+  function Validate-LocalSelection {
+    $receipt = Join-Path $AttemptRoot "receipt.sha256.json"
+    Invoke-DecisionTool @("validate-receipt", "--task5-root", $Task5Root, "--receipt", $receipt)
+    $temporary = New-TemporaryCandidatePointer
+    try { Invoke-DecisionTool @("validate-selection", "--task5-root", $Task5Root, "--pointer", $temporary) }
+    finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force } }
+  }
+
+  function Publish-RootSelection {
+    $candidate = Join-Path $AttemptRoot "selected-attempt.json"
+    $pointer = Join-Path $Task5Root "selected-attempt.json"
+    if (Test-Path -LiteralPath $pointer) {
+      if (-not (Test-ByteEqual $candidate $pointer)) { throw "A valid root selection already exists for another attempt" }
+      Invoke-DecisionTool @("validate-selection", "--task5-root", $Task5Root, "--pointer", $pointer)
+      return
+    }
+    $temporary = Join-Path $Task5Root (".selected-attempt.{0}.publish.tmp" -f [Guid]::NewGuid().ToString("N"))
+    try {
+      $bytes = [IO.File]::ReadAllBytes($candidate)
+      $stream = [IO.FileStream]::new($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None, 4096, [IO.FileOptions]::WriteThrough)
+      try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+      Move-Item -LiteralPath $temporary -Destination $pointer
+    } catch {
+      if (-not (Test-Path -LiteralPath $pointer) -or -not (Test-ByteEqual $candidate $pointer)) { throw }
+    } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force } }
+    Invoke-DecisionTool @("validate-selection", "--task5-root", $Task5Root, "--pointer", $pointer)
   }
 
   function Complete-Receipt {
     $state = Read-State
     Assert-RecordedStagesIntegrity $state
-    Assert-StageStartIntegrity $state "Receipt" "manifest-revalidate-receipt"
-    $receipt = Join-Path $Task5Root "receipt.sha256.json"
+    if ($state.status -ne "sealed") { throw "Receipt requires a sealed attempt" }
+    $receipt = Join-Path $AttemptRoot "receipt.sha256.json"
     if (Test-Path -LiteralPath $receipt) { throw "receipt mutation or replacement is forbidden" }
-    $paths = @(
-      "manifest.json", "selected-attempt.json",
-      "attempts/$AttemptId/stage-state.json", "attempts/$AttemptId/snapshot-before.json", "attempts/$AttemptId/snapshot-after.json",
-      "results/official/metric.json", "results/official/metric-cdm.json", "results/official/run-summary.json", "results/official/run-summary-cdm.json", "results/official/provenance.json", "results/official/provenance-cdm.json",
-      "results/lightweight/metric.json", "results/lightweight/metric-cdm.json", "results/lightweight/run-summary.json", "results/lightweight/run-summary-cdm.json", "results/lightweight/provenance.json", "results/lightweight/provenance-cdm.json",
-      "comparison/input-contract.json", "comparison/normalized-output.json", "comparison/trace-diff.json", "comparison/directml-attestation.json", "comparison/decision.json"
-    )
+    $paths = Get-AttemptReceiptPaths
     $args = @("-m", "eval.task5_decision", "receipt", "--task5-root", $Task5Root)
     foreach ($path in $paths) { $args += @("--path", $path) }
     $args += @("--output", $receipt)
-    try {
-      Invoke-LoggedNative "Receipt" "receipt" $PythonExe $args
-      Invoke-LoggedNative "Receipt" "receipt-validate" $PythonExe @("-m", "eval.task5_decision", "validate-receipt", "--task5-root", $Task5Root, "--receipt", $receipt)
-    } catch {
-      $state = Read-Json $StageStatePath
-      $state.status = "invalid"
-      $state | Add-Member -Force -NotePropertyName failure -NotePropertyValue ([ordered]@{stage="Receipt";ended_at_utc=[DateTimeOffset]::UtcNow.ToString("o");error_sha256=Get-StringSha256 $_.Exception.Message;selected_marker_effective=$false})
-      Write-AtomicJson $StageStatePath $state
-      throw
-    }
-    $decision = Read-Json (Join-Path $Task5Root "comparison/decision.json")
+    Invoke-DecisionTool $args[2..($args.Count-1)]
+    Validate-LocalSelection
+    Publish-RootSelection
+    $decision = Read-Json (Join-Path $CompactRoot "comparison/decision.json")
     $strictVerdict = $decision.strict_equivalence.verdict
     $amdVerdict = $decision.amd_adaptation.verdict
     Write-Host "strict_equivalence=$strictVerdict"
     Write-Host "amd_adaptation=$amdVerdict"
+  }
+
+  function Resume-SealedAttemptSelection {
+    $state = Read-Json $StageStatePath
+    if ($state.status -ne "sealed") { throw "Existing attempt is not sealed; use a new AttemptId" }
+    if (-not (Test-Path -LiteralPath (Join-Path $AttemptRoot "selected-attempt.json") -PathType Leaf) -or -not (Test-Path -LiteralPath (Join-Path $AttemptRoot "receipt.sha256.json") -PathType Leaf)) { throw "sealed attempt may only retry pointer publication after local receipt completion" }
+    Validate-LocalSelection
+    Publish-RootSelection
   }
 
   function Require-Stages([string[]]$Names) {
@@ -872,22 +931,41 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
     }
   }
 
+  Assert-NoRootCompactAuthority
+  $rootPointer = Join-Path $Task5Root "selected-attempt.json"
+  if (Test-Path -LiteralPath $rootPointer -PathType Leaf) {
+    Invoke-DecisionTool @("validate-selection", "--task5-root", $Task5Root, "--pointer", $rootPointer)
+    $selectedRoot = Read-Json $rootPointer
+    if ($selectedRoot.attempt_id -cne $AttemptId) { throw "A valid root selection already exists for another attempt" }
+    Write-Host "selected_attempt=$AttemptId"
+    return
+  }
+  if (Test-Path -LiteralPath $AttemptRoot -PathType Container) {
+    $existingState = Read-Json $StageStatePath
+    if ($existingState.status -eq "sealed") {
+      Resume-SealedAttemptSelection
+      Write-Host "selected_attempt=$AttemptId"
+      return
+    }
+  }
+
   switch ($Stage) {
     "Preflight" {
       Invoke-PreflightStage
     }
     "Official" { Require-Stages @("Preflight"); Invoke-DurableStage "Official" { Invoke-Official } @((Join-Path $WorkRoot "paired-official"), (Join-Path $WorkRoot "traces/official")) }
     "Lightweight" { Require-Stages @("Preflight", "Official"); Invoke-DurableStage "Lightweight" { Invoke-Lightweight } @((Join-Path $WorkRoot "lightweight"), (Join-Path $WorkRoot "traces/lightweight"), (Join-Path $WorkRoot "profiles")) }
-    "Score" { Require-Stages @("Preflight", "Official", "Lightweight"); Invoke-DurableStage "Score" { Invoke-Score } @((Join-Path $WorkRoot "results")) }
-    "Compare" { Require-Stages @("Preflight", "Official", "Lightweight", "Score"); Invoke-DurableStage "Compare" { Invoke-Compare } @((Join-Path $WorkRoot "comparison")) }
-    "Decide" { Require-Stages @("Preflight", "Official", "Lightweight", "Score", "Compare"); Invoke-DurableStage "Decide" { Invoke-Decide } @((Join-Path $Task5Root "results"), (Join-Path $Task5Root "comparison"), (Join-Path $Task5Root "selected-attempt.json"), (Join-Path $AttemptRoot "snapshot-after.json")); Complete-Receipt }
+    "Score" { Require-Stages @("Preflight", "Official", "Lightweight"); Invoke-DurableStage "Score" { Invoke-Score } @((Join-Path $CompactRoot "results")) }
+    "Compare" { Require-Stages @("Preflight", "Official", "Lightweight", "Score"); Invoke-DurableStage "Compare" { Invoke-Compare } @((Join-Path $CompactRoot "comparison/input-contract.json"), (Join-Path $CompactRoot "comparison/normalized-output.json"), (Join-Path $CompactRoot "comparison/trace-diff.json")) }
+    "Decide" { Require-Stages @("Preflight", "Official", "Lightweight", "Score", "Compare"); Invoke-DurableStage "Decide" { Invoke-Decide } @((Join-Path $CompactRoot "comparison/directml-attestation.json"), (Join-Path $CompactRoot "comparison/decision.json"), (Join-Path $AttemptRoot "snapshot-after.json")); Write-CandidateAtomic; Complete-Receipt }
     "All" {
       Invoke-PreflightStage
       Invoke-DurableStage "Official" { Invoke-Official } @((Join-Path $WorkRoot "paired-official"), (Join-Path $WorkRoot "traces/official"))
       Invoke-DurableStage "Lightweight" { Invoke-Lightweight } @((Join-Path $WorkRoot "lightweight"), (Join-Path $WorkRoot "traces/lightweight"), (Join-Path $WorkRoot "profiles"))
-      Invoke-DurableStage "Score" { Invoke-Score } @((Join-Path $WorkRoot "results"))
-      Invoke-DurableStage "Compare" { Invoke-Compare } @((Join-Path $WorkRoot "comparison"))
-      Invoke-DurableStage "Decide" { Invoke-Decide } @((Join-Path $Task5Root "results"), (Join-Path $Task5Root "comparison"), (Join-Path $Task5Root "selected-attempt.json"), (Join-Path $AttemptRoot "snapshot-after.json"))
+      Invoke-DurableStage "Score" { Invoke-Score } @((Join-Path $CompactRoot "results"))
+      Invoke-DurableStage "Compare" { Invoke-Compare } @((Join-Path $CompactRoot "comparison/input-contract.json"), (Join-Path $CompactRoot "comparison/normalized-output.json"), (Join-Path $CompactRoot "comparison/trace-diff.json"))
+      Invoke-DurableStage "Decide" { Invoke-Decide } @((Join-Path $CompactRoot "comparison/directml-attestation.json"), (Join-Path $CompactRoot "comparison/decision.json"), (Join-Path $AttemptRoot "snapshot-after.json"))
+      Write-CandidateAtomic
       Complete-Receipt
     }
   }
@@ -895,7 +973,7 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
   if ($null -ne $StageStatePath -and (Test-Path -LiteralPath $StageStatePath -PathType Leaf)) {
     try {
       $failedState = Read-Json $StageStatePath
-      if ($failedState.status -ne "invalid") {
+      if ($failedState.status -ne "invalid" -and $failedState.status -ne "sealed") {
         $failedState.status = "invalid"
         $failedState | Add-Member -Force -NotePropertyName failure -NotePropertyValue ([ordered]@{stage=$Stage;ended_at_utc=[DateTimeOffset]::UtcNow.ToString("o");error_sha256=Get-StringSha256 $_.Exception.Message;selected_marker_effective=$false})
         Write-AtomicJson $StageStatePath $failedState

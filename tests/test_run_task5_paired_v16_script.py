@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -32,7 +33,10 @@ def test_runner_uses_separate_task5_manifest_and_never_calls_g0_runner() -> None
 
 def test_runner_exposes_only_approved_stages_and_attempt_id_contract() -> None:
     text = _text()
-    assert '[ValidateSet("Preflight", "Official", "Lightweight", "Score", "Compare", "Decide", "All")]' in text
+    assert (
+        '[ValidateSet("Preflight", "Official", "Lightweight", "Score", "Compare", "Decide", "All")]'
+        in text
+    )
     assert "^[a-z0-9][a-z0-9-]{0,63}$" in text
     assert 'Join-Path (Join-Path $Task5Root "attempts") $AttemptId' in text
 
@@ -58,10 +62,9 @@ def test_both_engines_run_fresh_inference_without_cross_engine_fallback() -> Non
 def test_lightweight_and_official_both_run_non_cdm_and_cdm_scoring() -> None:
     text = _text()
     assert text.count('"--cdm"') >= 2
-    assert 'results/official/metric-cdm.json' in text
-    assert 'results/lightweight/metric-cdm.json' in text
-    assert 'results/official/metric.json' in text
-    assert 'results/lightweight/metric.json' in text
+    assert 'Join-Path $CompactRoot "results/$Engine"' in text
+    assert '"metric.json", "metric-cdm.json"' in text
+    assert 'foreach ($engine in @("official", "lightweight"))' in text
 
 
 def test_runner_pins_v16_and_explicit_page_contracts() -> None:
@@ -92,29 +95,226 @@ def test_runner_invokes_comparison_attestation_decision_and_receipt() -> None:
     assert "eval.directml_attestation" in text
     assert '"eval.task5_decision", "decide"' in text
     assert '"eval.task5_decision", "receipt"' in text
-    assert '"eval.task5_decision", "validate-receipt"' in text
+    assert 'Invoke-DecisionTool @("validate-receipt"' in text
 
 
-def test_receipt_uses_only_task4_allowlisted_compact_files() -> None:
+def test_receipt_uses_only_attempt_local_allowlisted_compact_files() -> None:
     text = _text()
+    assert '$base = "attempts/$AttemptId"' in text
     for relative in (
         "manifest.json",
-        "selected-attempt.json",
-        "attempts/$AttemptId/stage-state.json",
-        "attempts/$AttemptId/snapshot-before.json",
-        "attempts/$AttemptId/snapshot-after.json",
-        "results/official/metric.json",
-        "results/official/metric-cdm.json",
-        "results/lightweight/metric.json",
-        "results/lightweight/metric-cdm.json",
-        "comparison/normalized-output.json",
-        "comparison/trace-diff.json",
-        "comparison/directml-attestation.json",
-        "comparison/decision.json",
+        "$base/selected-attempt.json",
+        "$base/stage-state.json",
+        "$base/snapshot-before.json",
+        "$base/snapshot-after.json",
+        "$base/compact/results/$engine/$name",
+        "$base/compact/comparison/$name",
     ):
         assert relative in text
     assert "paired-official/*.md" not in text
     assert "traces/official/*.jsonl" not in text
+
+
+def test_runner_has_no_root_level_compact_or_receipt_authority() -> None:
+    text = _text()
+    assert 'Join-Path $Task5Root "results/' not in text
+    assert 'Join-Path $Task5Root "comparison' not in text
+    assert 'Join-Path $Task5Root "receipt.sha256.json"' not in text
+    assert 'Join-Path $AttemptRoot "compact"' in text
+    assert 'Join-Path $AttemptRoot "receipt.sha256.json"' in text
+
+
+def test_candidate_schema_is_exact_and_has_no_timestamp() -> None:
+    text = _text()
+    assert "selected_at_utc" not in text
+    assert "effective_only_with_valid_receipt=$true" in text
+    assert 'g0_closure="PASS"' in text
+    assert "Write-CandidateAtomic" in text
+
+
+def test_compare_and_decide_bind_disjoint_final_output_files() -> None:
+    text = _text()
+    assert (
+        'Invoke-DurableStage "Compare" { Invoke-Compare } @((Join-Path $CompactRoot "comparison"))'
+        not in text
+    )
+    assert "comparison/input-contract.json" in text
+    assert "comparison/normalized-output.json" in text
+    assert "comparison/trace-diff.json" in text
+    assert "comparison/directml-attestation.json" in text
+    assert "comparison/decision.json" in text
+
+
+def test_selection_is_receipted_locally_before_atomic_root_publish() -> None:
+    text = _text()
+    receipt_validation = text.index('"validate-receipt"')
+    temporary_selection = text.index('"validate-selection"')
+    publication = text.index("Publish-RootSelection")
+    assert receipt_validation < temporary_selection < publication
+    assert "[IO.FileMode]::CreateNew" in text
+    assert "[IO.FileOptions]::WriteThrough" in text
+    assert "Move-Item -LiteralPath $temporary -Destination $pointer" in text
+
+
+def test_sealed_retry_only_republishes_pointer_and_valid_pointer_blocks_later_attempt() -> None:
+    text = _text()
+    assert "Resume-SealedAttemptSelection" in text
+    assert "A valid root selection already exists for another attempt" in text
+    assert "sealed attempt may only retry pointer publication" in text
+    complete = text[
+        text.index("function Complete-Receipt") : text.index(
+            "function Resume-SealedAttemptSelection"
+        )
+    ]
+    resume = text[
+        text.index("function Resume-SealedAttemptSelection") : text.index("function Require-Stages")
+    ]
+    assert "Write-AtomicJson $StageStatePath" not in complete + resume
+
+
+def _selection_fixture(tmp_path: Path, attempt_id: str = "a2") -> tuple[Path, dict[str, Path]]:
+    sys.path.insert(0, str(ROOT / "tests"))
+    try:
+        import test_task5_decision as fixture
+
+        task5_root = tmp_path / "r7" / "task5"
+        original = task5_manifest.APPROVED_G0_OUTPUT_SHA256
+        task5_manifest.APPROVED_G0_OUTPUT_SHA256 = fixture.TEST_G0_OUTPUT_DIGESTS
+        try:
+            paths = fixture._make_complete_selection(task5_root, attempt_id)
+        finally:
+            task5_manifest.APPROVED_G0_OUTPUT_SHA256 = original
+    finally:
+        sys.path.pop(0)
+    paths["pointer"].unlink()
+    return task5_root, paths
+
+
+def _tree_bytes(root: Path) -> dict[str, bytes]:
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+
+
+def _run_selection_resume(task5_root: Path, attempt_id: str) -> subprocess.CompletedProcess[str]:
+    sys.path.insert(0, str(ROOT / "tests"))
+    try:
+        from test_task5_decision import TEST_G0_OUTPUT_DIGESTS
+    finally:
+        sys.path.pop(0)
+    bootstrap = (
+        "import sys;import eval.task5_manifest as m;"
+        f"m.APPROVED_G0_OUTPUT_SHA256={TEST_G0_OUTPUT_DIGESTS!r};"
+        "from eval.task5_decision import main;raise SystemExit(main(sys.argv[1:]))"
+    )
+    bootstrap_b64 = base64.b64encode(bootstrap.encode()).decode()
+    attempt_root = task5_root / "attempts" / attempt_id
+    harness = task5_root.parent.parent / f"resume-{attempt_id}.ps1"
+    harness.write_text(
+        rf"""
+$ErrorActionPreference='Stop';$errors=$null;$tokens=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$tokens,[ref]$errors)
+foreach($name in @('Read-Json','Test-ByteEqual','New-TemporaryCandidatePointer','Validate-LocalSelection','Publish-RootSelection','Resume-SealedAttemptSelection')){{
+ $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true);Invoke-Expression $fn.Extent.Text
+}}
+$Task5Root='{task5_root}';$AttemptId='{attempt_id}';$AttemptRoot='{attempt_root}';$StageStatePath='{attempt_root / "stage-state.json"}';$PythonExe='{ROOT / ".venv/Scripts/python.exe"}'
+function Invoke-DecisionTool([string[]]$Arguments){{$bootstrap=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{bootstrap_b64}'));& $PythonExe -c $bootstrap @Arguments;if($LASTEXITCODE -ne 0){{throw 'decision tool failed'}}}}
+Resume-SealedAttemptSelection
+""",
+        encoding="utf-8",
+    )
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def _run_complete_receipt(task5_root: Path, attempt_id: str) -> subprocess.CompletedProcess[str]:
+    attempt_root = task5_root / "attempts" / attempt_id
+    sys.path.insert(0, str(ROOT / "tests"))
+    try:
+        from test_task5_decision import TEST_G0_OUTPUT_DIGESTS
+    finally:
+        sys.path.pop(0)
+    bootstrap = (
+        "import sys;import eval.task5_manifest as m;"
+        f"m.APPROVED_G0_OUTPUT_SHA256={TEST_G0_OUTPUT_DIGESTS!r};"
+        "from eval.task5_decision import main;raise SystemExit(main(sys.argv[1:]))"
+    )
+    bootstrap_b64 = base64.b64encode(bootstrap.encode()).decode()
+    harness = task5_root.parent.parent / f"complete-{attempt_id}.ps1"
+    harness.write_text(
+        rf"""
+$ErrorActionPreference='Stop';$errors=$null;$tokens=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$tokens,[ref]$errors)
+foreach($name in @('Read-Json','Test-ByteEqual','New-TemporaryCandidatePointer','Validate-LocalSelection','Publish-RootSelection','Get-AttemptReceiptPaths','Complete-Receipt')){{
+ $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true);Invoke-Expression $fn.Extent.Text
+}}
+$Task5Root='{task5_root}';$AttemptId='{attempt_id}';$AttemptRoot='{attempt_root}';$StageStatePath='{attempt_root / "stage-state.json"}';$CompactRoot='{attempt_root / "compact"}';$PythonExe='{ROOT / ".venv/Scripts/python.exe"}'
+function Read-State{{Read-Json $StageStatePath}};function Assert-RecordedStagesIntegrity{{param($State)}}
+function Invoke-DecisionTool([string[]]$Arguments){{$bootstrap=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{bootstrap_b64}'));& $PythonExe -c $bootstrap @Arguments;if($LASTEXITCODE -ne 0){{throw 'decision tool failed'}}}}
+Complete-Receipt
+""",
+        encoding="utf-8",
+    )
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def test_executable_receipt_creation_validates_locally_before_publish(tmp_path: Path) -> None:
+    task5_root, paths = _selection_fixture(tmp_path)
+    paths["receipt"].unlink()
+    before = _tree_bytes(paths["candidate"].parent)
+    result = _run_complete_receipt(task5_root, "a2")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert paths["receipt"].exists()
+    assert paths["pointer"].read_bytes() == paths["candidate"].read_bytes()
+    after = _tree_bytes(paths["candidate"].parent)
+    assert {k: v for k, v in after.items() if k != "receipt.sha256.json"} == before
+
+
+def test_executable_selection_publish_is_atomic_idempotent_and_attempt_local(
+    tmp_path: Path,
+) -> None:
+    task5_root, paths = _selection_fixture(tmp_path)
+    failed = task5_root / "attempts" / "a-failed"
+    failed.mkdir(parents=True)
+    (failed / "interrupted-compact.bin").write_bytes(b"failed-attempt-only")
+    failed_before = _tree_bytes(failed)
+    selected_before = _tree_bytes(paths["candidate"].parent)
+
+    first = _run_selection_resume(task5_root, "a2")
+    assert first.returncode == 0, first.stdout + first.stderr
+    assert paths["pointer"].read_bytes() == paths["candidate"].read_bytes()
+    assert _tree_bytes(failed) == failed_before
+    assert not (paths["candidate"].parent / "interrupted-compact.bin").exists()
+
+    second = _run_selection_resume(task5_root, "a2")
+    assert second.returncode == 0, second.stdout + second.stderr
+    assert _tree_bytes(paths["candidate"].parent) == selected_before
+    assert _tree_bytes(failed) == failed_before
+
+
+def test_executable_receipt_mutation_fails_without_pointer_or_attempt_rewrite(
+    tmp_path: Path,
+) -> None:
+    task5_root, paths = _selection_fixture(tmp_path)
+    paths["metric"].write_text('{"mutated":true}\n', encoding="utf-8")
+    before = _tree_bytes(paths["candidate"].parent)
+    result = _run_selection_resume(task5_root, "a2")
+    assert result.returncode != 0
+    assert not paths["pointer"].exists()
+    assert _tree_bytes(paths["candidate"].parent) == before
 
 
 def test_resume_integrity_binds_commit_manifest_commands_outputs_and_g0() -> None:
@@ -168,7 +368,9 @@ def test_powershell_parser_accepts_script() -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def _provider_probe(tmp_path: Path, stats: dict[str, object], report: dict[str, object]) -> subprocess.CompletedProcess[str]:
+def _provider_probe(
+    tmp_path: Path, stats: dict[str, object], report: dict[str, object]
+) -> subprocess.CompletedProcess[str]:
     work = tmp_path / "work"
     lightweight = work / "lightweight"
     lightweight.mkdir(parents=True)
@@ -245,7 +447,9 @@ def test_directml_probe_rejects_missing_or_other_provider_nodes(tmp_path: Path) 
         assert "missing/other" in result.stdout + result.stderr
 
 
-def _coverage_probe(function_name: str, stats: dict[str, object]) -> subprocess.CompletedProcess[str]:
+def _coverage_probe(
+    function_name: str, stats: dict[str, object]
+) -> subprocess.CompletedProcess[str]:
     command = rf"""
 $errors=$null
 $tokens=$null
@@ -323,8 +527,15 @@ if($captured -ne '{{"space value": "quoted ok"}}'){{throw "capture mismatch: $ca
 
 def test_logged_native_executes_exact_argv_without_shell_wrapper(tmp_path: Path) -> None:
     arguments = [
-        "%TASK5_ARGV_SENTINEL%", ">", "&", "|", "^", 'embedded"quote',
-        "trailing\\", "", "space value",
+        "%TASK5_ARGV_SENTINEL%",
+        ">",
+        "&",
+        "|",
+        "^",
+        'embedded"quote',
+        "trailing\\",
+        "",
+        "space value",
     ]
     source = tmp_path / "argv-probe.cs"
     executable = tmp_path / "argv-probe.exe"
@@ -332,13 +543,21 @@ def test_logged_native_executes_exact_argv_without_shell_wrapper(tmp_path: Path)
     source.write_text(
         "using System; using System.IO; using System.Linq; using System.Text; "
         "public static class P { public static int Main(string[] a) { "
-        "File.WriteAllText(a[0], String.Join(\",\", a.Skip(1).Select(x=>Convert.ToBase64String(Encoding.UTF8.GetBytes(x)))), new UTF8Encoding(false)); "
+        'File.WriteAllText(a[0], String.Join(",", a.Skip(1).Select(x=>Convert.ToBase64String(Encoding.UTF8.GetBytes(x)))), new UTF8Encoding(false)); '
         "return 0; } }",
         encoding="utf-8",
     )
     compile_result = subprocess.run(
-        [str(POWERSHELL), "-NoProfile", "-Command", f"Add-Type -Path '{source}' -OutputAssembly '{executable}' -OutputType WindowsApplication"],
-        cwd=tmp_path, text=True, capture_output=True, check=False,
+        [
+            str(POWERSHELL),
+            "-NoProfile",
+            "-Command",
+            f"Add-Type -Path '{source}' -OutputAssembly '{executable}' -OutputType WindowsApplication",
+        ],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        check=False,
     )
     assert compile_result.returncode == 0, compile_result.stdout + compile_result.stderr
     files_before = {path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file()}
@@ -360,12 +579,16 @@ def test_logged_native_executes_exact_argv_without_shell_wrapper(tmp_path: Path)
     assert "CreateProcessW(executable,cmd" in script_text
     assert "ComSpec" not in script_text and '"cmd.exe"' not in script_text
     expected_argv = [str(argv_output), *arguments]
-    assert record["arguments_sha256"] == hashlib.sha256("\0".join(expected_argv).encode()).hexdigest()
+    assert (
+        record["arguments_sha256"] == hashlib.sha256("\0".join(expected_argv).encode()).hexdigest()
+    )
     assert not (tmp_path / "commands" / "EXPANDED-BY-SHELL").exists()
     files_after = {path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file()}
     assert files_after - files_before == {
-        Path("argv-output.txt"), Path("integrity-probe.ps1"),
-        Path("commands/probe-native.log"), Path("commands/probe.jsonl"),
+        Path("argv-output.txt"),
+        Path("integrity-probe.ps1"),
+        Path("commands/probe-native.log"),
+        Path("commands/probe.jsonl"),
     }
 
 
@@ -374,9 +597,18 @@ def test_runner_binds_exact_environment_and_stage_integrity_contract() -> None:
     assert "[int]$CommandTimeoutSeconds = 86400" in text
     assert "[int]$TerminationGraceSeconds = 10" in text
     for key in (
-        "benchmark", "os", "machine", "gpu_devices", "python", "scorer_python",
-        "onnxruntime", "available_providers", "paddleocr", "official_adapter",
-        "lightweight_adapter", "server_model_runtime",
+        "benchmark",
+        "os",
+        "machine",
+        "gpu_devices",
+        "python",
+        "scorer_python",
+        "onnxruntime",
+        "available_providers",
+        "paddleocr",
+        "official_adapter",
+        "lightweight_adapter",
+        "server_model_runtime",
     ):
         assert f"{key} =" in text
     assert "Assert-StageStartIntegrity" in text
@@ -398,14 +630,21 @@ def _native_integrity_probe(
     command_root = tmp_path / "commands"
     command_root.mkdir()
     function_names = (
-        "Get-Sha256", "Get-StringSha256", "Write-AtomicText", "Add-CommandRecord",
-        "ConvertTo-NativeArgument", "Protect-LoggedText", "Initialize-NativeJobRunner",
+        "Get-Sha256",
+        "Get-StringSha256",
+        "Write-AtomicText",
+        "Add-CommandRecord",
+        "ConvertTo-NativeArgument",
+        "Protect-LoggedText",
+        "Initialize-NativeJobRunner",
         "Invoke-LoggedNative",
     )
     imports = ",".join(f"'{name}'" for name in function_names)
     native_executable = executable or str(ROOT / ".venv/Scripts/python.exe")
     native_arguments = argument_list or ["-c", code]
-    powershell_arguments = ",".join("'" + value.replace("'", "''") + "'" for value in native_arguments)
+    powershell_arguments = ",".join(
+        "'" + value.replace("'", "''") + "'" for value in native_arguments
+    )
     harness.write_text(
         rf"""
 $errors=$null
@@ -430,7 +669,12 @@ Write-Output "CAPTURE=$captured"
     )
     return subprocess.run(
         ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
-        cwd=ROOT, text=True, capture_output=True, check=False, timeout=30, env=env,
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=30,
+        env=env,
     )
 
 
@@ -457,23 +701,42 @@ def test_structured_redaction_recurses_and_scrubs_free_text(tmp_path: Path) -> N
     result = _native_integrity_probe(tmp_path, f"import json; print(json.dumps({sample!r}))")
     assert result.returncode == 0, result.stdout + result.stderr
     disk = "".join(path.read_text(encoding="utf-8") for path in (tmp_path / "commands").iterdir())
-    for sentinel in ("AUTH-SENTINEL", "KEY-SENTINEL", "RAW-SENTINEL", "SIGNED-SENTINEL", "QUERY-SENTINEL", "private-model.gguf", "HEADER-SENTINEL", "PROMPT-SENTINEL"):
+    for sentinel in (
+        "AUTH-SENTINEL",
+        "KEY-SENTINEL",
+        "RAW-SENTINEL",
+        "SIGNED-SENTINEL",
+        "QUERY-SENTINEL",
+        "private-model.gguf",
+        "HEADER-SENTINEL",
+        "PROMPT-SENTINEL",
+    ):
         assert sentinel not in disk
 
 
-def test_redaction_handles_jsonl_embedded_json_and_scans_entire_command_tree(tmp_path: Path) -> None:
+def test_redaction_handles_jsonl_embedded_json_and_scans_entire_command_tree(
+    tmp_path: Path,
+) -> None:
     sentinels = {
-        "AUTH-JSONL", "BEARER-JSONL", "API-EMBEDDED", "TOKEN-NESTED",
-        "CREDENTIAL-ARRAY", "SIG-AMZ", "SIG-SIGNED-URL", "PROMPT-TEXT",
-        "PAYLOAD-NESTED", "RAW-RESULT-TEXT", "QUOTED-FALLBACK",
+        "AUTH-JSONL",
+        "BEARER-JSONL",
+        "API-EMBEDDED",
+        "TOKEN-NESTED",
+        "CREDENTIAL-ARRAY",
+        "SIG-AMZ",
+        "SIG-SIGNED-URL",
+        "PROMPT-TEXT",
+        "PAYLOAD-NESTED",
+        "RAW-RESULT-TEXT",
+        "QUOTED-FALLBACK",
     }
     lines = [
         '{"authorization":"Bearer AUTH-JSONL","bearer":"BEARER-JSONL"}',
         'prefix {"api_key":"API-EMBEDDED","nested":[{"token":"TOKEN-NESTED"},'
         '{"credential":"CREDENTIAL-ARRAY","payload":"PAYLOAD-NESTED"}]} suffix',
-        'signed=https://host/item?X-Amz-Signature=SIG-AMZ&signature=SIG-SIGNED-URL',
-        'prompt: PROMPT-TEXT',
-        'raw result: RAW-RESULT-TEXT',
+        "signed=https://host/item?X-Amz-Signature=SIG-AMZ&signature=SIG-SIGNED-URL",
+        "prompt: PROMPT-TEXT",
+        "raw result: RAW-RESULT-TEXT",
         'malformed prefix "api_key": "QUOTED-FALLBACK" without object',
     ]
     code = "import sys; print('\\n'.join(sys.argv[1:]))"
@@ -481,7 +744,8 @@ def test_redaction_handles_jsonl_embedded_json_and_scans_entire_command_tree(tmp
     assert result.returncode == 0, result.stdout + result.stderr
     persisted = "".join(
         path.read_text(encoding="utf-8", errors="replace")
-        for path in (tmp_path / "commands").rglob("*") if path.is_file()
+        for path in (tmp_path / "commands").rglob("*")
+        if path.is_file()
     )
     for sentinel in sentinels:
         assert sentinel not in persisted
@@ -493,8 +757,13 @@ def test_redaction_handles_jsonl_embedded_json_and_scans_entire_command_tree(tmp
 
 def test_redaction_balances_pretty_multiline_json_before_free_text_fallback(tmp_path: Path) -> None:
     sentinels = {
-        "PRETTY-API", "PRETTY-PROMPT", "PRETTY-PAYLOAD", "PRETTY-RAW",
-        "PRETTY-AUTH", "PRETTY-TOKEN", "PRETTY-AMZ",
+        "PRETTY-API",
+        "PRETTY-PROMPT",
+        "PRETTY-PAYLOAD",
+        "PRETTY-RAW",
+        "PRETTY-AUTH",
+        "PRETTY-TOKEN",
+        "PRETTY-AMZ",
     }
     document = {
         "outer": {
@@ -511,7 +780,8 @@ def test_redaction_balances_pretty_multiline_json_before_free_text_fallback(tmp_
     assert result.returncode == 0, result.stdout + result.stderr
     persisted = "".join(
         path.read_text(encoding="utf-8", errors="replace")
-        for path in (tmp_path / "commands").rglob("*") if path.is_file()
+        for path in (tmp_path / "commands").rglob("*")
+        if path.is_file()
     )
     for sentinel in sentinels:
         assert sentinel not in persisted
@@ -528,12 +798,19 @@ def test_server_environment_never_persists_raw_requested_model_and_rejects_empty
 
 
 def _environment_contract_probe(
-    tmp_path: Path, *, empty_gpu: bool = False, model_name: str = r"C:\secret\MODEL-SENTINEL.gguf",
+    tmp_path: Path,
+    *,
+    empty_gpu: bool = False,
+    model_name: str = r"C:\secret\MODEL-SENTINEL.gguf",
     require_strict_server_json: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     tmp_path.mkdir(parents=True)
     harness = tmp_path / "environment.ps1"
-    gpu_body = "return @()" if empty_gpu else "return @([pscustomobject]@{Name='AMD Radeon';PNPDeviceID='PCI\\VEN_1002';DriverVersion='1.2.3'})"
+    gpu_body = (
+        "return @()"
+        if empty_gpu
+        else "return @([pscustomobject]@{Name='AMD Radeon';PNPDeviceID='PCI\\VEN_1002';DriverVersion='1.2.3'})"
+    )
     harness.write_text(
         rf"""
 $ErrorActionPreference='Stop';$errors=$null;$tokens=$null
@@ -545,18 +822,24 @@ $RepoRoot='{ROOT}';$Benchmark='OmniDocBench-v1.6';$PythonExe='python-stub.exe';$
 function Get-CimInstance{{param([Parameter(ValueFromRemainingArguments=$true)]$rest);{gpu_body}}}
 function Invoke-DirectPython{{param([string]$Code,[string[]]$Arguments)
  if($Code -like '*urllib.request*'){{
-  if({'$true' if require_strict_server_json else '$false'} -and ($Code -notlike '*object_pairs_hook*' -or $Code -notlike '*parse_constant*')){{throw 'server JSON parser is not strict'}}
-  return '{{"models_sha256":"{('c'*64)}"}}'
+  if({"$true" if require_strict_server_json else "$false"} -and ($Code -notlike '*object_pairs_hook*' -or $Code -notlike '*parse_constant*')){{throw 'server JSON parser is not strict'}}
+  return '{{"models_sha256":"{("c" * 64)}"}}'
  }}
  if($Code -like '*onnxruntime*'){{return '{{"version":"1.0","available_providers":["DmlExecutionProvider","CPUExecutionProvider"]}}'}}
  if($Code -like '*importlib.metadata*'){{return '{{"version":"1.0"}}'}}
- return '{{"version":"3.10","executable_sha256":"{('a'*64)}"}}'
+ return '{{"version":"3.10","executable_sha256":"{("a" * 64)}"}}'
 }}
 Get-EnvironmentContract | ConvertTo-Json -Compress -Depth 20
 """,
         encoding="utf-8",
     )
-    return subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)], cwd=ROOT, text=True, capture_output=True, check=False)
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
 def test_actual_environment_helper_redacts_model_and_validates_gpu(tmp_path: Path) -> None:
@@ -565,9 +848,18 @@ def test_actual_environment_helper_redacts_model_and_validates_gpu(tmp_path: Pat
     assert "MODEL-SENTINEL" not in valid.stdout
     environment = json.loads(valid.stdout)
     assert set(environment) == {
-        "benchmark", "os", "machine", "gpu_devices", "python", "scorer_python",
-        "onnxruntime", "available_providers", "paddleocr", "official_adapter",
-        "lightweight_adapter", "server_model_runtime",
+        "benchmark",
+        "os",
+        "machine",
+        "gpu_devices",
+        "python",
+        "scorer_python",
+        "onnxruntime",
+        "available_providers",
+        "paddleocr",
+        "official_adapter",
+        "lightweight_adapter",
+        "server_model_runtime",
     }
     assert environment["server_model_runtime"]["requested_model"] == "<redacted>"
     assert len(environment["server_model_runtime"]["requested_model_sha256"]) == 64
@@ -576,10 +868,14 @@ def test_actual_environment_helper_redacts_model_and_validates_gpu(tmp_path: Pat
     assert "GPU environment identity is empty" in empty.stdout + empty.stderr
 
 
-def test_environment_model_identity_is_exact_trimmed_utf8_and_server_json_is_strict(tmp_path: Path) -> None:
+def test_environment_model_identity_is_exact_trimmed_utf8_and_server_json_is_strict(
+    tmp_path: Path,
+) -> None:
     model = "  CaseSensitive-Model  "
     result = _environment_contract_probe(
-        tmp_path / "strict", model_name=model, require_strict_server_json=True,
+        tmp_path / "strict",
+        model_name=model,
+        require_strict_server_json=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     environment = json.loads(result.stdout)
@@ -674,8 +970,15 @@ def test_job_contains_fast_launcher_escape_before_root_executes(tmp_path: Path) 
     assert record["survivor_pids"] == []
     assert record["termination_result"] == "terminated"
     audit = subprocess.run(
-        ["powershell.exe", "-NoProfile", "-Command", f"@(Get-CimInstance Win32_Process | ? {{ $_.CommandLine -like '*{marker}*' }}).Count"],
-        text=True, capture_output=True, check=False,
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-Command",
+            f"@(Get-CimInstance Win32_Process | ? {{ $_.CommandLine -like '*{marker}*' }}).Count",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
     )
     # The audit shell contains the marker in its own command line; no second PID may survive.
     assert audit.returncode == 0 and audit.stdout.strip() == "1"
@@ -709,7 +1012,11 @@ Write-Output 'ASSIGN_FAILURE_CLEAN=1'
     )
     result = subprocess.run(
         [str(POWERSHELL), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
-        cwd=ROOT, text=True, capture_output=True, check=False, timeout=30,
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=30,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "ASSIGN_FAILURE_CLEAN=1" in result.stdout
@@ -740,19 +1047,30 @@ Assert-CommandLogIntegrity '{jsonl}'
     )
     return subprocess.run(
         ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
-        cwd=ROOT, text=True, capture_output=True, check=False,
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
     )
 
 
 def _valid_command_record() -> dict[str, object]:
     digest = hashlib.sha256(b"safe\n").hexdigest()
     return {
-        "name": "probe", "executable_sha256": "a" * 64, "arguments_sha256": "b" * 64,
-        "started_at_utc": "2026-07-14T00:00:00Z", "ended_at_utc": "2026-07-14T00:00:01Z",
-        "exit_code": 0, "timed_out": False, "descendant_pids": [],
-        "survivor_pids": [], "job_active_count": 0,
-        "termination_result": "not-required", "orphan_audit": "PASS",
-        "log_path": "commands/probe.log", "log_sha256": digest,
+        "name": "probe",
+        "executable_sha256": "a" * 64,
+        "arguments_sha256": "b" * 64,
+        "started_at_utc": "2026-07-14T00:00:00Z",
+        "ended_at_utc": "2026-07-14T00:00:01Z",
+        "exit_code": 0,
+        "timed_out": False,
+        "descendant_pids": [],
+        "survivor_pids": [],
+        "job_active_count": 0,
+        "termination_result": "not-required",
+        "orphan_audit": "PASS",
+        "log_path": "commands/probe.log",
+        "log_sha256": digest,
     }
 
 
@@ -772,12 +1090,28 @@ def test_command_log_integrity_helper_rejects_semantic_and_jsonl_mutations(tmp_p
         "duplicate_name": json.dumps(base) + "\n" + json.dumps(base) + "\n",
         "duplicate_key": json.dumps(base)[:-1] + ',"name":"again"}\n',
         "nan": json.dumps(base)[:-1] + ',"extra":NaN}\n',
-        "false_orphan_pass": json.dumps({**base, "survivor_pids": [123], "job_active_count": 1}) + "\n",
+        "false_orphan_pass": json.dumps({**base, "survivor_pids": [123], "job_active_count": 1})
+        + "\n",
         "not_required_descendant": json.dumps({**base, "descendant_pids": [123]}) + "\n",
-        "terminated_without_descendant": json.dumps({**base, "termination_result": "terminated"}) + "\n",
-        "survivors_marked_pass": json.dumps({**base, "termination_result": "survivors", "survivor_pids": [123], "job_active_count": 1}) + "\n",
-        "timeout_exit_zero": json.dumps({**base, "timed_out": True, "termination_result": "root-terminated"}) + "\n",
-        "duplicate_pid": json.dumps({**base, "descendant_pids": [123, 123], "termination_result": "terminated"}) + "\n",
+        "terminated_without_descendant": json.dumps({**base, "termination_result": "terminated"})
+        + "\n",
+        "survivors_marked_pass": json.dumps(
+            {
+                **base,
+                "termination_result": "survivors",
+                "survivor_pids": [123],
+                "job_active_count": 1,
+            }
+        )
+        + "\n",
+        "timeout_exit_zero": json.dumps(
+            {**base, "timed_out": True, "termination_result": "root-terminated"}
+        )
+        + "\n",
+        "duplicate_pid": json.dumps(
+            {**base, "descendant_pids": [123, 123], "termination_result": "terminated"}
+        )
+        + "\n",
     }
     for name, text in mutations.items():
         result = _command_log_probe(tmp_path / name, text)
@@ -801,7 +1135,13 @@ def test_next_stage_precheck_rejects_rehashed_but_semantically_corrupt_log(tmp_p
     state = {
         "producing_commit": commit,
         "manifest_sha256": manifest_sha,
-        "stages": {"Official": {"command_log_sha256": command_sha, "output_roots": ["ignored"], "output_map_sha256": "ok"}},
+        "stages": {
+            "Official": {
+                "command_log_sha256": command_sha,
+                "output_roots": ["ignored"],
+                "output_map_sha256": "ok",
+            }
+        },
     }
     harness = tmp_path / "next-stage.ps1"
     harness.write_text(
@@ -817,14 +1157,17 @@ function Get-OutputMapSha([object]$Map){{return 'ok'}}
 $PythonExe='{ROOT / ".venv/Scripts/python.exe"}'
 $RepoRoot='{ROOT}'
 $AttemptRoot='{attempt}';$CommandRoot='{commands}';$ManifestPath='{manifest}'
-$state='{json.dumps(state, separators=(',', ':'))}' | ConvertFrom-Json
+$state='{json.dumps(state, separators=(",", ":"))}' | ConvertFrom-Json
 Assert-RecordedStagesIntegrity $state
 """,
         encoding="utf-8",
     )
     result = subprocess.run(
         ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
-        cwd=ROOT, text=True, capture_output=True, check=False,
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
     )
     assert result.returncode != 0
     assert "digest mismatch" in result.stdout + result.stderr
@@ -845,7 +1188,7 @@ $ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$
 foreach($name in @('Get-Sha256','Get-StringSha256','ConvertTo-NativeArgument','Initialize-NativeJobRunner','Invoke-DirectPython','Assert-CommandLogIntegrity','Invoke-DurableStage')){{
  $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true);Invoke-Expression $fn.Extent.Text
 }}
-$PythonExe='{ROOT / ".venv/Scripts/python.exe"}';$RepoRoot='{ROOT}';$AttemptRoot='{attempt}';$CommandRoot='{commands}';$StageStatePath='{attempt / 'state.json'}'
+$PythonExe='{ROOT / ".venv/Scripts/python.exe"}';$RepoRoot='{ROOT}';$AttemptRoot='{attempt}';$CommandRoot='{commands}';$StageStatePath='{attempt / "state.json"}'
 $script:state=[pscustomobject]@{{status='active';stages=[pscustomobject]@{{}}}}
 function Read-State{{return $script:state}};function Assert-RecordedStagesIntegrity{{param($s)}};function Assert-StageStartIntegrity{{param($s,$n)}}
 function Get-OutputMap{{param($r);return [ordered]@{{x='y'}}}};function Get-OutputMapSha{{param($m);return 'ok'}};function Write-AtomicJson{{param($p,$v)}}
@@ -853,13 +1196,21 @@ Invoke-DurableStage 'Probe' {{}} @('ignored')
 """,
         encoding="utf-8",
     )
-    result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)], cwd=ROOT, text=True, capture_output=True, check=False)
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
     assert result.returncode != 0
     combined = result.stdout + result.stderr
     assert "command log" in combined and "integrity mismatch" in combined
 
 
-def _make_stage_manifest(tmp_path: Path, commit: str) -> tuple[Path, dict[str, Path], dict[str, str], dict[str, object]]:
+def _make_stage_manifest(
+    tmp_path: Path, commit: str
+) -> tuple[Path, dict[str, Path], dict[str, str], dict[str, object]]:
     r7 = tmp_path / "r7"
     (r7 / "results" / "official").mkdir(parents=True)
     (r7 / "task5").mkdir()
@@ -879,10 +1230,16 @@ def _make_stage_manifest(tmp_path: Path, commit: str) -> tuple[Path, dict[str, P
     for name, path in inputs.items():
         path.write_bytes((name + "\n").encode())
     environment: dict[str, object] = {
-        "benchmark": "OmniDocBench-v1.6", "os": "Windows", "machine": "probe",
-        "gpu_devices": [], "python": {"version": "stub"}, "scorer_python": {"version": "stub"},
-        "onnxruntime": {"version": "stub"}, "available_providers": ["DmlExecutionProvider", "CPUExecutionProvider"],
-        "paddleocr": {"version": "stub"}, "official_adapter": {"sha256": "a" * 64},
+        "benchmark": "OmniDocBench-v1.6",
+        "os": "Windows",
+        "machine": "probe",
+        "gpu_devices": [],
+        "python": {"version": "stub"},
+        "scorer_python": {"version": "stub"},
+        "onnxruntime": {"version": "stub"},
+        "available_providers": ["DmlExecutionProvider", "CPUExecutionProvider"],
+        "paddleocr": {"version": "stub"},
+        "official_adapter": {"sha256": "a" * 64},
         "lightweight_adapter": {"sha256": "b" * 64},
         "server_model_runtime": {"models_sha256": "c" * 64, "requested_model": "stub"},
     }
@@ -891,8 +1248,11 @@ def _make_stage_manifest(tmp_path: Path, commit: str) -> tuple[Path, dict[str, P
     task5_manifest.APPROVED_G0_OUTPUT_SHA256 = authority
     try:
         manifest = task5_manifest.build_task5_manifest(
-            r7_root=r7, receipt_path=receipt, git_commit=commit,
-            inputs=inputs, environment=environment,
+            r7_root=r7,
+            receipt_path=receipt,
+            git_commit=commit,
+            inputs=inputs,
+            environment=environment,
             contracts={"benchmark": "OmniDocBench-v1.6"},
         )
     finally:
@@ -902,7 +1262,13 @@ def _make_stage_manifest(tmp_path: Path, commit: str) -> tuple[Path, dict[str, P
     return manifest_path, inputs, authority, environment
 
 
-def _stage_integrity_probe(tmp_path: Path, *, mutate_input: str | None = None, bad_commit: bool = False, environment_drift: bool = False) -> subprocess.CompletedProcess[str]:
+def _stage_integrity_probe(
+    tmp_path: Path,
+    *,
+    mutate_input: str | None = None,
+    bad_commit: bool = False,
+    environment_drift: bool = False,
+) -> subprocess.CompletedProcess[str]:
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     manifest_path, inputs, authority, environment = _make_stage_manifest(tmp_path, commit)
     if mutate_input:
@@ -935,16 +1301,27 @@ function Invoke-LoggedNative([string]$StageName,[string]$Name,[string]$Executabl
  $bootstrap=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{bootstrap_b64}'))
  Invoke-DirectPython $bootstrap @('validate','--manifest',$ManifestPath,'--task5-root',$Task5Root) | Out-Null
 }}
-$state='{json.dumps(state, separators=(',', ':'))}' | ConvertFrom-Json
+$state='{json.dumps(state, separators=(",", ":"))}' | ConvertFrom-Json
 Assert-StageStartIntegrity $state 'Official'
 """,
         encoding="utf-8",
     )
-    return subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)], cwd=ROOT, text=True, capture_output=True, check=False)
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
-@pytest.mark.parametrize("input_name", ["dataset", "layout_model", "runtime_config", "python_executable", "scorer_python_executable"])
-def test_stage_start_integrity_revalidates_each_bound_input(tmp_path: Path, input_name: str) -> None:
+@pytest.mark.parametrize(
+    "input_name",
+    ["dataset", "layout_model", "runtime_config", "python_executable", "scorer_python_executable"],
+)
+def test_stage_start_integrity_revalidates_each_bound_input(
+    tmp_path: Path, input_name: str
+) -> None:
     drift = _stage_integrity_probe(tmp_path / input_name, mutate_input=input_name)
     assert drift.returncode != 0
 
@@ -959,8 +1336,12 @@ def test_stage_start_integrity_revalidates_environment_and_commit(tmp_path: Path
     assert "producing commit integrity mismatch" in mismatch.stdout + mismatch.stderr
 
 
-@pytest.mark.parametrize("drift", ["dataset", "layout", "runtime", "python", "scorer", "environment", "commit"])
-def test_preflight_boundary_rejects_drift_before_first_business_command(tmp_path: Path, drift: str) -> None:
+@pytest.mark.parametrize(
+    "drift", ["dataset", "layout", "runtime", "python", "scorer", "environment", "commit"]
+)
+def test_preflight_boundary_rejects_drift_before_first_business_command(
+    tmp_path: Path, drift: str
+) -> None:
     marker = tmp_path / "business-launched.txt"
     harness = tmp_path / "preflight-order.ps1"
     harness.write_text(
@@ -970,7 +1351,7 @@ $ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$
 foreach($name in @('Invoke-DurableStage','Invoke-PreflightStage')){{
  $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true);Invoke-Expression $fn.Extent.Text
 }}
-$ManifestPath='{tmp_path / 'manifest.json'}';$AttemptRoot='{tmp_path}';$Benchmark='v16';$script:Drift=$null
+$ManifestPath='{tmp_path / "manifest.json"}';$AttemptRoot='{tmp_path}';$Benchmark='v16';$script:Drift=$null
 function Initialize-PreflightAttempt{{$script:Drift='{drift}'}}
 function Read-State{{return [pscustomobject]@{{stages=[pscustomobject]@{{}}}}}}
 function Assert-RecordedStagesIntegrity{{param($State)}}
@@ -981,6 +1362,12 @@ Invoke-PreflightStage
 """,
         encoding="utf-8",
     )
-    result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)], cwd=ROOT, text=True, capture_output=True, check=False)
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
     assert result.returncode != 0
     assert not marker.exists(), drift
