@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -143,6 +144,87 @@ def test_compare_and_decide_bind_disjoint_final_output_files() -> None:
     assert "comparison/trace-diff.json" in text
     assert "comparison/directml-attestation.json" in text
     assert "comparison/decision.json" in text
+
+
+def _compact_topology_probe(tmp_path: Path, extra_kind: str) -> subprocess.CompletedProcess[str]:
+    compact = tmp_path / "compact"
+    result_names = (
+        "metric.json",
+        "metric-cdm.json",
+        "run-summary.json",
+        "run-summary-cdm.json",
+        "provenance.json",
+        "provenance-cdm.json",
+    )
+    for engine in ("official", "lightweight"):
+        directory = compact / "results" / engine
+        directory.mkdir(parents=True)
+        for name in result_names:
+            (directory / name).write_text("{}\n", encoding="utf-8")
+    comparison = compact / "comparison"
+    comparison.mkdir()
+    for name in (
+        "input-contract.json",
+        "normalized-output.json",
+        "trace-diff.json",
+        "directml-attestation.json",
+        "decision.json",
+    ):
+        (comparison / name).write_text("{}\n", encoding="utf-8")
+    if extra_kind == "file":
+        (compact / "unreceipted-extra.json").write_text("{}\n", encoding="utf-8")
+    elif extra_kind == "directory":
+        (compact / "unreceipted-extra").mkdir()
+    else:
+        target = tmp_path / "junction-target"
+        if extra_kind == "allowed-junction":
+            shutil.copytree(comparison, target)
+            shutil.rmtree(comparison)
+            junction_path = comparison
+        else:
+            target.mkdir()
+            junction_path = compact / "unreceipted-junction"
+        created = subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-Command",
+                f"New-Item -ItemType Junction -Path '{junction_path}' -Target '{target}' | Out-Null",
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if created.returncode != 0:
+            pytest.skip(f"junction creation unavailable: {created.stderr}")
+    harness = tmp_path / "compact-topology.ps1"
+    harness.write_text(
+        rf"""
+$ErrorActionPreference='Stop';$errors=$null;$tokens=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$tokens,[ref]$errors)
+foreach($name in @('Assert-NoReparsePoint','Assert-ExactFileSet','Assert-ExactChildDirectories','Assert-CompactEvidenceComplete')){{
+ $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true);Invoke-Expression $fn.Extent.Text
+}}
+$CompactRoot='{compact}'
+Assert-CompactEvidenceComplete
+""",
+        encoding="utf-8",
+    )
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+@pytest.mark.parametrize("extra_kind", ["file", "directory", "junction", "allowed-junction"])
+def test_compact_topology_rejects_every_unreceipted_extra(tmp_path: Path, extra_kind: str) -> None:
+    result = _compact_topology_probe(tmp_path, extra_kind)
+    assert result.returncode != 0, extra_kind
+    combined = (result.stdout + result.stderr).lower()
+    assert "topology" in combined or "reparse" in combined
 
 
 def test_selection_is_receipted_locally_before_atomic_root_publish() -> None:
@@ -315,6 +397,325 @@ def test_executable_receipt_mutation_fails_without_pointer_or_attempt_rewrite(
     assert result.returncode != 0
     assert not paths["pointer"].exists()
     assert _tree_bytes(paths["candidate"].parent) == before
+
+
+TRANSACTION_FAILPOINTS = (
+    "compact-production",
+    "stage-state-sealing",
+    "candidate-write",
+    "receipt-creation",
+    "receipt-validation",
+    "local-selection-validation",
+    "root-pointer-temp-write",
+    "root-pointer-rename",
+    "root-pointer-post-validation",
+)
+
+
+def test_production_runner_contains_no_stub_or_failpoint_activation_surface() -> None:
+    text = _text()
+    for forbidden in (
+        "TestStubPlan",
+        "TestStub",
+        "TransactionFailpoint",
+        "INTERNAL_TEST_MODE",
+        "PADDLEOCR_TASK5_INTERNAL_TEST_MODE",
+    ):
+        assert forbidden not in text
+
+
+def _replace_ps_function(text: str, name: str, next_name: str, replacement: str) -> str:
+    start = text.index(f"  function {name}")
+    end = text.index(f"  function {next_name}", start)
+    return text[:start] + replacement.rstrip() + "\n\n" + text[end:]
+
+
+def _instrument_full_stage_runner(
+    text: str, templates: Path, authority: dict[str, str], receipt_sha: str
+) -> str:
+    manifest_bootstrap = base64.b64encode(
+        (
+            "import sys;import eval.task5_manifest as m;"
+            f"m.APPROVED_G0_OUTPUT_SHA256={authority!r};"
+            f"m.APPROVED_G0_RECEIPT_SHA256='{receipt_sha}';"
+            "raise SystemExit(m.main(sys.argv[1:]))"
+        ).encode()
+    ).decode()
+    decision_bootstrap = base64.b64encode(
+        (
+            "import sys;import eval.task5_manifest as m;"
+            f"m.APPROVED_G0_OUTPUT_SHA256={authority!r};"
+            f"m.APPROVED_G0_RECEIPT_SHA256='{receipt_sha}';"
+            "from eval.task5_decision import main;raise SystemExit(main(sys.argv[1:]))"
+        ).encode()
+    ).decode()
+    template_ps = str(templates).replace("'", "''")
+    text = text.replace(
+        'throw "strict helper failed: $(Get-StringSha256 ([string]$job.Stderr))"',
+        'throw "strict helper failed in isolated stub: $([string]$job.Stderr)"',
+        1,
+    )
+    text = text.replace(
+        '  [string]$G0Receipt = "",',
+        '  [string]$G0Receipt = "",\n  [string]$TestStubPlan = "",',
+        1,
+    )
+    hook = r"""
+  $script:TestFailpoint = [string]((Get-Content -Raw -LiteralPath $TestStubPlan | ConvertFrom-Json).failpoint)
+  function Invoke-TransactionFailpoint([string]$Name) {
+    if ($script:TestFailpoint -ceq $Name) { throw "Injected Task 5 transaction interruption: $Name" }
+  }
+"""
+    text = text.replace(
+        '  $ApprovedProviders = @("DmlExecutionProvider", "CPUExecutionProvider")\n',
+        '  $ApprovedProviders = @("DmlExecutionProvider", "CPUExecutionProvider")\n' + hook,
+        1,
+    )
+    text = _replace_ps_function(
+        text,
+        "Assert-TrackedWorktreeClean",
+        "Get-GitCommit",
+        "  function Assert-TrackedWorktreeClean { return }",
+    )
+    environment = """  function Get-EnvironmentContract {
+    return [ordered]@{benchmark=$Benchmark;os="Windows-stub";machine="task5-stub";gpu_devices=@([ordered]@{Name="AMD stub";PNPDeviceID="PCI-stub";DriverVersion="stub"});python=[ordered]@{version="stub"};scorer_python=[ordered]@{version="stub"};onnxruntime=[ordered]@{version="stub"};available_providers=@("DmlExecutionProvider","CPUExecutionProvider");paddleocr=[ordered]@{version="stub"};official_adapter=[ordered]@{image_to_markdown=("a"*64);evaluation=("b"*64)};lightweight_adapter=[ordered]@{layout=("c"*64);pipeline=("d"*64)};server_model_runtime=[ordered]@{models_sha256=("e"*64);requested_model="<redacted>";requested_model_sha256=Get-StringSha256 ($ApiModelName.Trim())}}
+  }"""
+    text = _replace_ps_function(
+        text, "Get-EnvironmentContract", "Get-InferenceContract", environment
+    )
+    logged = rf'''  function Get-StubArgument([string[]]$Arguments,[string]$Name) {{
+    $index=[Array]::IndexOf($Arguments,$Name); if($index -lt 0){{throw "missing stub arg: $Name"}}; return [string]$Arguments[$index+1]
+  }}
+  function Invoke-StubPython([string]$Bootstrap,[string[]]$Arguments) {{
+    $code=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Bootstrap)); return Invoke-DirectPython $code $Arguments
+  }}
+  function Invoke-LoggedNative([string]$StageName,[string]$Name,[string]$Executable,[string[]]$Arguments,[switch]$Capture) {{
+    $stdout=""
+    if($Name -in @("manifest-create","manifest-validate","manifest-revalidate","manifest-revalidate-seal","g0-snapshot-before","g0-snapshot-after")) {{
+      $stdout=Invoke-StubPython "{manifest_bootstrap}" $Arguments[2..($Arguments.Count-1)]
+    }} elseif($Name -eq "official-infer") {{
+      $p=Get-StubArgument $Arguments "--predictions-dir";$t=Get-StubArgument $Arguments "--trace-dir";New-Item -ItemType Directory -Force -Path $p,$t|Out-Null;Write-AtomicJson (Join-Path $p "_run_stats.json") ([ordered]@{{count=1651;ok=1650;fail=1;fallback=0;limit_pages=$null}})
+    }} elseif($Name -eq "lightweight-infer") {{
+      $p=Get-StubArgument $Arguments "--predictions-dir";$t=Get-StubArgument $Arguments "--trace-dir";$profile=(Get-StubArgument $Arguments "--layout-profile-prefix")+".json";New-Item -ItemType Directory -Force -Path $p,$t,(Split-Path -Parent $profile)|Out-Null;Write-AtomicJson (Join-Path $p "_run_stats.json") ([ordered]@{{count=1651;ok=1651;fail=0;fallback=0;limit_pages=$null;layout_provider_requested="auto";layout_providers_active=@("DmlExecutionProvider","CPUExecutionProvider");layout_fallback_disabled=$true}});Write-AtomicJson $profile ([ordered]@{{traceEvents=@()}})
+    }} elseif($Name -match '^(official|lightweight)-score') {{
+      $engine=($Name -split '-')[0];foreach($flag in @("--copy-report","--run-summary","--provenance")){{$dest=Get-StubArgument $Arguments $flag;$leaf=Split-Path -Leaf $dest;Copy-Item -LiteralPath (Join-Path '{template_ps}' "results/$engine/$leaf") -Destination $dest}}
+    }} elseif($Name -eq "normalized-output") {{Copy-Item -LiteralPath (Join-Path '{template_ps}' 'comparison/normalized-output.json') -Destination ([string]$Arguments[-1])
+    }} elseif($Name -eq "trace-diff") {{Copy-Item -LiteralPath (Join-Path '{template_ps}' 'comparison/trace-diff.json') -Destination (Get-StubArgument $Arguments '--output')
+    }} elseif($Name -eq "directml-attestation") {{$stdout=Get-Content -Raw -LiteralPath (Join-Path '{template_ps}' 'comparison/directml-attestation.json')
+    }} elseif($Name -eq "decision") {{$stdout=Invoke-StubPython "{decision_bootstrap}" $Arguments[2..($Arguments.Count-1)]}}
+    Add-InternalCommandRecord $StageName $Name ("stub:"+$Name);if($Capture){{return $stdout.Trim()}}
+  }}'''
+    text = _replace_ps_function(text, "Invoke-LoggedNative", "Get-ImmutableInputs", logged)
+    decision_tool = rf'''  function Invoke-DecisionTool([string[]]$Arguments) {{
+    $code=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("{decision_bootstrap}"));Invoke-DirectPython $code $Arguments|Out-Null
+  }}'''
+    text = _replace_ps_function(text, "Invoke-DecisionTool", "Test-ByteEqual", decision_tool)
+    injections = (
+        (
+            "    New-Item -ItemType Directory -Path $AttemptRoot, $WorkRoot, $CommandRoot | Out-Null",
+            '    New-Item -ItemType Directory -Path $AttemptRoot, $WorkRoot, $CommandRoot | Out-Null\n    Write-AtomicText (Join-Path $WorkRoot "origin-$AttemptId.txt") $AttemptId',
+        ),
+        (
+            '    Invoke-EngineScores "lightweight" "Score"',
+            '    Invoke-EngineScores "lightweight" "Score"\n    Invoke-TransactionFailpoint "compact-production"',
+        ),
+        (
+            '    $state.status = "sealed"',
+            '    Invoke-TransactionFailpoint "stage-state-sealing"\n    $state.status = "sealed"',
+        ),
+        (
+            "    Write-AtomicJson $candidatePath $candidate",
+            '    Write-AtomicJson $candidatePath $candidate\n    Invoke-TransactionFailpoint "candidate-write"',
+        ),
+        (
+            "    Invoke-DecisionTool $args[2..($args.Count-1)]",
+            '    Invoke-DecisionTool $args[2..($args.Count-1)]\n    Invoke-TransactionFailpoint "receipt-creation"',
+        ),
+        (
+            '    Invoke-DecisionTool @("validate-receipt", "--task5-root", $Task5Root, "--receipt", $receipt)',
+            '    Invoke-DecisionTool @("validate-receipt", "--task5-root", $Task5Root, "--receipt", $receipt)\n    Invoke-TransactionFailpoint "receipt-validation"',
+        ),
+        (
+            '    try { Invoke-DecisionTool @("validate-selection", "--task5-root", $Task5Root, "--pointer", $temporary) }',
+            '    try { Invoke-DecisionTool @("validate-selection", "--task5-root", $Task5Root, "--pointer", $temporary); Invoke-TransactionFailpoint "local-selection-validation" }',
+        ),
+        (
+            "      try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }",
+            '      try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }\n      Invoke-TransactionFailpoint "root-pointer-temp-write"\n      Invoke-TransactionFailpoint "root-pointer-rename"',
+        ),
+        (
+            '      $publishedHere = $true\n      Invoke-DecisionTool @("validate-selection", "--task5-root", $Task5Root, "--pointer", $pointer)',
+            '      $publishedHere = $true\n      Invoke-DecisionTool @("validate-selection", "--task5-root", $Task5Root, "--pointer", $pointer)\n      Invoke-TransactionFailpoint "root-pointer-post-validation"',
+        ),
+    )
+    for old, new in injections:
+        assert text.count(old) >= 1, old
+        text = text.replace(old, new, 1)
+    return text
+
+
+def _make_full_stage_stub_root(tmp_path: Path) -> tuple[Path, Path, Path]:
+    repo = tmp_path / "stub-repo"
+    script = repo / "scripts" / SCRIPT.name
+    script.parent.mkdir(parents=True)
+    required = (
+        "eval/PaddleOCRVLROCm_img2md.py",
+        "eval/run_eval.py",
+        "eval/configs/omnidocbench_v16.yaml",
+        "eval/requirements-omnidocbench-v16.txt",
+        "eval/requirements-omnidocbench-v16-transitive.txt",
+        "eval/benchmark_contract.py",
+        "src/paddleocr_vl_rocm/layout.py",
+        "src/paddleocr_vl_rocm/pipeline.py",
+        "src/paddleocr_vl_rocm/assets/runtime-manifest.json",
+    )
+    for relative in required:
+        path = repo / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"stub:{relative}\n", encoding="utf-8")
+    (repo / "eval" / ".omnidocbench").mkdir()
+    dataset = repo / "dataset"
+    dataset.mkdir()
+    (dataset / "OmniDocBench.json").write_text("{}\n", encoding="utf-8")
+    layout = repo / "layout"
+    layout.mkdir()
+    (layout / "inference.onnx").write_bytes(b"stub-onnx")
+    (layout / "inference.yml").write_text("stub: true\n", encoding="utf-8")
+    runtime = repo / "runtime.json"
+    gguf = repo / "model.gguf"
+    mmproj = repo / "mmproj.gguf"
+    gguf.write_bytes(b"stub-model")
+    mmproj.write_bytes(b"stub-mmproj")
+    runtime.write_text(
+        json.dumps({"main_gguf": str(gguf), "mmproj": str(mmproj), "layout_model_dir": str(layout)})
+        + "\n",
+        encoding="utf-8",
+    )
+    r7 = tmp_path / "r7"
+    (r7 / "task5").mkdir(parents=True)
+    (r7 / "manifest.json").write_bytes(b'{"sealed":true}\n')
+    (r7 / "receipt.sha256.json").write_text("{}\n", encoding="utf-8")
+    sys.path.insert(0, str(ROOT / "tests"))
+    try:
+        from test_task5_decision import TEST_G0_OUTPUT_DIGESTS
+    finally:
+        sys.path.pop(0)
+    for relative in task5_manifest.OFFICIAL_OUTPUTS:
+        output = r7 / relative
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes((json.dumps({"output": relative}) + "\n").encode())
+    _, source_paths = _selection_fixture(tmp_path / "template-source", "template")
+    templates = repo / "stub-templates"
+    shutil.copytree(source_paths["candidate"].parent / "compact", templates)
+    instrumented = _instrument_full_stage_runner(
+        SCRIPT.read_text(encoding="utf-8"),
+        templates,
+        TEST_G0_OUTPUT_DIGESTS,
+        hashlib.sha256((r7 / "receipt.sha256.json").read_bytes()).hexdigest(),
+    )
+    script.write_text(instrumented, encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.email", "stub@example.invalid"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Task5 Stub"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "stub"], cwd=repo, check=True)
+    plan = tmp_path / "stub-plan.json"
+    plan.write_text('{"failpoint":""}\n', encoding="utf-8")
+    return script, r7, plan
+
+
+def _run_full_stage_stub(
+    script: Path, r7: Path, plan: Path, attempt_id: str, failpoint: str
+) -> subprocess.CompletedProcess[str]:
+    plan.write_text(json.dumps({"failpoint": failpoint}) + "\n", encoding="utf-8")
+    repo = script.parent.parent
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    return subprocess.run(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(script),
+            "-Stage",
+            "All",
+            "-R7Root",
+            str(r7),
+            "-AttemptId",
+            attempt_id,
+            "-PythonExe",
+            str(ROOT / ".venv/Scripts/python.exe"),
+            "-ScorerPythonExe",
+            str(ROOT / ".venv/Scripts/python.exe"),
+            "-DatasetDir",
+            str(repo / "dataset"),
+            "-LayoutModel",
+            str(repo / "layout"),
+            "-RuntimeConfig",
+            str(repo / "runtime.json"),
+            "-TestStubPlan",
+            str(plan),
+        ],
+        cwd=repo,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def _assert_stub_selection_valid(task5: Path, attempt_id: str) -> None:
+    attempt = task5 / "attempts" / attempt_id
+    pointer = task5 / "selected-attempt.json"
+    candidate = attempt / "selected-attempt.json"
+    assert pointer.read_bytes() == candidate.read_bytes()
+    assert json.loads(attempt.joinpath("stage-state.json").read_text())["status"] == "sealed"
+    receipt = json.loads(attempt.joinpath("receipt.sha256.json").read_text())
+    for relative, identity in receipt["files"].items():
+        assert (
+            hashlib.sha256(task5.joinpath(relative).read_bytes()).hexdigest() == identity["sha256"]
+        )
+
+
+@pytest.mark.parametrize("failpoint", TRANSACTION_FAILPOINTS)
+def test_full_stage_all_transaction_fault_matrix(tmp_path: Path, failpoint: str) -> None:
+    script, r7, plan = _make_full_stage_stub_root(tmp_path)
+    task5 = r7 / "task5"
+    failed = _run_full_stage_stub(script, r7, plan, "failed-a1", failpoint)
+    assert failed.returncode != 0, failpoint
+    failed_root = task5 / "attempts" / "failed-a1"
+    failed_bytes = _tree_bytes(failed_root)
+    assert failed_bytes
+    assert not (task5 / "selected-attempt.json").exists()
+
+    fresh = _run_full_stage_stub(script, r7, plan, "fresh-a2", "")
+    assert fresh.returncode == 0, fresh.stdout + fresh.stderr
+    _assert_stub_selection_valid(task5, "fresh-a2")
+    assert _tree_bytes(failed_root) == failed_bytes
+    assert not (task5 / "attempts" / "fresh-a2" / "work" / "origin-failed-a1.txt").exists()
+
+    blocked = _run_full_stage_stub(script, r7, plan, "blocked-a3", "")
+    assert blocked.returncode != 0
+    assert not (task5 / "attempts" / "blocked-a3").exists()
+
+
+def test_full_stage_all_same_sealed_attempt_retry_only_publishes_pointer(
+    tmp_path: Path,
+) -> None:
+    script, r7, plan = _make_full_stage_stub_root(tmp_path)
+    task5 = r7 / "task5"
+    interrupted = _run_full_stage_stub(script, r7, plan, "sealed-a1", "root-pointer-temp-write")
+    assert interrupted.returncode != 0
+    attempt = task5 / "attempts" / "sealed-a1"
+    before = _tree_bytes(attempt)
+    assert json.loads(attempt.joinpath("stage-state.json").read_text())["status"] == "sealed"
+    assert not (task5 / "selected-attempt.json").exists()
+    retried = _run_full_stage_stub(script, r7, plan, "sealed-a1", "")
+    assert retried.returncode == 0, retried.stdout + retried.stderr
+    assert _tree_bytes(attempt) == before
+    _assert_stub_selection_valid(task5, "sealed-a1")
 
 
 def test_resume_integrity_binds_commit_manifest_commands_outputs_and_g0() -> None:

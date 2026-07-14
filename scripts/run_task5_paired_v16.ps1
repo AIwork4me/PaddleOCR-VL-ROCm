@@ -48,7 +48,6 @@ try {
   $ExpectedPages = 1651
   $ExpectedPairs = 1650
   $ApprovedProviders = @("DmlExecutionProvider", "CPUExecutionProvider")
-
   function Get-Sha256([string]$Path) {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
   }
@@ -652,7 +651,7 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
     $state = Read-State
     Assert-RecordedStagesIntegrity $state
     Assert-StageStartIntegrity $state $StageName
-    if ($state.stages.PSObject.Properties.Name -contains $StageName) { throw "Stage already completed: $StageName" }
+    if (@($state.stages.PSObject.Properties | ForEach-Object Name) -contains $StageName) { throw "Stage already completed: $StageName" }
     $started = [DateTimeOffset]::UtcNow.ToString("o")
     try {
       & $Body
@@ -775,14 +774,26 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
 
   function Assert-ExactFileSet([string]$Directory, [string[]]$Expected) {
     if (-not (Test-Path -LiteralPath $Directory -PathType Container)) { throw "Compact evidence directory is missing" }
-    $actual = @(Get-ChildItem -LiteralPath $Directory -File | ForEach-Object Name | Sort-Object)
+    Assert-NoReparsePoint $Directory "Compact evidence directory"
+    $actual = @(Get-ChildItem -Force -LiteralPath $Directory -File | ForEach-Object Name | Sort-Object)
     $wanted = @($Expected | Sort-Object)
     if (($actual -join "`n") -cne ($wanted -join "`n")) { throw "Compact evidence exact filename set mismatch" }
-    if (@(Get-ChildItem -LiteralPath $Directory -Directory).Count -ne 0) { throw "Unexpected compact evidence subdirectory" }
+    if (@(Get-ChildItem -Force -LiteralPath $Directory -Directory).Count -ne 0) { throw "Compact evidence topology contains an unexpected subdirectory" }
+  }
+
+  function Assert-ExactChildDirectories([string]$Directory, [string[]]$Expected) {
+    if (-not (Test-Path -LiteralPath $Directory -PathType Container)) { throw "Compact evidence topology directory is missing" }
+    Assert-NoReparsePoint $Directory "Compact evidence topology directory"
+    if (@(Get-ChildItem -Force -LiteralPath $Directory -File).Count -ne 0) { throw "Compact evidence topology contains an unexpected file" }
+    $actual = @(Get-ChildItem -Force -LiteralPath $Directory -Directory | ForEach-Object Name | Sort-Object)
+    $wanted = @($Expected | Sort-Object)
+    if (($actual -join "`n") -cne ($wanted -join "`n")) { throw "Compact evidence topology directory set mismatch" }
   }
 
   function Assert-CompactEvidenceComplete {
     $resultFiles = @("metric.json", "metric-cdm.json", "run-summary.json", "run-summary-cdm.json", "provenance.json", "provenance-cdm.json")
+    Assert-ExactChildDirectories $CompactRoot @("results", "comparison")
+    Assert-ExactChildDirectories (Join-Path $CompactRoot "results") @("official", "lightweight")
     Assert-ExactFileSet (Join-Path $CompactRoot "results/official") $resultFiles
     Assert-ExactFileSet (Join-Path $CompactRoot "results/lightweight") $resultFiles
     Assert-ExactFileSet (Join-Path $CompactRoot "comparison") @("input-contract.json", "normalized-output.json", "trace-diff.json", "directml-attestation.json", "decision.json")
@@ -812,7 +823,7 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
     Invoke-LoggedNative "Decide" "directml-strict-json" $PythonExe @("-c", $strictJson, $attestation)
     Write-AtomicText (Join-Path $comparison "directml-attestation.json") ($attestation + [Environment]::NewLine)
     $r = Join-Path $CompactRoot "results"
-    Invoke-LoggedNative "Decide" "decision" $PythonExe @("-m", "eval.task5_decision", "decide", "--official-non-cdm", (Join-Path $r "official/metric.json"), "--official-cdm", (Join-Path $r "official/metric-cdm.json"), "--lightweight-non-cdm", (Join-Path $r "lightweight/metric.json"), "--lightweight-cdm", (Join-Path $r "lightweight/metric-cdm.json"), "--output-report", (Join-Path $comparison "normalized-output.json"), "--trace-report", (Join-Path $comparison "trace-diff.json"), "--provider-attestation", (Join-Path $comparison "directml-attestation.json"), "--lightweight-stats", (Join-Path $WorkRoot "lightweight/_run_stats.json"), "--public-contracts-pass", "--output", (Join-Path $comparison "decision.json"))
+    Invoke-LoggedNative "Decide" "decision" $PythonExe @("-m", "eval.task5_decision", "decide", "--official-non-cdm", (Join-Path $r "official/metric.json"), "--official-cdm", (Join-Path $r "official/metric-cdm.json"), "--lightweight-non-cdm", (Join-Path $r "lightweight/metric.json"), "--lightweight-cdm", (Join-Path $r "lightweight/metric-cdm.json"), "--output-report", (Join-Path $comparison "normalized-output.json"), "--trace-report", (Join-Path $comparison "trace-diff.json"), "--provider-attestation", (Join-Path $comparison "directml-attestation.json"), "--lightweight-stats", (Join-Path $r "lightweight/run-summary.json"), "--public-contracts-pass", "--output", (Join-Path $comparison "decision.json"))
     $measuredDecision = Read-Json (Join-Path $comparison "decision.json")
     if ($measuredDecision.amd_adaptation.verdict -eq "PASS") { Assert-ProviderMajority (Read-Json (Join-Path $comparison "directml-attestation.json")) }
     $after = Invoke-LoggedNative "Decide" "g0-snapshot-after" $PythonExe @("-m", "eval.task5_manifest", "snapshot", "--r7-root", $R7Root, "--receipt", $G0Receipt) -Capture
@@ -884,15 +895,19 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
       return
     }
     $temporary = Join-Path $Task5Root (".selected-attempt.{0}.publish.tmp" -f [Guid]::NewGuid().ToString("N"))
+    $publishedHere = $false
     try {
       $bytes = [IO.File]::ReadAllBytes($candidate)
       $stream = [IO.FileStream]::new($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None, 4096, [IO.FileOptions]::WriteThrough)
       try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
       Move-Item -LiteralPath $temporary -Destination $pointer
+      $publishedHere = $true
+      Invoke-DecisionTool @("validate-selection", "--task5-root", $Task5Root, "--pointer", $pointer)
     } catch {
-      if (-not (Test-Path -LiteralPath $pointer) -or -not (Test-ByteEqual $candidate $pointer)) { throw }
+      if ($publishedHere -and (Test-Path -LiteralPath $pointer) -and (Test-ByteEqual $candidate $pointer)) { Remove-Item -LiteralPath $pointer -Force }
+      elseif ((Test-Path -LiteralPath $pointer) -and (Test-ByteEqual $candidate $pointer)) { Invoke-DecisionTool @("validate-selection", "--task5-root", $Task5Root, "--pointer", $pointer); return }
+      throw
     } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force } }
-    Invoke-DecisionTool @("validate-selection", "--task5-root", $Task5Root, "--pointer", $pointer)
   }
 
   function Complete-Receipt {
@@ -927,7 +942,7 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
     $state = Read-State
     Assert-RecordedStagesIntegrity $state
     foreach ($name in $Names) {
-      if ($state.stages.PSObject.Properties.Name -notcontains $name) { throw "Missing completed predecessor: $name" }
+      if (@($state.stages.PSObject.Properties | ForEach-Object Name) -notcontains $name) { throw "Missing completed predecessor: $name" }
     }
   }
 
