@@ -169,6 +169,49 @@ def test_finish_profiling_is_idempotent_and_uses_resolved_prefix(tmp_path, monke
     assert model.session.end_calls == 1
 
 
+def test_finish_profiling_does_not_end_session_twice_after_missing_path(
+    tmp_path, monkeypatch
+):
+    (tmp_path / "inference.onnx").touch()
+    missing_profile = tmp_path / "profiles" / "missing.json"
+
+    class FakeSession:
+        end_calls = 0
+
+        def __init__(self, _path, sess_options, providers):
+            self.requested_providers = providers
+
+        def disable_fallback(self):
+            pass
+
+        def get_providers(self):
+            return ["DmlExecutionProvider", "CPUExecutionProvider"]
+
+        def end_profiling(self):
+            self.end_calls += 1
+            return str(missing_profile)
+
+    fake_ort = SimpleNamespace(
+        SessionOptions=type("SessionOptions", (), {}),
+        GraphOptimizationLevel=SimpleNamespace(ORT_ENABLE_ALL="all"),
+        ExecutionMode=SimpleNamespace(ORT_SEQUENTIAL="sequential"),
+        InferenceSession=FakeSession,
+    )
+    monkeypatch.setitem(sys.modules, "onnxruntime", fake_ort)
+    model = PPDocLayoutV3Onnx(
+        tmp_path,
+        providers=["DmlExecutionProvider"],
+        profiling_prefix=tmp_path / "profiles" / "layout",
+    )
+
+    with pytest.raises(FileNotFoundError):
+        model.finish_profiling()
+    with pytest.raises(FileNotFoundError):
+        model.finish_profiling()
+
+    assert model.session.end_calls == 1
+
+
 def test_finish_profiling_is_disabled_by_default(tmp_path, monkeypatch):
     (tmp_path / "inference.onnx").touch()
 

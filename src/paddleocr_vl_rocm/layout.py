@@ -766,7 +766,9 @@ class PPDocLayoutV3Onnx:
         if intra_op_threads:
             options.intra_op_num_threads = intra_op_threads
         self._profiling_enabled = profiling_prefix is not None
+        self._profiling_finalized = False
         self._profile_path: Path | None = None
+        self._profiling_error: Exception | None = None
         if profiling_prefix is not None:
             profiling_prefix.parent.mkdir(parents=True, exist_ok=True)
             options.enable_profiling = True
@@ -805,11 +807,18 @@ class PPDocLayoutV3Onnx:
             )
 
     def finish_profiling(self) -> Path | None:
-        if self._profile_path is not None:
-            return self._profile_path
         if not self._profiling_enabled:
             return None
-        self._profile_path = Path(self.session.end_profiling()).resolve(strict=True)
+        if self._profiling_finalized:
+            if self._profiling_error is not None:
+                raise self._profiling_error
+            return self._profile_path
+        self._profiling_finalized = True
+        try:
+            self._profile_path = Path(self.session.end_profiling()).resolve(strict=True)
+        except Exception as exc:
+            self._profiling_error = exc
+            raise
         return self._profile_path
 
     def predict(
