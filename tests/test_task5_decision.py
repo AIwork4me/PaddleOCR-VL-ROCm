@@ -11,7 +11,7 @@ import pytest
 
 import eval.task5_decision as task5_decision
 import eval.task5_manifest as task5_manifest
-from eval.artifact_utils import sha256_file
+from eval.artifact_utils import sha256_file, write_run_summary
 from eval.task5_comparison import (
     compare_boundary_documents,
     observation,
@@ -77,6 +77,17 @@ def valid_lightweight_stats() -> dict[str, object]:
             "CPUExecutionProvider",
         ],
         "layout_fallback_disabled": True,
+    }
+
+
+def valid_input_contract() -> dict[str, object]:
+    return {
+        "benchmark": "OmniDocBench-v1.6",
+        "pages": 1651,
+        "paired_pages": 1650,
+        "approved_exclusion": task5_decision.APPROVED_EXCLUDED_STEM,
+        "formula": "CDM",
+        "table": "TEDS",
     }
 
 
@@ -723,11 +734,34 @@ def _make_complete_selection(root: Path, attempt_id: str = "a1") -> dict[str, Pa
         f"{base}/compact/results/official/metric-cdm.json": metric_value,
         f"{base}/compact/results/lightweight/metric.json": metric_value,
         f"{base}/compact/results/lightweight/metric-cdm.json": metric_value,
-        f"{base}/compact/results/lightweight/run-summary.json": valid_lightweight_stats(),
         f"{base}/compact/comparison/normalized-output.json": valid_output_report(),
         f"{base}/compact/comparison/trace-diff.json": valid_trace_report(),
         f"{base}/compact/comparison/directml-attestation.json": valid_provider_attestation(),
+        f"{base}/compact/comparison/input-contract.json": valid_input_contract(),
     }
+    attempt_root = root / base
+    raw_stats_path = attempt_root / "work/lightweight/_run_stats.json"
+    raw_stats_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_stats_path.write_text(
+        json.dumps(
+            {
+                **valid_lightweight_stats(),
+                "engine": "lightweight",
+                "limit_pages": None,
+                "stats": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    metric_source = attempt_root / "work/lightweight/metric.json"
+    metric_source.write_text(json.dumps(metric_value), encoding="utf-8")
+    write_run_summary(
+        save_name="task5-lightweight",
+        run_stats_path=raw_stats_path,
+        metric_result_path=metric_source,
+        destination=attempt_root / "compact/results/lightweight/run-summary.json",
+        cdm=False,
+    )
     for name in required_attempt_receipt_paths(attempt_id):
         path = root / name
         if path.exists():
@@ -763,7 +797,27 @@ def _make_complete_selection(root: Path, attempt_id: str = "a1") -> dict[str, Pa
         "decision": root / base / "compact/comparison/decision.json",
         "manifest": root / "manifest.json",
         "metric": root / base / "compact/results/official/metric.json",
+        "input_contract": root / base / "compact/comparison/input-contract.json",
+        "lightweight_stats": root
+        / base
+        / "compact/results/lightweight/run-summary.json",
     }
+
+
+def _refresh_selection_receipt(root: Path, paths: dict[str, Path]) -> None:
+    receipt = build_task5_receipt(root, required_attempt_receipt_paths("a1"))
+    paths["receipt"].write_text(
+        json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
+def _refresh_lightweight_stats_evidence(root: Path, paths: dict[str, Path]) -> None:
+    decision = json.loads(paths["decision"].read_text(encoding="utf-8"))
+    decision["evidence"]["lightweight_stats"]["sha256"] = sha256_file(
+        paths["lightweight_stats"]
+    )
+    paths["decision"].write_text(json.dumps(decision) + "\n", encoding="utf-8")
+    _refresh_selection_receipt(root, paths)
 
 
 def test_receipt_is_sorted_root_relative_and_detects_mutation(tmp_path: Path) -> None:
@@ -868,6 +922,80 @@ def test_validate_complete_attempt_local_selection(tmp_path: Path) -> None:
         "amd_adaptation": "PASS",
         "g0_closure": "PASS",
     }
+
+
+@pytest.mark.parametrize(
+    "contract",
+    [
+        {},
+        {**valid_input_contract(), "extra": True},
+        {**valid_input_contract(), "pages": True},
+        {**valid_input_contract(), "paired_pages": False},
+        {**valid_input_contract(), "benchmark": "OmniDocBench-v1.7"},
+        {**valid_input_contract(), "pages": 1650},
+        {**valid_input_contract(), "paired_pages": 1651},
+        {**valid_input_contract(), "approved_exclusion": "wrong"},
+        {**valid_input_contract(), "formula": "Edit_dist"},
+        {**valid_input_contract(), "table": "TEDS_structure_only"},
+    ],
+)
+def test_selection_rejects_invalid_public_input_contract(
+    tmp_path: Path, contract: dict[str, object]
+) -> None:
+    root = tmp_path / "task5"
+    paths = _make_complete_selection(root)
+    paths["input_contract"].write_text(json.dumps(contract) + "\n", encoding="utf-8")
+    _refresh_selection_receipt(root, paths)
+
+    with pytest.raises(ValueError, match="contract|Contract"):
+        validate_task5_selection(root)
+
+
+@pytest.mark.parametrize(
+    ("case", "value"),
+    [
+        ("missing-fallback-disabled", None),
+        ("fallback-enabled", False),
+        (
+            "cpu-first",
+            ["CPUExecutionProvider", "DmlExecutionProvider"],
+        ),
+        ("partial-coverage", 1650),
+    ],
+)
+def test_selection_recomputes_amd_from_real_lightweight_run_summary(
+    tmp_path: Path, case: str, value: object
+) -> None:
+    root = tmp_path / "task5"
+    paths = _make_complete_selection(root)
+    summary = json.loads(paths["lightweight_stats"].read_text(encoding="utf-8"))
+    if case == "missing-fallback-disabled":
+        summary.pop("layout_fallback_disabled")
+    elif case == "fallback-enabled":
+        summary["layout_fallback_disabled"] = value
+    elif case == "cpu-first":
+        summary["layout_providers_active"] = value
+    else:
+        summary["prediction_count"] = value
+    paths["lightweight_stats"].write_text(
+        json.dumps(summary) + "\n", encoding="utf-8"
+    )
+    _refresh_lightweight_stats_evidence(root, paths)
+
+    with pytest.raises(ValueError, match="AMD adaptation"):
+        validate_task5_selection(root)
+
+
+def test_selection_rejects_lightweight_run_summary_digest_mismatch(tmp_path: Path) -> None:
+    root = tmp_path / "task5"
+    paths = _make_complete_selection(root)
+    decision = json.loads(paths["decision"].read_text(encoding="utf-8"))
+    decision["evidence"]["lightweight_stats"]["sha256"] = "0" * 64
+    paths["decision"].write_text(json.dumps(decision) + "\n", encoding="utf-8")
+    _refresh_selection_receipt(root, paths)
+
+    with pytest.raises(ValueError, match="evidence"):
+        validate_task5_selection(root)
 
 
 @pytest.mark.parametrize(
@@ -996,6 +1124,32 @@ def test_selection_final_receipt_rehash_detects_post_semantic_mutation(
 
     monkeypatch.setattr(task5_decision, "_read_stable_file", mutate_after_semantic_read)
     with pytest.raises(ValueError, match="changed|receipt|identity"):
+        validate_task5_selection(root)
+
+
+@pytest.mark.parametrize("target_name", ["pointer", "candidate", "receipt"])
+def test_selection_rechecks_authority_bytes_after_final_exact22_rehash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    target_name: str,
+) -> None:
+    root = tmp_path / "task5"
+    paths = _make_complete_selection(root)
+    original = task5_decision.validate_task5_receipt
+    calls = 0
+
+    def mutate_during_final_rehash(task5_root: Path, receipt: object):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            target = paths[target_name]
+            target.write_bytes(target.read_bytes() + b" ")
+        return original(task5_root, receipt)
+
+    monkeypatch.setattr(
+        task5_decision, "validate_task5_receipt", mutate_during_final_rehash
+    )
+    with pytest.raises(ValueError, match="changed|identity"):
         validate_task5_selection(root)
 
 

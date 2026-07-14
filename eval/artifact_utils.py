@@ -196,6 +196,7 @@ def write_run_summary(
         "engine": run_stats.get("engine"),
         "layout_provider_requested": run_stats.get("layout_provider_requested"),
         "layout_providers_active": list(run_stats.get("layout_providers_active") or []),
+        "layout_fallback_disabled": run_stats.get("layout_fallback_disabled"),
         "cdm": cdm,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "prediction_count": run_stats.get("count"),

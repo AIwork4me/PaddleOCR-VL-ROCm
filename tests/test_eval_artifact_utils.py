@@ -220,6 +220,7 @@ def test_write_run_summary_and_provenance(tmp_path):
                     "DmlExecutionProvider",
                     "CPUExecutionProvider",
                 ],
+                "layout_fallback_disabled": True,
                 "stats": [
                     {
                         "image": "bad.png",
@@ -310,6 +311,7 @@ def test_write_run_summary_and_provenance(tmp_path):
     assert summary["notebook_metrics"]["overall"] == 95.78033333333333
     assert summary["layout_provider_requested"] == "auto"
     assert summary["layout_providers_active"][0] == "DmlExecutionProvider"
+    assert summary["layout_fallback_disabled"] is True
     assert provenance["git_commit"] == "abc123"
     assert provenance["ok_pages"] == 2
     assert provenance["fallback_pages"] == 1

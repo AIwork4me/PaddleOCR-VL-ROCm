@@ -435,6 +435,12 @@ def validate_task5_selection(
         "lightweight_stats": attempt_root
         / "compact/results/lightweight/run-summary.json",
     }
+    contract_path = attempt_root / "compact/comparison/input-contract.json"
+    contract_snapshot = _read_stable_file(
+        contract_path, label="Compact public input contract"
+    )
+    contract = _parse_json_object(contract_snapshot.content, contract_path)
+    _validate_public_input_contract(contract)
     compact: dict[str, dict[str, object]] = {}
     compact_digests: dict[str, str] = {}
     for name, path in compact_paths.items():
@@ -487,6 +493,12 @@ def validate_task5_selection(
     if candidate["amd_adaptation"] != amd["verdict"]:
         raise ValueError("Selection candidate differs from compact decision")
 
+    result = {
+        "attempt_id": attempt_id,
+        "strict_equivalence": candidate["strict_equivalence"],
+        "amd_adaptation": candidate["amd_adaptation"],
+        "g0_closure": candidate["g0_closure"],
+    }
     if (
         _read_stable_file(pointer, label="Selection pointer").content
         != pointer_snapshot.content
@@ -502,14 +514,42 @@ def validate_task5_selection(
         != receipt_snapshot.content
     ):
         raise ValueError("Attempt receipt changed during validation")
-    result = {
-        "attempt_id": attempt_id,
-        "strict_equivalence": candidate["strict_equivalence"],
-        "amd_adaptation": candidate["amd_adaptation"],
-        "g0_closure": candidate["g0_closure"],
-    }
     validate_task5_receipt(root, receipt)
+    if (
+        _read_stable_file(pointer, label="Selection pointer").content
+        != pointer_snapshot.content
+    ):
+        raise ValueError("Selection pointer changed during final receipt validation")
+    if (
+        _read_stable_file(candidate_path, label="Selection candidate").content
+        != candidate_snapshot.content
+    ):
+        raise ValueError("Selection candidate changed during final receipt validation")
+    if (
+        _read_stable_file(receipt_path, label="Attempt receipt").content
+        != receipt_snapshot.content
+    ):
+        raise ValueError("Attempt receipt changed during final receipt validation")
     return result
+
+
+def _validate_public_input_contract(contract: Mapping[str, object]) -> None:
+    expected: dict[str, object] = {
+        "benchmark": "OmniDocBench-v1.6",
+        "pages": 1651,
+        "paired_pages": EXPECTED_PAIRED_PAGES,
+        "approved_exclusion": APPROVED_EXCLUDED_STEM,
+        "formula": "CDM",
+        "table": "TEDS",
+    }
+    if set(contract) != set(expected):
+        raise ValueError("Public input contract must contain exactly the approved keys")
+    for name, value in expected.items():
+        actual = contract.get(name)
+        if type(actual) is not type(value) or actual != value:
+            raise ValueError(
+                f"Public input contract {name} does not match the approved value"
+            )
 
 
 def _required_score(
