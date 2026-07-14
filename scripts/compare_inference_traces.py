@@ -14,6 +14,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from eval.task5_comparison import (
+    compare_boundary_documents as compare_boundary_documents,
+)
+from eval.task5_comparison import (
+    compare_canonical_traces,
+)
 from paddleocr_vl_rocm.contracts import fingerprint, redact
 
 TraceEvent = dict[str, Any]
@@ -90,8 +96,8 @@ def compare_traces(
                 {
                     "index": index,
                     "first_divergence": first_divergence,
-                    "reference": reference_event,
-                    "candidate": candidate_event,
+                    "reference_fingerprint": fingerprint(redact(reference_event)),
+                    "candidate_fingerprint": fingerprint(redact(candidate_event)),
                 }
             )
 
@@ -130,7 +136,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    report = compare_traces(_read_jsonl(args.reference), _read_jsonl(args.candidate))
+    if args.reference.is_dir() and args.candidate.is_dir():
+        report = compare_canonical_traces(args.reference, args.candidate)
+    elif args.reference.is_file() and args.candidate.is_file():
+        report = compare_traces(_read_jsonl(args.reference), _read_jsonl(args.candidate))
+    else:
+        raise SystemExit("reference and candidate must both be files or both be directories")
     rendered = json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     if args.output is None:
         print(rendered, end="")

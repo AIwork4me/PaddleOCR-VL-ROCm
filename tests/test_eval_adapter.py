@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import sys
 import types
 from pathlib import Path
+
+from eval.task5_comparison import BOUNDARIES
+from paddleocr_vl_rocm.pipeline import PaddleOCRVLROCm
 
 
 def _load_adapter():
@@ -266,6 +270,181 @@ def test_lightweight_folder_writes_run_stats_and_error_log(tmp_path, monkeypatch
         },
         "total_seconds": {"count": 1, "mean": 1.5, "p50": 1.5, "p95": 1.5, "p99": 1.5, "max": 1.5},
     }
+
+
+def test_lightweight_trace_capture_is_opt_in_and_fingerprint_only(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    img_dir.mkdir()
+    (img_dir / "page.png").write_bytes(b"image")
+
+    class FakeResult:
+        markdown_text = "markdown  \n"
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            self.layout_provider_requested = "auto"
+            self.layout_providers_active = []
+            self.last_timing = None
+
+        def _layout(self):
+            pass
+
+        def predict(self, image_path, *, vlm_trace_events=None):
+            if vlm_trace_events is not None:
+                vlm_trace_events.append(
+                    {
+                        "request_order": 0,
+                        "block_label": "text",
+                        "block_bbox": [1, 2, 3, 4],
+                        "image_sha256": "crop-secret",
+                        "prompt": "prompt-secret",
+                        "payload": {"token": "payload-secret", "model": "model"},
+                        "raw_result_sha256": "raw-secret",
+                        "final_result_sha256": "final-secret",
+                    }
+                )
+            return FakeResult()
+
+    monkeypatch.setattr(mod, "PaddleOCRVLROCm", FakePipeline, raising=False)
+    baseline = tmp_path / "baseline"
+    observed = tmp_path / "observed"
+    trace_dir = tmp_path / "traces"
+
+    mod.run_lightweight_folder(img_dir=img_dir, out_dir=baseline)
+    mod.run_lightweight_folder(img_dir=img_dir, out_dir=observed, trace_dir=trace_dir)
+
+    assert (baseline / "page.md").read_bytes() == (observed / "page.md").read_bytes()
+    assert (baseline / "_run_stats.json").read_bytes() == (
+        observed / "_run_stats.json"
+    ).read_bytes()
+    assert not (tmp_path / "disabled-traces").exists()
+    raw = (trace_dir / "page.jsonl").read_text(encoding="utf-8")
+    event = json.loads(raw)
+    assert event["page"] == "page"
+    assert event["block_index"] == 0
+    assert set(event["boundaries"]) == set(BOUNDARIES)
+    assert all(
+        set(value) <= {"status", "fingerprint"}
+        for value in event["boundaries"].values()
+    )
+    for secret in ("crop-secret", "prompt-secret", "payload-secret", "raw-secret", "final-secret"):
+        assert secret not in raw
+
+
+def test_predict_optionally_forwards_vlm_trace_events(monkeypatch, tmp_path):
+    captured = {}
+    image = tmp_path / "input.png"
+    image.write_bytes(b"image")
+
+    class FakeLayout:
+        layout_provider_requested = "auto"
+        layout_providers_active = []
+
+    pipeline = PaddleOCRVLROCm(skip_server_check=True)
+    monkeypatch.setattr(pipeline, "_layout", lambda: FakeLayout())
+
+    def fake_run_light_parser(**kwargs):
+        captured.update(kwargs)
+        (kwargs["output_dir"] / "result.json").write_text("{}", encoding="utf-8")
+        (kwargs["output_dir"] / "result.md").write_text("markdown", encoding="utf-8")
+        return kwargs["output_dir"] / "result.json"
+
+    monkeypatch.setattr("paddleocr_vl_rocm.pipeline.run_light_parser", fake_run_light_parser)
+    events = []
+
+    result = pipeline.predict(image, vlm_trace_events=events)
+
+    assert captured["vlm_trace_events"] is events
+    assert result.markdown_text == "markdown"
+
+
+def test_official_page_trace_observes_only_direct_block_fields():
+    mod = _load_adapter()
+    result = {
+        "res": {
+            "parsing_res_list": [
+                {
+                    "block_label": "text",
+                    "block_bbox": [1, 2, 3, 4],
+                    "prompt": "prompt",
+                    "payload": {"model": "model"},
+                    "raw_result": "raw",
+                    "block_content": "postprocessed",
+                }
+            ]
+        }
+    }
+
+    events = mod._official_page_trace_events("page", result, "markdown")
+
+    assert len(events) == 1
+    event = events[0]
+    assert event["page"] == "page"
+    assert event["block_index"] == 0
+    assert event["boundaries"]["label"]["status"] == "observable"
+    assert event["boundaries"]["bbox"]["status"] == "observable"
+    assert event["boundaries"]["prompt"]["status"] == "observable"
+    assert event["boundaries"]["payload"]["status"] == "observable"
+    assert event["boundaries"]["raw_result"]["status"] == "observable"
+    assert event["boundaries"]["postprocess"]["status"] == "observable"
+    assert event["boundaries"]["crop_pixels"] == {"status": "unobservable"}
+
+
+def test_official_and_lightweight_content_hash_boundaries_are_comparable():
+    mod = _load_adapter()
+    raw = "same raw result"
+    final = "same postprocess"
+
+    def digest(value):
+        return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+    lightweight = mod._lightweight_page_trace_events(
+        "page",
+        [
+            {
+                "request_order": 0,
+                "block_label": "text",
+                "block_bbox": [1, 2, 3, 4],
+                "raw_result_sha256": digest(raw),
+                "final_result_sha256": digest(final),
+            }
+        ],
+        "markdown",
+    )[0]
+    official = mod._official_page_trace_events(
+        "page",
+        {
+            "res": {
+                "parsing_res_list": [
+                    {
+                        "block_label": "text",
+                        "block_bbox": [1, 2, 3, 4],
+                        "raw_result": raw,
+                        "block_content": final,
+                    }
+                ]
+            }
+        },
+        "markdown",
+    )[0]
+
+    assert official["boundaries"]["raw_result"] == lightweight["boundaries"]["raw_result"]
+    assert official["boundaries"]["postprocess"] == lightweight["boundaries"]["postprocess"]
+
+
+def test_official_page_trace_without_authenticated_blocks_is_page_level_unknown():
+    mod = _load_adapter()
+
+    events = mod._official_page_trace_events("page", {"markdown": "body"}, "body\r\n")
+
+    assert events == [mod.official_page_trace("page", {"markdown": "body"}, "body\r\n")]
+    event = events[0]
+    assert event["block_index"] is None
+    assert event["block_structure"] == {"status": "unobservable"}
+    assert all(value == {"status": "unobservable"} for value in event["boundaries"].values())
+    assert event["page_postprocess"]["status"] == "observable"
+    assert "body" not in json.dumps(event)
 
 
 def test_official_folder_materializes_generator_results(tmp_path, monkeypatch):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import platform
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from .layout import PPDocLayoutV3Onnx, resolve_layout_providers
 from .pipeline_core import run_light_parser
@@ -58,7 +59,12 @@ class PaddleOCRVLROCm:
             self.active_layout_providers = self.layout_providers_active
         return self._layout_model
 
-    def predict(self, image_path: str | Path) -> PaddleOCRVLROCmResult:
+    def predict(
+        self,
+        image_path: str | Path,
+        *,
+        vlm_trace_events: list[dict[str, Any]] | None = None,
+    ) -> PaddleOCRVLROCmResult:
         self.last_timing = None
         image = Path(image_path)
         layout = self._layout()
@@ -88,6 +94,7 @@ class PaddleOCRVLROCm:
                 timing_events=timing_events,
                 layout_provider_requested=layout.layout_provider_requested,
                 layout_providers_active=layout.layout_providers_active,
+                vlm_trace_events=vlm_trace_events,
             )
             import json
 

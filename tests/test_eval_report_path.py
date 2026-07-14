@@ -955,6 +955,7 @@ def test_stage_infer_dispatches_to_run_adapter(tmp_path, monkeypatch, capsys):
             "page_retries": 2,
             "fallback_pred_dir": str(tmp_path / "fallback"),
             "limit_pages": 3,
+            "trace_dir": str(tmp_path / "traces"),
         },
     )()
 
@@ -969,5 +970,6 @@ def test_stage_infer_dispatches_to_run_adapter(tmp_path, monkeypatch, capsys):
         "page_retries": 2,
         "fallback_pred_dir": str(tmp_path / "fallback"),
         "limit_pages": 3,
+        "trace_dir": str(tmp_path / "traces"),
     }
     assert "[infer] 1/1 pages succeeded" in capsys.readouterr().out

@@ -154,6 +154,7 @@ def stage_infer(args: argparse.Namespace) -> None:
         page_retries=args.page_retries,
         fallback_pred_dir=args.fallback_pred_dir,
         limit_pages=args.limit_pages,
+        trace_dir=getattr(args, "trace_dir", None),
     )
     print(f"[infer] {summary['ok']}/{summary['count']} pages succeeded -> {out_dir}")
 
@@ -473,6 +474,7 @@ def main() -> None:
         "--artifact-profile", choices=["default", "official-local"], default="default"
     )
     parser.add_argument("--limit-pages", type=int, default=None)
+    parser.add_argument("--trace-dir", default=None)
     parser.add_argument("--copy-report", default=None)
     parser.add_argument("--run-summary", default=None)
     parser.add_argument("--provenance", default=None)

@@ -5,7 +5,8 @@ from types import SimpleNamespace
 
 from paddleocr_vl_rocm.contracts import fingerprint
 from scripts import record_trace
-from scripts.compare_inference_traces import compare_traces
+from eval.task5_comparison import observation, unobservable
+from scripts.compare_inference_traces import compare_boundary_documents, compare_traces
 from scripts.record_trace import build_parser as build_record_parser
 from scripts.record_trace import write_trace_jsonl
 
@@ -106,6 +107,31 @@ def test_compare_traces_limits_details_but_counts_every_difference():
     assert report["summary"]["label"] == 105
     assert len(report["differences"]) == 100
     assert report["details_truncated"] is True
+
+
+def test_canonical_comparison_prioritizes_fail_over_unknown():
+    boundaries = {
+        name: observation(name)
+        for name in (
+            "request_order",
+            "label",
+            "bbox",
+            "crop_pixels",
+            "prompt",
+            "payload",
+            "raw_result",
+            "postprocess",
+        )
+    }
+    reference = {"page": "page", "block_index": 0, "boundaries": dict(boundaries)}
+    candidate = {"page": "page", "block_index": 0, "boundaries": dict(boundaries)}
+    reference["boundaries"]["raw_result"] = unobservable()
+    candidate["boundaries"]["postprocess"] = observation("different")
+
+    report = compare_boundary_documents([reference], [candidate])
+
+    assert report["verdict"] == "FAIL"
+    assert report["first_divergence_counts"]["postprocess"] == 1
 
 
 def test_record_trace_defaults_to_v16_llama_cpp():
