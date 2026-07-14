@@ -19,8 +19,10 @@ from eval.task5_decision import (
     amd_adaptation_decision,
     build_task5_receipt,
     extract_paired_scores,
+    required_attempt_receipt_paths,
     strict_equivalence_decision,
     validate_task5_receipt,
+    validate_task5_selection,
 )
 
 
@@ -152,9 +154,7 @@ def _with_trace_coverage(report: dict[str, object]) -> dict[str, object]:
     return report
 
 
-def valid_provider_attestation(
-    *, dml: int = 1101, cpu: int = 150
-) -> dict[str, object]:
+def valid_provider_attestation(*, dml: int = 1101, cpu: int = 150) -> dict[str, object]:
     provider_nodes = dml + cpu
     return {
         "verdict": "PASS",
@@ -233,7 +233,9 @@ def test_strict_fail_beats_unknown() -> None:
 
 def test_strict_verdict_requires_complete_equal_outputs_and_trace() -> None:
     complete = valid_output_report()
-    assert strict_equivalence_decision(complete, valid_trace_report())["verdict"] == "PASS"
+    assert (
+        strict_equivalence_decision(complete, valid_trace_report())["verdict"] == "PASS"
+    )
     assert (
         strict_equivalence_decision(complete, valid_trace_report("UNKNOWN"))["verdict"]
         == "UNKNOWN"
@@ -299,7 +301,9 @@ def test_strict_accepts_complete_trace_coverage_fail() -> None:
 
 def test_strict_accepts_real_trace_with_multiple_unobservable_boundaries() -> None:
     official_boundaries = {
-        name: unobservable() if name in {"prompt", "raw_result"} else observation(f"same-{name}")
+        name: unobservable()
+        if name in {"prompt", "raw_result"}
+        else observation(f"same-{name}")
         for name in TRACE_BOUNDARIES
     }
     report = _with_trace_coverage(
@@ -311,7 +315,10 @@ def test_strict_accepts_real_trace_with_multiple_unobservable_boundaries() -> No
     assert report["verdict"] == "UNKNOWN"
     assert report["unobservable_records"] == 1
     assert sum(report["unobservable_counts"].values()) == 2  # type: ignore[union-attr]
-    assert strict_equivalence_decision(valid_output_report(), report)["verdict"] == "UNKNOWN"
+    assert (
+        strict_equivalence_decision(valid_output_report(), report)["verdict"]
+        == "UNKNOWN"
+    )
 
 
 def test_strict_accepts_real_different_trace_with_unobservable_boundaries() -> None:
@@ -335,7 +342,9 @@ def test_strict_accepts_real_different_trace_with_unobservable_boundaries() -> N
     assert report["different_records"] == 1
     assert report["unobservable_records"] == 0
     assert sum(report["unobservable_counts"].values()) == 2  # type: ignore[union-attr]
-    assert strict_equivalence_decision(valid_output_report(), report)["verdict"] == "FAIL"
+    assert (
+        strict_equivalence_decision(valid_output_report(), report)["verdict"] == "FAIL"
+    )
 
 
 @pytest.mark.parametrize(
@@ -449,7 +458,11 @@ def test_higher_is_better_components_cannot_regress(change: str, value: float) -
     ("attestation", "stats", "contracts"),
     [
         ({"verdict": "FAIL"}, valid_lightweight_stats(), True),
-        (valid_provider_attestation(), {**valid_lightweight_stats(), "fallback": 1}, True),
+        (
+            valid_provider_attestation(),
+            {**valid_lightweight_stats(), "fallback": 1},
+            True,
+        ),
         (valid_provider_attestation(), valid_lightweight_stats(), False),
     ],
 )
@@ -589,7 +602,9 @@ def test_provider_condition_allows_cpu_nodes_when_dml_has_strict_majority() -> N
     assert decision["verdict"] == "PASS"
 
 
-def test_provider_condition_rejects_equal_dml_and_cpu_even_if_verdict_claims_pass() -> None:
+def test_provider_condition_rejects_equal_dml_and_cpu_even_if_verdict_claims_pass() -> (
+    None
+):
     decision = amd_adaptation_decision(
         official_scores=scores(),
         lightweight_scores=scores(),
@@ -616,78 +631,161 @@ def test_provider_condition_rejects_share_that_disagrees_with_counts() -> None:
     assert decision["verdict"] == "FAIL"
 
 
-def _write_receipt_inputs(root: Path) -> list[str]:
-    names = ["manifest.json", "selected-attempt.json", "comparison/decision.json"]
-    for name in names:
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
+def _write_receiptable(root: Path, name: str, value: object | None = None) -> None:
+    path = root / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if value is None:
         path.write_text(name, encoding="utf-8")
-    return names
+    else:
+        path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _make_complete_selection(root: Path, attempt_id: str = "a1") -> dict[str, Path]:
+    root.mkdir()
+    manifest = {"schema": 1, "identity": "task5-test"}
+    _write_receiptable(root, "manifest.json", manifest)
+    manifest_sha = task5_decision.hashlib.sha256(
+        (root / "manifest.json").read_bytes()
+    ).hexdigest()
+    base = f"attempts/{attempt_id}"
+    stage = {
+        "schema": 1,
+        "attempt_id": attempt_id,
+        "status": "sealed",
+        "producing_commit": "a" * 40,
+        "manifest_sha256": manifest_sha,
+        "stages": {},
+        "started_at_utc": "2026-07-14T00:00:00Z",
+    }
+    snapshot = {"receipt": {"sha256": "b" * 64}, "official_outputs": {}}
+    candidate = {
+        "schema": 1,
+        "attempt_id": attempt_id,
+        "manifest_sha256": manifest_sha,
+        "strict_equivalence": "PASS",
+        "amd_adaptation": "PASS",
+        "g0_closure": "PASS",
+        "effective_only_with_valid_receipt": True,
+    }
+    strict = strict_equivalence_decision(valid_output_report(), valid_trace_report())
+    amd = decide_amd(scores(), scores())
+    evidence_names = {
+        "official_non_cdm",
+        "official_cdm",
+        "lightweight_non_cdm",
+        "lightweight_cdm",
+        "output_report",
+        "trace_report",
+        "provider_attestation",
+        "lightweight_stats",
+    }
+    decision = {
+        "schema": 1,
+        "benchmark": "OmniDocBench-v1.6",
+        "coverage": {"expected_paired_pages": 1650, "paired_pages": 1650},
+        "scores": {"official": scores(), "lightweight": scores()},
+        "strict_equivalence": strict,
+        "amd_adaptation": amd,
+        "g3": True,
+        "evidence": {name: {"sha256": "c" * 64} for name in evidence_names},
+    }
+    _write_receiptable(root, f"{base}/stage-state.json", stage)
+    _write_receiptable(root, f"{base}/snapshot-before.json", snapshot)
+    _write_receiptable(root, f"{base}/snapshot-after.json", snapshot)
+    _write_receiptable(root, f"{base}/selected-attempt.json", candidate)
+    for name in required_attempt_receipt_paths(attempt_id):
+        path = root / name
+        if path.exists():
+            continue
+        _write_receiptable(
+            root, name, decision if name.endswith("decision.json") else {}
+        )
+    receipt = build_task5_receipt(root, required_attempt_receipt_paths(attempt_id))
+    _write_receiptable(root, f"{base}/receipt.sha256.json", receipt)
+    (root / "selected-attempt.json").write_bytes(
+        (root / base / "selected-attempt.json").read_bytes()
+    )
+    return {
+        "pointer": root / "selected-attempt.json",
+        "candidate": root / base / "selected-attempt.json",
+        "receipt": root / base / "receipt.sha256.json",
+        "stage": root / base / "stage-state.json",
+        "before": root / base / "snapshot-before.json",
+        "after": root / base / "snapshot-after.json",
+        "decision": root / base / "compact/comparison/decision.json",
+        "manifest": root / "manifest.json",
+    }
 
 
 def test_receipt_is_sorted_root_relative_and_detects_mutation(tmp_path: Path) -> None:
-    names = _write_receipt_inputs(tmp_path)
-    receipt = build_task5_receipt(tmp_path, list(reversed(names)))
+    tmp_path.joinpath("root").mkdir()
+    root = tmp_path / "root"
+    names = ["manifest.json", "attempts/a1/stage-state.json"]
+    for name in names:
+        _write_receiptable(root, name)
+    receipt = build_task5_receipt(root, list(reversed(names)))
 
     assert list(receipt["files"]) == sorted(names)
     assert receipt["files"]["manifest.json"]["path"] == "manifest.json"
-    validate_task5_receipt(tmp_path, receipt)
+    validate_task5_receipt(root, receipt)
 
-    (tmp_path / "comparison" / "decision.json").write_text("mutated", encoding="utf-8")
+    (root / "attempts/a1/stage-state.json").write_text("mutated", encoding="utf-8")
     with pytest.raises(ValueError, match="changed"):
-        validate_task5_receipt(tmp_path, receipt)
+        validate_task5_receipt(root, receipt)
 
 
 def test_receipt_rejects_self_hash_escape_absolute_unallowlisted_and_symlink(
     tmp_path: Path,
 ) -> None:
-    _write_receipt_inputs(tmp_path)
+    root = tmp_path / "root"
+    root.mkdir()
+    _write_receiptable(root, "manifest.json")
     outside = tmp_path.parent / "outside-secret.txt"
     outside.write_text("secret", encoding="utf-8")
     with pytest.raises(ValueError, match="itself"):
-        build_task5_receipt(tmp_path, ["receipt.sha256.json"])
+        build_task5_receipt(root, ["receipt.sha256.json"])
     with pytest.raises(ValueError, match="relative"):
-        build_task5_receipt(tmp_path, [str(outside)])
+        build_task5_receipt(root, [str(outside)])
     with pytest.raises(ValueError, match="escape"):
-        build_task5_receipt(tmp_path, ["../outside-secret.txt"])
+        build_task5_receipt(root, ["../outside-secret.txt"])
     with pytest.raises(ValueError, match="allowlist"):
-        build_task5_receipt(tmp_path, ["secrets.env"])
-    comparison = tmp_path / "comparison"
-    comparison.mkdir(exist_ok=True)
+        build_task5_receipt(root, ["secrets.env"])
+    comparison = root / "attempts/a1/compact/comparison"
+    comparison.mkdir(parents=True, exist_ok=True)
     link = comparison / "directml-attestation.json"
     try:
         link.symlink_to(comparison / "decision.json")
     except OSError:
         pytest.skip("symlink creation is unavailable")
     with pytest.raises(ValueError, match="symlink"):
-        build_task5_receipt(tmp_path, ["comparison/directml-attestation.json"])
+        build_task5_receipt(
+            root, ["attempts/a1/compact/comparison/directml-attestation.json"]
+        )
 
 
-def test_receipt_accepts_real_results_and_comparison_tree(tmp_path: Path) -> None:
-    names = [
-        "results/official/metric.json",
-        "results/official/metric-cdm.json",
-        "results/official/run-summary.json",
-        "results/official/run-summary-cdm.json",
-        "results/official/provenance.json",
-        "results/official/provenance-cdm.json",
-        "results/lightweight/metric.json",
-        "results/lightweight/metric-cdm.json",
-        "results/lightweight/run-summary.json",
-        "results/lightweight/run-summary-cdm.json",
-        "results/lightweight/provenance.json",
-        "results/lightweight/provenance-cdm.json",
-        "comparison/input-contract.json",
-        "comparison/normalized-output.json",
-        "comparison/trace-diff.json",
-        "comparison/directml-attestation.json",
-        "comparison/decision.json",
-    ]
+def test_receipt_accepts_only_attempt_local_compact_authority(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    names = list(required_attempt_receipt_paths("a1"))
     for name in names:
-        path = tmp_path / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(name, encoding="utf-8")
-    assert set(build_task5_receipt(tmp_path, names)["files"]) == set(names)
+        _write_receiptable(root, name)
+    assert set(build_task5_receipt(root, names)["files"]) == set(names)
+
+    for legacy in (
+        "selected-attempt.json",
+        "results/official/metric.json",
+        "comparison/decision.json",
+    ):
+        _write_receiptable(root, legacy)
+        with pytest.raises(ValueError, match="allowlist"):
+            build_task5_receipt(root, [legacy])
+
+    _write_receiptable(root, "attempts/a2/stage-state.json")
+    with pytest.raises(ValueError, match="attempt"):
+        build_task5_receipt(
+            root,
+            ["attempts/a1/stage-state.json", "attempts/a2/stage-state.json"],
+        )
 
 
 @pytest.mark.parametrize(
@@ -697,6 +795,8 @@ def test_receipt_accepts_real_results_and_comparison_tree(tmp_path: Path) -> Non
         "lightweight/page-0001.md",
         "traces/lightweight/page-0001.jsonl",
         "results/lightweight/raw-response.json",
+        "attempts/a1/work/page-0001.md",
+        "attempts/a1/compact/comparison/unknown.json",
     ],
 )
 def test_receipt_rejects_unknown_and_raw_members(tmp_path: Path, name: str) -> None:
@@ -705,6 +805,122 @@ def test_receipt_rejects_unknown_and_raw_members(tmp_path: Path, name: str) -> N
     path.write_text("sensitive", encoding="utf-8")
     with pytest.raises(ValueError, match="allowlist"):
         build_task5_receipt(tmp_path, [name])
+
+
+def test_validate_complete_attempt_local_selection(tmp_path: Path) -> None:
+    root = tmp_path / "task5"
+    _make_complete_selection(root)
+
+    validated = validate_task5_selection(root)
+
+    assert validated == {
+        "attempt_id": "a1",
+        "strict_equivalence": "PASS",
+        "amd_adaptation": "PASS",
+        "g0_closure": "PASS",
+    }
+
+
+@pytest.mark.parametrize(
+    ("case", "match"),
+    [
+        ("pointer-bytes", "byte"),
+        ("bad-attempt", "AttemptId"),
+        ("missing-receipt", "receipt"),
+        ("omitted-receipt-path", "exact"),
+        ("extra-receipt-path", "exact"),
+        ("manifest-digest", "manifest"),
+        ("g0-mismatch", "G0"),
+        ("decision-verdict", "decision"),
+        ("stage-attempt", "stage"),
+        ("stage-active", "sealed"),
+        ("absolute-disclosure", "absolute"),
+    ],
+)
+def test_selection_validation_fails_closed_on_mutation(
+    tmp_path: Path, case: str, match: str
+) -> None:
+    root = tmp_path / "task5"
+    paths = _make_complete_selection(root)
+    pointer = json.loads(paths["pointer"].read_text(encoding="utf-8"))
+
+    if case == "pointer-bytes":
+        paths["pointer"].write_text(
+            json.dumps(pointer, separators=(",", ":")), encoding="utf-8"
+        )
+    elif case == "bad-attempt":
+        pointer["attempt_id"] = "Bad/Attempt"
+        paths["pointer"].write_text(json.dumps(pointer), encoding="utf-8")
+    elif case == "missing-receipt":
+        paths["receipt"].unlink()
+    elif case in {"omitted-receipt-path", "extra-receipt-path"}:
+        receipt = json.loads(paths["receipt"].read_text(encoding="utf-8"))
+        if case == "omitted-receipt-path":
+            receipt["files"].pop(next(iter(receipt["files"])))
+        else:
+            receipt["files"]["attempts/a1/work/raw.json"] = {}
+        paths["receipt"].write_text(json.dumps(receipt), encoding="utf-8")
+    elif case == "manifest-digest":
+        pointer["manifest_sha256"] = "0" * 64
+        paths["candidate"].write_text(json.dumps(pointer), encoding="utf-8")
+        paths["pointer"].write_text(json.dumps(pointer), encoding="utf-8")
+    elif case == "g0-mismatch":
+        paths["after"].write_text('{"different":true}\n', encoding="utf-8")
+    elif case == "decision-verdict":
+        decision = json.loads(paths["decision"].read_text(encoding="utf-8"))
+        decision["strict_equivalence"]["verdict"] = "FAIL"
+        paths["decision"].write_text(json.dumps(decision), encoding="utf-8")
+    elif case in {"stage-attempt", "stage-active"}:
+        stage = json.loads(paths["stage"].read_text(encoding="utf-8"))
+        if case == "stage-attempt":
+            stage["attempt_id"] = "a2"
+        else:
+            stage["status"] = "active"
+        paths["stage"].write_text(json.dumps(stage), encoding="utf-8")
+    else:
+        pointer["extra"] = str(tmp_path.resolve())
+        paths["candidate"].write_text(json.dumps(pointer), encoding="utf-8")
+        paths["pointer"].write_text(json.dumps(pointer), encoding="utf-8")
+
+    if case in {
+        "manifest-digest",
+        "g0-mismatch",
+        "decision-verdict",
+        "stage-attempt",
+        "stage-active",
+        "absolute-disclosure",
+    }:
+        receipt = build_task5_receipt(root, required_attempt_receipt_paths("a1"))
+        paths["receipt"].write_text(
+            json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+    with pytest.raises((OSError, ValueError), match=match):
+        validate_task5_selection(root)
+
+
+def test_validate_selection_rejects_symlinked_pointer_or_attempt(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "task5"
+    paths = _make_complete_selection(root)
+    saved_pointer = paths["pointer"].read_bytes()
+    paths["pointer"].unlink()
+    try:
+        paths["pointer"].symlink_to(paths["candidate"])
+    except OSError:
+        pytest.skip("symlink creation is unavailable")
+    with pytest.raises(ValueError, match="symlink"):
+        validate_task5_selection(root)
+
+    paths["pointer"].unlink()
+    paths["pointer"].write_bytes(saved_pointer)
+    attempt = root / "attempts/a1"
+    moved = root / "attempts/real-a1"
+    attempt.rename(moved)
+    attempt.symlink_to(moved, target_is_directory=True)
+    with pytest.raises(ValueError, match="symlink"):
+        validate_task5_selection(root)
 
 
 def test_receipt_rejects_same_length_in_place_mutation(
@@ -728,7 +944,9 @@ def test_receipt_rejects_same_length_in_place_mutation(
         build_task5_receipt(tmp_path, ["manifest.json"])
 
 
-def test_cli_decide_writes_fail_decision_without_infrastructure_error(tmp_path: Path) -> None:
+def test_cli_decide_writes_fail_decision_without_infrastructure_error(
+    tmp_path: Path,
+) -> None:
     inputs = {
         "official-non-cdm": metric(table=0.96),
         "official-cdm": metric(table=0.96),
@@ -825,7 +1043,9 @@ def test_decision_rejects_parse_hash_race(
         task5_decision._decide(args)
 
 
-def test_cli_rejects_decision_and_receipt_output_input_collisions(tmp_path: Path) -> None:
+def test_cli_rejects_decision_and_receipt_output_input_collisions(
+    tmp_path: Path,
+) -> None:
     args = _decision_cli_namespace(tmp_path)
     args.output = args.official_non_cdm
     original = args.output.read_bytes()
@@ -846,7 +1066,9 @@ def test_cli_rejects_decision_and_receipt_output_input_collisions(tmp_path: Path
     assert (root / "manifest.json").read_text(encoding="utf-8") == "evidence"
 
 
-def test_cli_rejects_duplicate_or_nonfinite_json_without_traceback(tmp_path: Path) -> None:
+def test_cli_rejects_duplicate_or_nonfinite_json_without_traceback(
+    tmp_path: Path,
+) -> None:
     bad = tmp_path / "bad.json"
     bad.write_text('{"paired_pages":1650,"paired_pages":1,"x":NaN}', encoding="utf-8")
     result = subprocess.run(

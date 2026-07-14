@@ -7,18 +7,22 @@ import hashlib
 import json
 import math
 import os
+import re
 import stat
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from eval.artifact_utils import analyze_metric_quality, extract_notebook_metrics
 
 EXPECTED_PAIRED_PAGES = 1650
 G3_MINIMUM_OVERALL = 96.13
 RECEIPT_NAME = "receipt.sha256.json"
+ATTEMPT_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+SHA256 = re.compile(r"^[0-9a-f]{64}$")
+GIT_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 APPROVED_EXCLUDED_STEM = "newspaper_The Times UK_0801@magazinesclubnew_page_031"
 _TRACE_BOUNDARIES = (
     "request_order",
@@ -47,14 +51,13 @@ class _StableFile:
     mtime_ns: int
     ctime_ns: int
 
-_ROOT_RECEIPT_FILES = {
-    "manifest.json",
-    "selected-attempt.json",
-}
+
+_ROOT_RECEIPT_FILES = {"manifest.json"}
 _ATTEMPT_FILES = {
     "stage-state.json",
     "snapshot-before.json",
     "snapshot-after.json",
+    "selected-attempt.json",
 }
 _RESULT_FILES = {
     "metric.json",
@@ -94,7 +97,9 @@ def extract_paired_scores(
         left = _required_score(non_cdm_values, name, minimum, maximum)
         right = _required_score(cdm_values, name, minimum, maximum)
         if left != right:
-            raise ValueError(f"Non-CDM and CDM {name} must agree after approved rounding")
+            raise ValueError(
+                f"Non-CDM and CDM {name} must agree after approved rounding"
+            )
         selected[name] = left
 
     formula = _required_score(cdm_values, "formula_cdm_percent", 0.0, 100.0)
@@ -144,7 +149,9 @@ def strict_equivalence_decision(
         )
     paired = _nonnegative_int(output_report.get("paired_pages"), "paired_pages")
     equal = _nonnegative_int(output_report.get("equal_pages"), "equal_pages")
-    different = _nonnegative_int(output_report.get("different_pages"), "different_pages")
+    different = _nonnegative_int(
+        output_report.get("different_pages"), "different_pages"
+    )
     official_only = _nonnegative_int(
         output_report.get("official_only_pages"), "official_only_pages"
     )
@@ -249,7 +256,9 @@ def build_task5_receipt(
     task5_root: Path, relative_paths: Sequence[str]
 ) -> dict[str, object]:
     """Hash an explicit allowlist of small Task 5 evidence files."""
-    if not isinstance(relative_paths, Sequence) or isinstance(relative_paths, (str, bytes)):
+    if not isinstance(relative_paths, Sequence) or isinstance(
+        relative_paths, (str, bytes)
+    ):
         raise ValueError("Receipt paths must be a sequence")
     names = list(relative_paths)
     if RECEIPT_NAME in names:
@@ -258,6 +267,15 @@ def build_task5_receipt(
         raise ValueError("Receipt must hash at least one evidence file")
     if len(set(names)) != len(names):
         raise ValueError("Receipt paths must be unique")
+    attempt_ids = {
+        PurePosixPath(name).parts[1]
+        for name in names
+        if isinstance(name, str)
+        and len(PurePosixPath(name).parts) >= 2
+        and PurePosixPath(name).parts[0] == "attempts"
+    }
+    if len(attempt_ids) > 1:
+        raise ValueError("Receipt cannot mix evidence from another attempt")
     root = _safe_root(task5_root)
     files: dict[str, object] = {}
     for name in sorted(names):
@@ -284,6 +302,153 @@ def validate_task5_receipt(
     if rebuilt != dict(receipt):
         raise ValueError("Receipt input identity has changed")
     return rebuilt
+
+
+def attempt_result_paths(base: str, engine: str) -> tuple[str, ...]:
+    if engine not in {"official", "lightweight"}:
+        raise ValueError("Receipt engine must be official or lightweight")
+    return tuple(
+        f"{base}/compact/results/{engine}/{name}" for name in sorted(_RESULT_FILES)
+    )
+
+
+def attempt_comparison_paths(base: str) -> tuple[str, ...]:
+    return tuple(
+        f"{base}/compact/comparison/{name}" for name in sorted(_COMPARISON_FILES)
+    )
+
+
+def required_attempt_receipt_paths(attempt_id: str) -> tuple[str, ...]:
+    """Return the exact compact evidence set for one immutable attempt."""
+    _validate_attempt_id(attempt_id)
+    base = f"attempts/{attempt_id}"
+    return tuple(
+        sorted(
+            (
+                "manifest.json",
+                f"{base}/stage-state.json",
+                f"{base}/snapshot-before.json",
+                f"{base}/snapshot-after.json",
+                f"{base}/selected-attempt.json",
+                *attempt_result_paths(base, "official"),
+                *attempt_result_paths(base, "lightweight"),
+                *attempt_comparison_paths(base),
+            )
+        )
+    )
+
+
+def validate_task5_selection(
+    task5_root: Path, pointer_path: Path | None = None
+) -> dict[str, object]:
+    """Validate one byte-exact pointer to a fully receipted immutable attempt."""
+    root = _safe_root(task5_root)
+    pointer = pointer_path or root / "selected-attempt.json"
+    _require_direct_child(root, pointer, label="Selection pointer")
+    pointer_snapshot = _read_stable_file(pointer, label="Selection pointer")
+    pointer_value = _parse_json_object(pointer_snapshot.content, pointer_snapshot.path)
+    _reject_absolute_disclosure(pointer_value)
+    _validate_candidate_schema(pointer_value)
+    attempt_id = pointer_value["attempt_id"]
+    assert isinstance(attempt_id, str)
+    _validate_attempt_id(attempt_id)
+
+    attempt_root = root / "attempts" / attempt_id
+    _require_exact_directory(root, attempt_root, label="Selected attempt")
+    candidate_path = attempt_root / "selected-attempt.json"
+    candidate_snapshot = _read_stable_file(candidate_path, label="Selection candidate")
+    if pointer_snapshot.content != candidate_snapshot.content:
+        raise ValueError("Selection pointer bytes do not match the attempt candidate")
+    candidate = _parse_json_object(candidate_snapshot.content, candidate_path)
+    _reject_absolute_disclosure(candidate)
+    _validate_candidate_schema(candidate)
+
+    receipt_path = attempt_root / RECEIPT_NAME
+    receipt_snapshot = _read_stable_file(receipt_path, label="Attempt receipt")
+    receipt = _parse_json_object(receipt_snapshot.content, receipt_path)
+    receipt_files = receipt.get("files")
+    if not isinstance(receipt_files, Mapping):
+        raise ValueError("Attempt receipt files must be an object")
+    expected_paths = required_attempt_receipt_paths(attempt_id)
+    if tuple(receipt_files) != expected_paths:
+        raise ValueError("Attempt receipt must contain the exact required file set")
+    validate_task5_receipt(root, receipt)
+
+    evidence = {
+        "manifest": root / "manifest.json",
+        "stage": attempt_root / "stage-state.json",
+        "before": attempt_root / "snapshot-before.json",
+        "after": attempt_root / "snapshot-after.json",
+        "decision": attempt_root / "compact/comparison/decision.json",
+    }
+    loaded: dict[str, dict[str, object]] = {}
+    snapshots: dict[str, _StableFile] = {}
+    for label, path in evidence.items():
+        snapshot = _read_stable_file(path, label=f"Selected {label}")
+        relative = path.relative_to(root).as_posix()
+        identity = receipt_files.get(relative)
+        if (
+            not isinstance(identity, Mapping)
+            or identity.get("sha256") != snapshot.sha256
+        ):
+            raise ValueError(f"Selected {label} does not match its receipt")
+        loaded[label] = _parse_json_object(snapshot.content, path)
+        snapshots[label] = snapshot
+    candidate_identity = receipt_files.get(candidate_path.relative_to(root).as_posix())
+    if (
+        not isinstance(candidate_identity, Mapping)
+        or candidate_identity.get("sha256") != candidate_snapshot.sha256
+    ):
+        raise ValueError("Selection candidate does not match its receipt")
+
+    stage = loaded["stage"]
+    _validate_stage_schema(stage)
+    if stage["status"] != "sealed":
+        raise ValueError("Selected attempt stage state must be sealed")
+    if stage["attempt_id"] != attempt_id:
+        raise ValueError("Selection candidate attempt differs from stage state")
+    if loaded["before"] != loaded["after"]:
+        raise ValueError("Canonical before/after G0 snapshots do not match")
+    if candidate["g0_closure"] != "PASS":
+        raise ValueError("Selection candidate G0 closure must be PASS")
+    manifest_sha = snapshots["manifest"].sha256
+    if (
+        candidate["manifest_sha256"] != manifest_sha
+        or stage["manifest_sha256"] != manifest_sha
+    ):
+        raise ValueError("Selection manifest SHA-256 does not match current bytes")
+
+    decision = loaded["decision"]
+    _validate_decision_schema(decision)
+    strict = decision["strict_equivalence"]
+    amd = decision["amd_adaptation"]
+    assert isinstance(strict, Mapping) and isinstance(amd, Mapping)
+    if candidate["strict_equivalence"] != strict["verdict"]:
+        raise ValueError("Selection candidate differs from compact decision")
+    if candidate["amd_adaptation"] != amd["verdict"]:
+        raise ValueError("Selection candidate differs from compact decision")
+
+    if (
+        _read_stable_file(pointer, label="Selection pointer").content
+        != pointer_snapshot.content
+    ):
+        raise ValueError("Selection pointer changed during validation")
+    if (
+        _read_stable_file(candidate_path, label="Selection candidate").content
+        != candidate_snapshot.content
+    ):
+        raise ValueError("Selection candidate changed during validation")
+    if (
+        _read_stable_file(receipt_path, label="Attempt receipt").content
+        != receipt_snapshot.content
+    ):
+        raise ValueError("Attempt receipt changed during validation")
+    return {
+        "attempt_id": attempt_id,
+        "strict_equivalence": candidate["strict_equivalence"],
+        "amd_adaptation": candidate["amd_adaptation"],
+        "g0_closure": candidate["g0_closure"],
+    }
 
 
 def _required_score(
@@ -326,7 +491,8 @@ def _metric_quality_passes(scores: Mapping[str, object]) -> bool:
     if set(quality) != {"formula_cdm", "table_teds"}:
         return False
     return all(
-        isinstance(item, Mapping) and item.get("valid") is True for item in quality.values()
+        isinstance(item, Mapping) and item.get("valid") is True
+        for item in quality.values()
     )
 
 
@@ -348,7 +514,9 @@ def _lightweight_stats_pass(stats: Mapping[str, object]) -> bool:
         return False
     expected = (1651, 1651, 0, 0)
     raw = tuple(stats[key] for key in raw_keys) if all(raw_present) else None
-    summary = tuple(stats[key] for key in summary_keys) if all(summary_present) else None
+    summary = (
+        tuple(stats[key] for key in summary_keys) if all(summary_present) else None
+    )
     if raw is not None and not all(type(value) is int for value in raw):
         return False
     if summary is not None and not all(type(value) is int for value in summary):
@@ -368,12 +536,15 @@ def _validate_approved_exclusion(value: object) -> None:
         "official_present",
         "lightweight_present",
     }:
-        raise ValueError("approved_exclusion must contain the complete comparator coverage")
+        raise ValueError(
+            "approved_exclusion must contain the complete comparator coverage"
+        )
     if value.get("stem") != APPROVED_EXCLUDED_STEM:
         raise ValueError("approved_exclusion stem is not approved")
-    if type(value.get("official_present")) is not bool or type(
-        value.get("lightweight_present")
-    ) is not bool:
+    if (
+        type(value.get("official_present")) is not bool
+        or type(value.get("lightweight_present")) is not bool
+    ):
         raise ValueError("approved_exclusion presence fields must be booleans")
 
 
@@ -395,9 +566,7 @@ def _validated_trace_verdict(report: Mapping[str, object]) -> str:
     lightweight_only = _nonnegative_int(
         report.get("lightweight_only_pages"), "trace lightweight_only_pages"
     )
-    empty = _nonnegative_int(
-        report.get("empty_page_traces"), "trace empty_page_traces"
-    )
+    empty = _nonnegative_int(report.get("empty_page_traces"), "trace empty_page_traces")
     different = _nonnegative_int(
         report.get("different_records"), "trace different_records"
     )
@@ -443,7 +612,9 @@ def _validated_trace_verdict(report: Mapping[str, object]) -> str:
         else "PASS"
     )
     if verdict != recomputed:
-        raise ValueError("Trace report verdict contradicts its coverage and record counts")
+        raise ValueError(
+            "Trace report verdict contradicts its coverage and record counts"
+        )
     return recomputed
 
 
@@ -541,8 +712,7 @@ def _optional_nonnegative_int(report: Mapping[str, object], name: str) -> int:
 
 
 def _safe_root(task5_root: Path) -> Path:
-    if task5_root.is_symlink():
-        raise ValueError("Task 5 root cannot be a symlink")
+    _reject_reparse(task5_root, label="Task 5 root")
     root = task5_root.resolve(strict=True)
     if not root.is_dir():
         raise ValueError("Task 5 root must be a directory")
@@ -570,8 +740,7 @@ def _contained_file(root: Path, name: str) -> tuple[str, Path]:
     current = root
     for part in relative.parts:
         current = current / part
-        if current.is_symlink():
-            raise ValueError(f"Receipt input cannot be a symlink: {normalized}")
+        _reject_reparse(current, label=f"Receipt input {normalized}")
     resolved = path.resolve(strict=True)
     if root not in resolved.parents:
         raise ValueError("Receipt path cannot escape the Task 5 root")
@@ -584,13 +753,233 @@ def _receipt_path_allowed(relative: PurePosixPath) -> bool:
     parts = relative.parts
     if len(parts) == 1:
         return parts[0] in _ROOT_RECEIPT_FILES
-    if len(parts) == 2 and parts[0] == "comparison":
-        return parts[1] in _COMPARISON_FILES
-    if len(parts) == 3 and parts[0] == "results":
-        return parts[1] in {"official", "lightweight"} and parts[2] in _RESULT_FILES
-    if len(parts) == 3 and parts[0] == "attempts" and parts[1]:
+    if (
+        len(parts) == 3
+        and parts[0] == "attempts"
+        and ATTEMPT_ID.fullmatch(parts[1]) is not None
+    ):
         return parts[2] in _ATTEMPT_FILES
+    if (
+        len(parts) == 6
+        and parts[0] == "attempts"
+        and ATTEMPT_ID.fullmatch(parts[1]) is not None
+        and parts[2:4] == ("compact", "results")
+    ):
+        return parts[4] in {"official", "lightweight"} and parts[5] in _RESULT_FILES
+    if (
+        len(parts) == 5
+        and parts[0] == "attempts"
+        and ATTEMPT_ID.fullmatch(parts[1]) is not None
+        and parts[2:4] == ("compact", "comparison")
+    ):
+        return parts[4] in _COMPARISON_FILES
     return False
+
+
+def _validate_attempt_id(attempt_id: object) -> None:
+    if not isinstance(attempt_id, str) or ATTEMPT_ID.fullmatch(attempt_id) is None:
+        raise ValueError("AttemptId must match ^[a-z0-9][a-z0-9-]{0,63}$")
+
+
+def _validate_candidate_schema(candidate: Mapping[str, object]) -> None:
+    required = {
+        "schema",
+        "attempt_id",
+        "manifest_sha256",
+        "strict_equivalence",
+        "amd_adaptation",
+        "g0_closure",
+        "effective_only_with_valid_receipt",
+    }
+    if set(candidate) != required:
+        raise ValueError("Selection candidate has an invalid fail-closed schema")
+    _validate_attempt_id(candidate.get("attempt_id"))
+    if candidate.get("schema") != 1 or isinstance(candidate.get("schema"), bool):
+        raise ValueError("Selection candidate schema must be integer 1")
+    digest = candidate.get("manifest_sha256")
+    if not isinstance(digest, str) or SHA256.fullmatch(digest) is None:
+        raise ValueError("Selection candidate manifest SHA-256 is invalid")
+    if candidate.get("strict_equivalence") not in {"PASS", "UNKNOWN", "FAIL"}:
+        raise ValueError("Selection candidate strict-equivalence verdict is invalid")
+    if candidate.get("amd_adaptation") not in {"PASS", "FAIL"}:
+        raise ValueError("Selection candidate AMD-adaptation verdict is invalid")
+    if candidate.get("g0_closure") != "PASS":
+        raise ValueError("Selection candidate G0 closure must be PASS")
+    if candidate.get("effective_only_with_valid_receipt") is not True:
+        raise ValueError("Selection candidate must require a valid receipt")
+
+
+def _validate_stage_schema(stage: Mapping[str, object]) -> None:
+    required = {
+        "schema",
+        "attempt_id",
+        "status",
+        "producing_commit",
+        "manifest_sha256",
+        "stages",
+        "started_at_utc",
+    }
+    if set(stage) != required:
+        raise ValueError("Selected stage state has an invalid fail-closed schema")
+    if stage.get("schema") != 1 or isinstance(stage.get("schema"), bool):
+        raise ValueError("Selected stage state schema must be integer 1")
+    _validate_attempt_id(stage.get("attempt_id"))
+    commit = stage.get("producing_commit")
+    if not isinstance(commit, str) or GIT_COMMIT.fullmatch(commit) is None:
+        raise ValueError("Selected stage producing commit is invalid")
+    digest = stage.get("manifest_sha256")
+    if not isinstance(digest, str) or SHA256.fullmatch(digest) is None:
+        raise ValueError("Selected stage manifest SHA-256 is invalid")
+    if not isinstance(stage.get("stages"), Mapping):
+        raise ValueError("Selected stage records must be an object")
+    if not isinstance(stage.get("started_at_utc"), str) or not stage["started_at_utc"]:
+        raise ValueError("Selected stage start time must be a non-empty string")
+    if stage.get("status") not in {"active", "invalid", "sealed"}:
+        raise ValueError("Selected stage status is invalid")
+
+
+def _validate_decision_schema(decision: Mapping[str, object]) -> None:
+    required = {
+        "schema",
+        "benchmark",
+        "coverage",
+        "scores",
+        "strict_equivalence",
+        "amd_adaptation",
+        "g3",
+        "evidence",
+    }
+    if set(decision) != required:
+        raise ValueError("Compact decision has an invalid fail-closed schema")
+    if decision.get("schema") != 1 or isinstance(decision.get("schema"), bool):
+        raise ValueError("Compact decision schema must be integer 1")
+    if decision.get("benchmark") != "OmniDocBench-v1.6":
+        raise ValueError("Compact decision benchmark must be OmniDocBench-v1.6")
+    for name in ("coverage", "scores", "evidence"):
+        if not isinstance(decision.get(name), Mapping):
+            raise ValueError(f"Compact decision {name} must be an object")
+    coverage = decision["coverage"]
+    scores = decision["scores"]
+    evidence = decision["evidence"]
+    assert isinstance(coverage, Mapping)
+    assert isinstance(scores, Mapping)
+    assert isinstance(evidence, Mapping)
+    if set(coverage) != {"expected_paired_pages", "paired_pages"}:
+        raise ValueError("Compact decision coverage schema is invalid")
+    if coverage.get("expected_paired_pages") != EXPECTED_PAIRED_PAGES:
+        raise ValueError("Compact decision expected coverage is invalid")
+    _nonnegative_int(coverage.get("paired_pages"), "paired_pages")
+    if set(scores) != {"official", "lightweight"} or not all(
+        isinstance(scores.get(engine), Mapping)
+        for engine in ("official", "lightweight")
+    ):
+        raise ValueError("Compact decision scores schema is invalid")
+    expected_evidence = {
+        "official_non_cdm",
+        "official_cdm",
+        "lightweight_non_cdm",
+        "lightweight_cdm",
+        "output_report",
+        "trace_report",
+        "provider_attestation",
+        "lightweight_stats",
+    }
+    if set(evidence) != expected_evidence:
+        raise ValueError("Compact decision evidence schema is invalid")
+    for identity in evidence.values():
+        if (
+            not isinstance(identity, Mapping)
+            or set(identity) != {"sha256"}
+            or not isinstance(identity.get("sha256"), str)
+            or SHA256.fullmatch(identity["sha256"]) is None
+        ):
+            raise ValueError("Compact decision evidence identity is invalid")
+    strict = decision.get("strict_equivalence")
+    amd = decision.get("amd_adaptation")
+    strict_keys = {
+        "verdict",
+        "output_equivalent",
+        "trace_verdict",
+        "expected_paired_pages",
+        "paired_pages",
+        "equal_pages",
+        "different_pages",
+        "official_only_pages",
+        "lightweight_only_pages",
+    }
+    if (
+        not isinstance(strict, Mapping)
+        or set(strict) != strict_keys
+        or strict.get("verdict") not in {"PASS", "UNKNOWN", "FAIL"}
+    ):
+        raise ValueError("Compact decision strict-equivalence verdict is invalid")
+    amd_keys = {
+        "verdict",
+        "g3",
+        "checks",
+        "minimum_overall",
+        "lightweight_overall",
+        "provider_evidence",
+    }
+    if (
+        not isinstance(amd, Mapping)
+        or set(amd) != amd_keys
+        or amd.get("verdict") not in {"PASS", "FAIL"}
+        or not isinstance(amd.get("g3"), bool)
+    ):
+        raise ValueError("Compact decision AMD-adaptation verdict is invalid")
+    if not isinstance(decision.get("g3"), bool):
+        raise ValueError("Compact decision g3 must be boolean")
+    if decision["g3"] is not amd["g3"]:
+        raise ValueError("Compact decision g3 contradicts AMD adaptation")
+
+
+def _reject_absolute_disclosure(value: object) -> None:
+    if isinstance(value, str):
+        if PurePosixPath(value).is_absolute() or PureWindowsPath(value).is_absolute():
+            raise ValueError("Selection candidate cannot disclose an absolute path")
+        return
+    if isinstance(value, list):
+        for item in value:
+            _reject_absolute_disclosure(item)
+        return
+    if isinstance(value, Mapping):
+        for item in value.values():
+            _reject_absolute_disclosure(item)
+
+
+def _require_direct_child(root: Path, path: Path, *, label: str) -> None:
+    _reject_reparse(path, label=label)
+    absolute = path.absolute()
+    if absolute.parent != root or path.resolve(strict=True) != absolute:
+        raise ValueError(f"{label} must be a same-root non-escaped file")
+
+
+def _require_exact_directory(root: Path, path: Path, *, label: str) -> None:
+    current = root
+    for part in path.relative_to(root).parts:
+        current = current / part
+        _reject_reparse(current, label=label)
+    resolved = path.resolve(strict=True)
+    if (
+        resolved != path.absolute()
+        or root not in resolved.parents
+        or not resolved.is_dir()
+    ):
+        raise ValueError(f"{label} must be an exact contained directory")
+
+
+def _reject_reparse(path: Path, *, label: str) -> None:
+    if path.is_symlink():
+        raise ValueError(f"{label} cannot be a symlink or reparse point")
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return
+    attributes = getattr(metadata, "st_file_attributes", 0)
+    marker = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    if marker and attributes & marker:
+        raise ValueError(f"{label} cannot be a symlink or reparse point")
 
 
 def _relative_file_identity(root: Path, name: str, path: Path) -> dict[str, object]:
@@ -770,7 +1159,9 @@ def _decide(args: argparse.Namespace) -> int:
     lightweight = extract_paired_scores(
         loaded["lightweight_non_cdm"], loaded["lightweight_cdm"]
     )
-    strict = strict_equivalence_decision(loaded["output_report"], loaded["trace_report"])
+    strict = strict_equivalence_decision(
+        loaded["output_report"], loaded["trace_report"]
+    )
     amd = amd_adaptation_decision(
         official_scores=official,
         lightweight_scores=lightweight,
@@ -789,9 +1180,7 @@ def _decide(args: argparse.Namespace) -> int:
         "strict_equivalence": strict,
         "amd_adaptation": amd,
         "g3": amd["g3"],
-        "evidence": {
-            name: {"sha256": digests[name]} for name in sorted(paths)
-        },
+        "evidence": {name: {"sha256": digests[name]} for name in sorted(paths)},
     }
     _write_json(args.output, decision)
     return 0
@@ -808,6 +1197,12 @@ def _build_receipt_cli(args: argparse.Namespace) -> int:
 
 def _validate_receipt_cli(args: argparse.Namespace) -> int:
     validate_task5_receipt(args.task5_root, _load_json_object(args.receipt))
+    return 0
+
+
+def _validate_selection_cli(args: argparse.Namespace) -> int:
+    validated = validate_task5_selection(args.task5_root, args.pointer)
+    print(json.dumps(validated, sort_keys=True, allow_nan=False))
     return 0
 
 
@@ -853,6 +1248,11 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--task5-root", type=Path, required=True)
     validate.add_argument("--receipt", type=Path, required=True)
     validate.set_defaults(handler=_validate_receipt_cli)
+
+    selection = commands.add_parser("validate-selection")
+    selection.add_argument("--task5-root", type=Path, required=True)
+    selection.add_argument("--pointer", type=Path)
+    selection.set_defaults(handler=_validate_selection_cli)
     return parser
 
 
