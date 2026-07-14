@@ -416,8 +416,18 @@ def _validated_trace_verdict(report: Mapping[str, object]) -> str:
         _UNOBSERVABLE_KEYS,
         "unobservable_counts",
     )
-    if sum(unobservable_counts.values()) != unobservable:
-        raise ValueError("unobservable_counts must sum to unobservable_records")
+    unobservable_occurrences = sum(unobservable_counts.values())
+    if unobservable_occurrences < unobservable:
+        raise ValueError(
+            "unobservable_counts cannot total less than unobservable_records"
+        )
+    maximum_unobservable_occurrences = len(_TRACE_BOUNDARIES) * (
+        unobservable + different
+    )
+    if unobservable_occurrences > maximum_unobservable_occurrences:
+        raise ValueError(
+            "unobservable_counts exceed the Task 2 per-record boundary maximum"
+        )
     _validate_approved_exclusion(report.get("approved_exclusion"))
     coverage_ok = (
         paired == EXPECTED_PAIRED_PAGES

@@ -10,6 +10,11 @@ from pathlib import Path
 import pytest
 
 import eval.task5_decision as task5_decision
+from eval.task5_comparison import (
+    compare_boundary_documents,
+    observation,
+    unobservable,
+)
 from eval.task5_decision import (
     amd_adaptation_decision,
     build_task5_receipt,
@@ -114,6 +119,37 @@ def valid_trace_report(verdict: str = "PASS") -> dict[str, object]:
             "lightweight_present": True,
         },
     }
+
+
+def _comparison_event(
+    *,
+    boundaries: dict[str, dict[str, str]] | None = None,
+) -> dict[str, object]:
+    return {
+        "page": "page-1",
+        "block_index": 0,
+        "boundaries": boundaries
+        or {name: observation(f"same-{name}") for name in TRACE_BOUNDARIES},
+        "page_postprocess": observation("same-page"),
+    }
+
+
+def _with_trace_coverage(report: dict[str, object]) -> dict[str, object]:
+    report.update(
+        {
+            "expected_paired_pages": 1650,
+            "paired_pages": 1650,
+            "official_only_pages": 0,
+            "lightweight_only_pages": 0,
+            "empty_page_traces": 0,
+            "approved_exclusion": {
+                "stem": "newspaper_The Times UK_0801@magazinesclubnew_page_031",
+                "official_present": True,
+                "lightweight_present": True,
+            },
+        }
+    )
+    return report
 
 
 def valid_provider_attestation(
@@ -261,6 +297,47 @@ def test_strict_accepts_complete_trace_coverage_fail() -> None:
     assert decision["verdict"] == "FAIL"
 
 
+def test_strict_accepts_real_trace_with_multiple_unobservable_boundaries() -> None:
+    official_boundaries = {
+        name: unobservable() if name in {"prompt", "raw_result"} else observation(f"same-{name}")
+        for name in TRACE_BOUNDARIES
+    }
+    report = _with_trace_coverage(
+        compare_boundary_documents(
+            [_comparison_event(boundaries=official_boundaries)],
+            [_comparison_event()],
+        )
+    )
+    assert report["verdict"] == "UNKNOWN"
+    assert report["unobservable_records"] == 1
+    assert sum(report["unobservable_counts"].values()) == 2  # type: ignore[union-attr]
+    assert strict_equivalence_decision(valid_output_report(), report)["verdict"] == "UNKNOWN"
+
+
+def test_strict_accepts_real_different_trace_with_unobservable_boundaries() -> None:
+    official_boundaries = {
+        name: (
+            unobservable()
+            if name in {"prompt", "raw_result"}
+            else observation("official-postprocess")
+            if name == "postprocess"
+            else observation(f"same-{name}")
+        )
+        for name in TRACE_BOUNDARIES
+    }
+    report = _with_trace_coverage(
+        compare_boundary_documents(
+            [_comparison_event(boundaries=official_boundaries)],
+            [_comparison_event()],
+        )
+    )
+    assert report["verdict"] == "FAIL"
+    assert report["different_records"] == 1
+    assert report["unobservable_records"] == 0
+    assert sum(report["unobservable_counts"].values()) == 2  # type: ignore[union-attr]
+    assert strict_equivalence_decision(valid_output_report(), report)["verdict"] == "FAIL"
+
+
 @pytest.mark.parametrize(
     "case",
     [
@@ -274,6 +351,7 @@ def test_strict_accepts_complete_trace_coverage_fail() -> None:
         "unobservable_missing_key",
         "unobservable_bool",
         "unobservable_sum",
+        "unobservable_below_records",
         "coverage_verdict",
         "forged_verdict",
     ],
@@ -318,6 +396,11 @@ def test_strict_rejects_incomplete_or_inconsistent_trace_report(case: str) -> No
         elif case == "unobservable_sum":
             counts = dict(report["unobservable_counts"])  # type: ignore[arg-type]
             counts["bbox"] = 1
+            report["unobservable_counts"] = counts
+        elif case == "unobservable_below_records":
+            report = valid_trace_report("UNKNOWN")
+            counts = dict(report["unobservable_counts"])  # type: ignore[arg-type]
+            counts["raw_result"] = 0
             report["unobservable_counts"] = counts
         elif case == "coverage_verdict":
             report["paired_pages"] = 1649
