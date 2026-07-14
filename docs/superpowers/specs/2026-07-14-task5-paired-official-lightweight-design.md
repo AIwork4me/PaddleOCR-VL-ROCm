@@ -1,7 +1,7 @@
 # Task 5 Paired Official/Lightweight Evidence Design
 
 - Date: 2026-07-14
-- Status: Approved
+- Status: Approved; DirectML majority amendment approved 2026-07-14
 - Branch: `codex/top-tier-quality`
 - Benchmark: OmniDocBench v1.6 at commit
   `147cd5ac9472002f5751221d390bf00abdbc0d2f`
@@ -117,13 +117,20 @@ GPU. Accepted evidence requires all of the following:
   `CPUExecutionProvider` second;
 - session fallback is disabled;
 - ORT profiling or equivalent per-node execution evidence attributes layout
-  model node execution to `DmlExecutionProvider` and records zero layout-model
-  node executions by `CPUExecutionProvider`;
+  model node execution to `DmlExecutionProvider`;
+- `DmlExecutionProvider` owns strictly more than 50% of all profiled layout
+  `Node` execution events; CPU-assigned graph partitions are permitted but
+  their event count and share must be reported;
+- every profiled `Node` event names either `DmlExecutionProvider` or
+  `CPUExecutionProvider`; missing and other-provider node counts are zero;
 - provider initialization and the representative inference complete without a
   provider fallback or activation warning.
 
 Provider-list presence alone is insufficient proof. Missing node-assignment
-evidence is a failed AMD-adaptation requirement, not an inferred GPU pass.
+evidence or a DirectML event share at or below 50% is a failed AMD-adaptation
+requirement, not an inferred GPU pass. Static CPU graph partitioning is not the
+same as runtime fallback and does not fail AMD adaptation when DirectML owns the
+majority of node events and every other requirement above passes.
 
 ### 4.4 Dual scorer
 
@@ -178,7 +185,8 @@ All authoritative identities use complete lowercase SHA-256 values.
    observability, process termination, and artifact hashes.
 5. Execute Lightweight inference with DirectML-first layout and the identical
    canonical input/generation contract.
-6. Attest DirectML layout node execution and absence of CPU node fallback.
+6. Attest DirectML-majority layout node execution, report CPU graph partitions,
+   and prove that runtime fallback remains disabled.
 7. Score Official and Lightweight independently with normal v1.6 evaluation,
    Formula CDM, and Table TEDS.
 8. Pair all successful pages and compare normalized Markdown and block traces.
@@ -263,8 +271,9 @@ setting. The manifest validator must reject the run before inference.
 
 ### 8.3 Fault-injection tests
 
-Simulate CPU node execution, DirectML initialization failure, silent provider
-fallback, process interruption, orphan processes, stale files, partial page
+Simulate zero or minority DML node execution, missing/other provider events,
+DirectML initialization failure, silent provider fallback, process
+interruption, orphan processes, stale files, partial page
 coverage, missing trace boundaries, CDM timeout, TEDS error, and corrupted
 receipt inputs. None may produce a false PASS.
 
@@ -278,7 +287,8 @@ The selected attempt must demonstrate:
 - exhaustive block comparison and explicit observability status at every
   canonical boundary;
 - fresh v1.6 normal, Formula CDM, and Table TEDS results for both paths;
-- DirectML GPU node-execution evidence for PP-DocLayoutV3;
+- DirectML-majority GPU node-execution evidence for PP-DocLayoutV3, with DML
+  and CPU event counts and shares;
 - zero unapproved failures and zero CDM/TEDS quality errors;
 - hash-bound `decision.json` and `receipt.sha256.json`.
 

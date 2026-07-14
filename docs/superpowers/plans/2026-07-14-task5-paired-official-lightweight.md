@@ -18,7 +18,7 @@
 - “100% output equivalent” means all 1,650 normalized Markdown strings and all required canonical trace boundaries are equal with zero unobservable boundaries. It does not mean raw-file byte identity.
 - Canonical boundary order is `request_order -> label -> bbox -> crop_pixels -> prompt -> payload -> raw_result -> postprocess`.
 - Any proven difference yields strict `FAIL`; otherwise any required unobservable boundary yields `UNKNOWN`; only complete equality yields `PASS`.
-- `amd_adaptation` is independent from `strict_equivalence` and requires DirectML-first layout, disabled session fallback, positive DML node execution, zero CPU layout-node execution, public contracts, clean scorer quality, Lightweight Overall >= 96.13, and no accepted-component regression against paired Official.
+- `amd_adaptation` is independent from `strict_equivalence` and requires DirectML-first layout, disabled session fallback, DirectML ownership of strictly more than 50% of profiled layout `Node` events, zero missing/other-provider node events, transparent CPU graph-partition counts, public contracts, clean scorer quality, Lightweight Overall >= 96.13, and no accepted-component regression against paired Official.
 - Formula uses `display_formula.page.CDM.ALL`; Table uses `table.page.TEDS.ALL`; components are rounded to three decimals before Overall; reading order is excluded.
 - Default inference behavior and outputs must remain unchanged when observers/profiling are absent.
 - No production accuracy fix or performance behavior optimization is authorized by this plan.
@@ -371,16 +371,30 @@ git commit -m "feat(eval): compare paired outputs and observable traces"
 - [ ] **Step 1: Write failing profile parser and fallback-state tests**
 
 ```python
-def test_attestation_requires_positive_dml_and_zero_cpu_nodes(tmp_path: Path) -> None:
-    profile = write_profile(tmp_path, providers=["DmlExecutionProvider"] * 7)
+def test_attestation_accepts_directml_majority_with_cpu_graph_partitions(tmp_path: Path) -> None:
+    profile = write_profile(
+        tmp_path,
+        providers=["DmlExecutionProvider"] * 7 + ["CPUExecutionProvider"] * 3,
+    )
     report = attest_directml_profile(profile, valid_directml_stats())
     assert report["verdict"] == "PASS"
     assert report["dml_node_events"] == 7
-    assert report["cpu_node_events"] == 0
+    assert report["cpu_node_events"] == 3
+    assert report["dml_node_share"] == 0.7
 
 
-@pytest.mark.parametrize("providers", [[], ["CPUExecutionProvider"], ["DmlExecutionProvider", "CPUExecutionProvider"]])
-def test_attestation_fails_missing_or_cpu_node_execution(tmp_path: Path, providers: list[str]) -> None:
+@pytest.mark.parametrize(
+    "providers",
+    [
+        [],
+        ["CPUExecutionProvider"],
+        ["DmlExecutionProvider", "CPUExecutionProvider"],
+        ["DmlExecutionProvider", "CPUExecutionProvider", "CPUExecutionProvider"],
+    ],
+)
+def test_attestation_fails_without_strict_dml_majority(
+    tmp_path: Path, providers: list[str]
+) -> None:
     report = attest_directml_profile(write_profile(tmp_path, providers), valid_directml_stats())
     assert report["verdict"] == "FAIL"
 
@@ -441,7 +455,7 @@ passed = (
     and active == ["DmlExecutionProvider", "CPUExecutionProvider"]
     and fallback_disabled is True
     and dml_nodes > 0
-    and cpu_nodes == 0
+    and dml_nodes / (dml_nodes + cpu_nodes) > 0.5
     and missing_provider_nodes == 0
     and not other_providers
 )
@@ -493,7 +507,9 @@ $Profile = Get-ChildItem -LiteralPath $SmokeRoot -Filter 'layout-profile*.json' 
 .\.venv\Scripts\python.exe -m eval.directml_attestation --profile $Profile --stats "$SmokeRoot\predictions\_run_stats.json"
 ```
 
-Expected: `verdict=PASS`, `dml_node_events>0`, `cpu_node_events=0`. If ORT emits
+Expected: `verdict=PASS`, `dml_node_events>cpu_node_events`,
+`dml_node_share>0.5`, and missing/other counts zero. CPU-assigned graph
+partitions are reported and do not by themselves fail adaptation. If ORT emits
 a different documented provider field, preserve the raw profile and adjust the
 parser only after adding that exact real event as a sanitized fixture.
 
@@ -749,8 +765,9 @@ decision is successfully written.
 
 - [ ] **Step 7: Add fault-injection coverage**
 
-Stub tests must simulate and reject: CPU-first provider order, a CPU node event,
-missing profile, Official fallback, Lightweight partial coverage, stale score,
+Stub tests must simulate and reject: CPU-first provider order, zero or at-most-
+50% DML node share, missing/other provider node events, missing profile,
+Official fallback, Lightweight partial coverage, stale score,
 CDM timeout, TEDS error, orphan process, changed command log, changed output,
 changed G0 file, symlinked task5 root, old-attempt file reuse, and receipt
 mutation. Assert no case emits `strict_equivalence=PASS` or
@@ -870,7 +887,8 @@ record for every successful page.
 
 Expected: 1,651/1,651 success, fallback 0, requested `auto`, active providers
 `DmlExecutionProvider` then `CPUExecutionProvider`, fallback disabled, DML node
-events >0, CPU layout node events 0, and per-page canonical traces.
+share strictly above 50%, missing/other node events 0, transparent DML/CPU
+counts, and per-page canonical traces.
 
 - [ ] **Step 5: Score both engines with normal and CDM flows**
 
