@@ -20,6 +20,22 @@ EXPECTED_PAIRED_PAGES = 1650
 G3_MINIMUM_OVERALL = 96.13
 RECEIPT_NAME = "receipt.sha256.json"
 APPROVED_EXCLUDED_STEM = "newspaper_The Times UK_0801@magazinesclubnew_page_031"
+_TRACE_BOUNDARIES = (
+    "request_order",
+    "label",
+    "bbox",
+    "crop_pixels",
+    "prompt",
+    "payload",
+    "raw_result",
+    "postprocess",
+)
+_FIRST_DIVERGENCE_KEYS = {
+    "event_structure",
+    *_TRACE_BOUNDARIES,
+    "page_postprocess",
+}
+_UNOBSERVABLE_KEYS = {"block_structure", *_TRACE_BOUNDARIES}
 
 
 @dataclass(frozen=True)
@@ -138,9 +154,7 @@ def strict_equivalence_decision(
     if equal + different != paired:
         raise ValueError("equal_pages plus different_pages must equal paired_pages")
     _validate_approved_exclusion(output_report.get("approved_exclusion"))
-    trace_verdict = trace_report.get("verdict")
-    if trace_verdict not in {"PASS", "UNKNOWN", "FAIL"}:
-        raise ValueError("Trace report verdict must be PASS, UNKNOWN, or FAIL")
+    trace_verdict = _validated_trace_verdict(trace_report)
 
     output_pass = (
         paired == EXPECTED_PAIRED_PAGES
@@ -361,6 +375,78 @@ def _validate_approved_exclusion(value: object) -> None:
         value.get("lightweight_present")
     ) is not bool:
         raise ValueError("approved_exclusion presence fields must be booleans")
+
+
+def _validated_trace_verdict(report: Mapping[str, object]) -> str:
+    verdict = report.get("verdict")
+    if verdict not in {"PASS", "UNKNOWN", "FAIL"}:
+        raise ValueError("Trace report verdict must be PASS, UNKNOWN, or FAIL")
+    expected = _nonnegative_int(
+        report.get("expected_paired_pages"), "trace expected_paired_pages"
+    )
+    if expected != EXPECTED_PAIRED_PAGES:
+        raise ValueError(
+            f"Trace expected_paired_pages must be exactly {EXPECTED_PAIRED_PAGES}"
+        )
+    paired = _nonnegative_int(report.get("paired_pages"), "trace paired_pages")
+    official_only = _nonnegative_int(
+        report.get("official_only_pages"), "trace official_only_pages"
+    )
+    lightweight_only = _nonnegative_int(
+        report.get("lightweight_only_pages"), "trace lightweight_only_pages"
+    )
+    empty = _nonnegative_int(
+        report.get("empty_page_traces"), "trace empty_page_traces"
+    )
+    different = _nonnegative_int(
+        report.get("different_records"), "trace different_records"
+    )
+    unobservable = _nonnegative_int(
+        report.get("unobservable_records"), "trace unobservable_records"
+    )
+    first_counts = _exact_count_mapping(
+        report.get("first_divergence_counts"),
+        _FIRST_DIVERGENCE_KEYS,
+        "first_divergence_counts",
+    )
+    if sum(first_counts.values()) != different:
+        raise ValueError("first_divergence_counts must sum to different_records")
+    unobservable_counts = _exact_count_mapping(
+        report.get("unobservable_counts"),
+        _UNOBSERVABLE_KEYS,
+        "unobservable_counts",
+    )
+    if sum(unobservable_counts.values()) != unobservable:
+        raise ValueError("unobservable_counts must sum to unobservable_records")
+    _validate_approved_exclusion(report.get("approved_exclusion"))
+    coverage_ok = (
+        paired == EXPECTED_PAIRED_PAGES
+        and official_only == 0
+        and lightweight_only == 0
+        and empty == 0
+    )
+    recomputed = (
+        "FAIL"
+        if not coverage_ok or different > 0
+        else "UNKNOWN"
+        if unobservable > 0
+        else "PASS"
+    )
+    if verdict != recomputed:
+        raise ValueError("Trace report verdict contradicts its coverage and record counts")
+    return recomputed
+
+
+def _exact_count_mapping(
+    value: object, expected_keys: set[str], label: str
+) -> dict[str, int]:
+    if not isinstance(value, Mapping) or set(value) != expected_keys:
+        raise ValueError(f"{label} must contain exactly the Task 2 schema keys")
+    counts = dict(value)
+    for name, count in counts.items():
+        if type(count) is not int or count < 0:
+            raise ValueError(f"{label}.{name} must be a nonnegative exact integer")
+    return counts
 
 
 def _provider_runtime_passes(stats: Mapping[str, object]) -> bool:

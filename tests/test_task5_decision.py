@@ -73,6 +73,49 @@ def valid_output_report(**updates: object) -> dict[str, object]:
     return report
 
 
+TRACE_BOUNDARIES = (
+    "request_order",
+    "label",
+    "bbox",
+    "crop_pixels",
+    "prompt",
+    "payload",
+    "raw_result",
+    "postprocess",
+)
+
+
+def valid_trace_report(verdict: str = "PASS") -> dict[str, object]:
+    different_records = 1 if verdict == "FAIL" else 0
+    unobservable_records = 1 if verdict == "UNKNOWN" else 0
+    first_divergence_counts = {"event_structure": 0}
+    first_divergence_counts.update({name: 0 for name in TRACE_BOUNDARIES})
+    first_divergence_counts["page_postprocess"] = 0
+    if different_records:
+        first_divergence_counts["postprocess"] = different_records
+    unobservable_counts = {"block_structure": 0}
+    unobservable_counts.update({name: 0 for name in TRACE_BOUNDARIES})
+    if unobservable_records:
+        unobservable_counts["raw_result"] = unobservable_records
+    return {
+        "verdict": verdict,
+        "expected_paired_pages": 1650,
+        "paired_pages": 1650,
+        "official_only_pages": 0,
+        "lightweight_only_pages": 0,
+        "empty_page_traces": 0,
+        "different_records": different_records,
+        "unobservable_records": unobservable_records,
+        "first_divergence_counts": first_divergence_counts,
+        "unobservable_counts": unobservable_counts,
+        "approved_exclusion": {
+            "stem": "newspaper_The Times UK_0801@magazinesclubnew_page_031",
+            "official_present": True,
+            "lightweight_present": True,
+        },
+    }
+
+
 def valid_provider_attestation(
     *, dml: int = 1101, cpu: int = 150
 ) -> dict[str, object]:
@@ -147,16 +190,16 @@ def metric(
 def test_strict_fail_beats_unknown() -> None:
     decision = strict_equivalence_decision(
         valid_output_report(verdict="FAIL", equal_pages=1649, different_pages=1),
-        {"verdict": "UNKNOWN", "unobservable_count": 8},
+        valid_trace_report("UNKNOWN"),
     )
     assert decision["verdict"] == "FAIL"
 
 
 def test_strict_verdict_requires_complete_equal_outputs_and_trace() -> None:
     complete = valid_output_report()
-    assert strict_equivalence_decision(complete, {"verdict": "PASS"})["verdict"] == "PASS"
+    assert strict_equivalence_decision(complete, valid_trace_report())["verdict"] == "PASS"
     assert (
-        strict_equivalence_decision(complete, {"verdict": "UNKNOWN"})["verdict"]
+        strict_equivalence_decision(complete, valid_trace_report("UNKNOWN"))["verdict"]
         == "UNKNOWN"
     )
     assert (
@@ -167,7 +210,7 @@ def test_strict_verdict_requires_complete_equal_outputs_and_trace() -> None:
                 "paired_pages": 1649,
                 "equal_pages": 1649,
             },
-            {"verdict": "PASS"},
+            valid_trace_report(),
         )["verdict"]
         == "FAIL"
     )
@@ -177,12 +220,12 @@ def test_strict_rejects_missing_only_fields_and_inconsistent_arithmetic() -> Non
     missing_only = valid_output_report()
     del missing_only["official_only_pages"]
     with pytest.raises(ValueError, match="official_only_pages"):
-        strict_equivalence_decision(missing_only, {"verdict": "PASS"})
+        strict_equivalence_decision(missing_only, valid_trace_report())
 
     with pytest.raises(ValueError, match="equal_pages.*different_pages"):
         strict_equivalence_decision(
             valid_output_report(equal_pages=1650, different_pages=1),
-            {"verdict": "PASS"},
+            valid_trace_report(),
         )
 
 
@@ -199,8 +242,91 @@ def test_strict_rejects_report_verdict_or_coverage_contradiction(
 ) -> None:
     with pytest.raises(ValueError, match="report|expected_paired_pages"):
         strict_equivalence_decision(
-            valid_output_report(**contradiction), {"verdict": "PASS"}
+            valid_output_report(**contradiction), valid_trace_report()
         )
+
+
+@pytest.mark.parametrize("verdict", ["PASS", "UNKNOWN", "FAIL"])
+def test_strict_accepts_complete_trace_pass_unknown_and_fail(verdict: str) -> None:
+    decision = strict_equivalence_decision(
+        valid_output_report(), valid_trace_report(verdict)
+    )
+    assert decision["verdict"] == verdict
+
+
+def test_strict_accepts_complete_trace_coverage_fail() -> None:
+    report = valid_trace_report()
+    report.update({"verdict": "FAIL", "paired_pages": 1649})
+    decision = strict_equivalence_decision(valid_output_report(), report)
+    assert decision["verdict"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "verdict_only",
+        "missing_field",
+        "first_extra_key",
+        "first_missing_key",
+        "first_bool",
+        "first_sum",
+        "unobservable_extra_key",
+        "unobservable_missing_key",
+        "unobservable_bool",
+        "unobservable_sum",
+        "coverage_verdict",
+        "forged_verdict",
+    ],
+)
+def test_strict_rejects_incomplete_or_inconsistent_trace_report(case: str) -> None:
+    if case == "verdict_only":
+        report: dict[str, object] = {"verdict": "PASS"}
+    else:
+        report = valid_trace_report()
+        if case == "missing_field":
+            del report["paired_pages"]
+        elif case == "first_extra_key":
+            report["first_divergence_counts"] = {
+                **report["first_divergence_counts"],  # type: ignore[arg-type]
+                "extra": 0,
+            }
+        elif case == "first_missing_key":
+            counts = dict(report["first_divergence_counts"])  # type: ignore[arg-type]
+            del counts["payload"]
+            report["first_divergence_counts"] = counts
+        elif case == "first_bool":
+            counts = dict(report["first_divergence_counts"])  # type: ignore[arg-type]
+            counts["payload"] = False
+            report["first_divergence_counts"] = counts
+        elif case == "first_sum":
+            counts = dict(report["first_divergence_counts"])  # type: ignore[arg-type]
+            counts["payload"] = 1
+            report["first_divergence_counts"] = counts
+        elif case == "unobservable_extra_key":
+            report["unobservable_counts"] = {
+                **report["unobservable_counts"],  # type: ignore[arg-type]
+                "extra": 0,
+            }
+        elif case == "unobservable_missing_key":
+            counts = dict(report["unobservable_counts"])  # type: ignore[arg-type]
+            del counts["bbox"]
+            report["unobservable_counts"] = counts
+        elif case == "unobservable_bool":
+            counts = dict(report["unobservable_counts"])  # type: ignore[arg-type]
+            counts["bbox"] = False
+            report["unobservable_counts"] = counts
+        elif case == "unobservable_sum":
+            counts = dict(report["unobservable_counts"])  # type: ignore[arg-type]
+            counts["bbox"] = 1
+            report["unobservable_counts"] = counts
+        elif case == "coverage_verdict":
+            report["paired_pages"] = 1649
+        elif case == "forged_verdict":
+            report["verdict"] = "UNKNOWN"
+        else:
+            raise AssertionError(case)
+    with pytest.raises(ValueError):
+        strict_equivalence_decision(valid_output_report(), report)
 
 
 def test_strict_unknown_does_not_block_independent_amd_pass() -> None:
@@ -528,7 +654,7 @@ def test_cli_decide_writes_fail_decision_without_infrastructure_error(tmp_path: 
         "output-report": valid_output_report(
             verdict="FAIL", equal_pages=1649, different_pages=1
         ),
-        "trace-report": {"verdict": "PASS"},
+        "trace-report": valid_trace_report(),
         "provider-attestation": valid_provider_attestation(),
         "lightweight-stats": valid_lightweight_stats(),
     }
@@ -578,7 +704,7 @@ def _decision_cli_namespace(tmp_path: Path) -> Namespace:
         "lightweight_non_cdm": metric(table=0.96),
         "lightweight_cdm": metric(table=0.96),
         "output_report": valid_output_report(),
-        "trace_report": {"verdict": "PASS"},
+        "trace_report": valid_trace_report(),
         "provider_attestation": valid_provider_attestation(),
         "lightweight_stats": valid_lightweight_stats(),
     }
