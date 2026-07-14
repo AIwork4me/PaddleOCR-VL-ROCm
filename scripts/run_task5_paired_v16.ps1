@@ -161,13 +161,31 @@ try {
 
   function Protect-LoggedText([string]$Value) {
     if ($null -eq $Value) { return "" }
+    $sensitiveValues = [Collections.Generic.List[string]]::new()
+    function Add-SensitiveLeaves([object]$InputValue) {
+      if ($null -eq $InputValue) { return }
+      if ($InputValue -is [string]) {
+        if ($InputValue.Length -gt 0) { $sensitiveValues.Add([string]$InputValue) }
+        return
+      }
+      if ($InputValue -is [Collections.IDictionary]) {
+        foreach ($entry in $InputValue.GetEnumerator()) { Add-SensitiveLeaves $entry.Value }
+        return
+      }
+      if ($InputValue -is [pscustomobject]) {
+        foreach ($property in $InputValue.PSObject.Properties) { Add-SensitiveLeaves $property.Value }
+        return
+      }
+      if ($InputValue -is [Collections.IEnumerable]) { foreach ($item in $InputValue) { Add-SensitiveLeaves $item } }
+    }
     function Protect-StructuredValue([object]$InputValue, [string]$Key = "") {
-      $normalized = $Key.ToLowerInvariant() -replace '-', '_'
-      $sensitive = @("credential", "authorization", "bearer", "api_key", "apikey", "token", "signature", "prompt", "payload", "raw_result")
-      if ($normalized -in $sensitive) {
-        if ($normalized -eq "prompt") { return "<prompt-redacted>" }
-        if ($normalized -eq "payload") { return "<payload-redacted>" }
-        if ($normalized -eq "raw_result") { return "<raw-result-redacted>" }
+      $normalized = $Key.ToLowerInvariant() -replace '[^a-z0-9]', ''
+      $isSensitive = $normalized -match '(credential|authorization|bearer|apikey|token|signature|signedurl|prompt|payload|rawresult)'
+      if ($isSensitive) {
+        Add-SensitiveLeaves $InputValue
+        if ($normalized -match 'prompt') { return "<prompt-redacted>" }
+        if ($normalized -match 'payload') { return "<payload-redacted>" }
+        if ($normalized -match 'rawresult') { return "<raw-result-redacted>" }
         return "<redacted>"
       }
       if ($InputValue -is [Collections.IDictionary]) {
@@ -190,19 +208,58 @@ try {
       $redacted = $Text
       $redacted = [regex]::Replace($redacted, '(?im)(Authorization\s*:\s*)[^\r\n]+', '${1}<redacted>')
       $redacted = [regex]::Replace($redacted, '(?i)Bearer\s+[^\s,;"''\]&]+', 'Bearer <redacted>')
-      $redacted = [regex]::Replace($redacted, '(?i)\b(api[_-]?key|token|signature|credential)\s*[=:]\s*[^\s,;"''\]&]+', '${1}=<redacted>')
-      $redacted = [regex]::Replace($redacted, '(?i)([?&][^=]*(?:signature|token|api[_-]?key)[^=]*=)[^&\s]+', '${1}<redacted>')
+      $redacted = [regex]::Replace($redacted, '(?i)\b(api[ _-]?key|token|[^\s=:]*signature|credential|authorization)\s*[=:]\s*[^\s,;"''\]&]+', '${1}=<redacted>')
+      $redacted = [regex]::Replace($redacted, '(?i)([?&][^=]*(?:signature|token|api[ _-]?key|credential|authorization)[^=]*=)[^&\s]+', '${1}<redacted>')
       $redacted = [regex]::Replace($redacted, '(?i)\bprompt\s*[=:]\s*[^\r\n]+', 'prompt=<prompt-redacted>')
       $redacted = [regex]::Replace($redacted, '(?i)\bpayload\s*[=:]\s*[^\r\n]+', 'payload=<payload-redacted>')
-      $redacted = [regex]::Replace($redacted, '(?i)\braw[_-]?result\s*[=:]\s*[^\r\n]+', 'raw_result=<raw-result-redacted>')
+      $redacted = [regex]::Replace($redacted, '(?i)\braw[ _-]?result\s*[=:]\s*[^\r\n]+', 'raw_result=<raw-result-redacted>')
       $redacted = [regex]::Replace($redacted, '(?i)(?<![A-Za-z0-9_])[A-Z]:\\[^\r\n\t"'']+', '<absolute-model-path>')
       return $redacted
     }
-    try {
-      $structured = $Value | ConvertFrom-Json -ErrorAction Stop
-      return (Protect-StructuredValue $structured | ConvertTo-Json -Compress -Depth 30)
-    } catch { }
-    return Protect-FreeText $Value
+    function Protect-JsonFragments([string]$Text) {
+      try {
+        $structured = $Text | ConvertFrom-Json -ErrorAction Stop
+        return (Protect-StructuredValue $structured | ConvertTo-Json -Compress -Depth 30)
+      } catch { }
+      $output = [Text.StringBuilder]::new(); $cursor = 0
+      while ($cursor -lt $Text.Length) {
+        $start = -1
+        for ($i = $cursor; $i -lt $Text.Length; $i++) { if ($Text[$i] -eq '{' -or $Text[$i] -eq '[') { $start = $i; break } }
+        if ($start -lt 0) { [void]$output.Append($Text.Substring($cursor)); break }
+        [void]$output.Append($Text.Substring($cursor, $start - $cursor))
+        $stack = [Collections.Generic.Stack[char]]::new(); $inString = $false; $escaped = $false; $end = -1
+        for ($i = $start; $i -lt $Text.Length; $i++) {
+          $character = $Text[$i]
+          if ($inString) {
+            if ($escaped) { $escaped = $false }
+            elseif ($character -eq '\') { $escaped = $true }
+            elseif ($character -eq '"') { $inString = $false }
+            continue
+          }
+          if ($character -eq '"') { $inString = $true; continue }
+          if ($character -eq '{') { $stack.Push('}') }
+          elseif ($character -eq '[') { $stack.Push(']') }
+          elseif ($character -eq '}' -or $character -eq ']') {
+            if ($stack.Count -eq 0 -or $stack.Pop() -ne $character) { break }
+            if ($stack.Count -eq 0) { $end = $i; break }
+          }
+        }
+        if ($end -lt 0) { [void]$output.Append($Text[$start]); $cursor = $start + 1; continue }
+        $candidate = $Text.Substring($start, $end - $start + 1)
+        try {
+          $structured = $candidate | ConvertFrom-Json -ErrorAction Stop
+          [void]$output.Append((Protect-StructuredValue $structured | ConvertTo-Json -Compress -Depth 30))
+        } catch { [void]$output.Append($candidate) }
+        $cursor = $end + 1
+      }
+      return Protect-FreeText $output.ToString()
+    }
+    $protected = (([regex]::Split($Value, '\r\n|\n|\r') | ForEach-Object { Protect-JsonFragments $_ }) -join [Environment]::NewLine)
+    foreach ($secret in @($sensitiveValues | Sort-Object Length -Descending -Unique)) {
+      if ($secret.Length -gt 0) { $protected = $protected.Replace($secret, '<redacted>') }
+    }
+    $protected = $protected.Replace('\u003c', '<').Replace('\u003e', '>')
+    return Protect-FreeText $protected
   }
 
   function Initialize-NativeJobRunner {
@@ -287,7 +344,7 @@ public static class Task5NativeJob {
       var limit=new EXTENDED_LIMIT(); limit.BasicLimitInformation.LimitFlags=JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE; int size=Marshal.SizeOf(typeof(EXTENDED_LIMIT)); IntPtr lim=Marshal.AllocHGlobal(size); try { Marshal.StructureToPtr(limit,lim,false); if(!SetInformationJobObject(job,JobObjectExtendedLimitInformation,lim,(uint)size)) throw Win32("SetInformationJobObject"); } finally { Marshal.FreeHGlobal(lim); }
       var sa=new SECURITY_ATTRIBUTES{nLength=Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES)),bInheritHandle=1}; if(!CreatePipe(out outRead,out outWrite,ref sa,0)||!CreatePipe(out errRead,out errWrite,ref sa,0)) throw Win32("CreatePipe"); if(!SetHandleInformation(outRead,HANDLE_FLAG_INHERIT,0)||!SetHandleInformation(errRead,HANDLE_FLAG_INHERIT,0)) throw Win32("SetHandleInformation");
       var si=new STARTUPINFO(); si.cb=Marshal.SizeOf(typeof(STARTUPINFO)); si.dwFlags=STARTF_USESTDHANDLES; si.hStdOutput=outWrite; si.hStdError=errWrite; si.hStdInput=IntPtr.Zero;
-      string host=Environment.GetEnvironmentVariable("ComSpec"); if(String.IsNullOrEmpty(host)) host=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"cmd.exe"); string payload="\""+executable+"\""+(String.IsNullOrEmpty(arguments)?"":" "+arguments); var cmd=new StringBuilder("\""+host+"\" /d /s /c \""+payload+"\""); if(!CreateProcessW(host,cmd,IntPtr.Zero,IntPtr.Zero,true,CREATE_SUSPENDED|CREATE_NO_WINDOW,IntPtr.Zero,cwd,ref si,out pi)) throw Win32("CreateProcessW"); created=true; result.RootPid=pi.dwProcessId;
+      var cmd=new StringBuilder("\""+executable+"\""+(String.IsNullOrEmpty(arguments)?"":" "+arguments)); if(!CreateProcessW(executable,cmd,IntPtr.Zero,IntPtr.Zero,true,CREATE_SUSPENDED|CREATE_NO_WINDOW,IntPtr.Zero,cwd,ref si,out pi)) throw Win32("CreateProcessW"); created=true; result.RootPid=pi.dwProcessId;
       if(!AssignProcessToJobObject(job,pi.hProcess)) throw Win32("AssignProcessToJobObject"); var stdout=ReadAsync(outRead); outRead=IntPtr.Zero; var stderr=ReadAsync(errRead); errRead=IntPtr.Zero; CloseHandle(outWrite); outWrite=IntPtr.Zero; CloseHandle(errWrite); errWrite=IntPtr.Zero; if(ResumeThread(pi.hThread)==UInt32.MaxValue) throw Win32("ResumeThread"); CloseHandle(pi.hThread); pi.hThread=IntPtr.Zero;
       var observed=new HashSet<int>(); var sw=Stopwatch.StartNew(); bool rootExited=false; while(sw.ElapsedMilliseconds<timeoutMs){ foreach(var id in Members(job)) observed.Add(id); if(WaitForSingleObject(pi.hProcess,100)==WAIT_OBJECT_0){rootExited=true;break;} }
       foreach(var id in Members(job)) observed.Add(id); int effectiveRoot=result.RootPid;
@@ -393,7 +450,7 @@ public static class Task5NativeJob {
       return ($value | ConvertFrom-Json)
     }
     $ort = Get-PackageRuntime "onnxruntime-directml" -Providers
-    $serverCode = 'import hashlib,json,sys,urllib.request; u=sys.argv[1].rstrip("/")+"/models"; v=json.load(urllib.request.urlopen(u,timeout=10)); c=json.dumps(v,ensure_ascii=False,separators=(",",":"),sort_keys=True).encode(); print(json.dumps({"models_sha256":hashlib.sha256(c).hexdigest()},sort_keys=True,separators=(",",":")))'
+    $serverCode = 'import hashlib,json,sys,urllib.request; u=sys.argv[1].rstrip("/")+"/models"; v=json.load(urllib.request.urlopen(u,timeout=10),object_pairs_hook=lambda p:dict(p) if len(p)==len(dict(p)) else (_ for _ in ()).throw(ValueError("duplicate JSON key")),parse_constant=lambda x:(_ for _ in ()).throw(ValueError("non-finite JSON constant"))); c=json.dumps(v,ensure_ascii=False,separators=(",",":"),sort_keys=True,allow_nan=False).encode(); print(json.dumps({"models_sha256":hashlib.sha256(c).hexdigest()},sort_keys=True,separators=(",",":")))'
     try { $server = Invoke-DirectPython $serverCode @($ServerUrl) } catch { throw "Server model runtime identity failed" }
     $gpus = @(
       Get-CimInstance Win32_VideoController -ErrorAction Stop |
@@ -409,7 +466,7 @@ public static class Task5NativeJob {
     $serverIdentity = [ordered]@{
       models_sha256 = [string]($server | ConvertFrom-Json).models_sha256
       requested_model = "<redacted>"
-      requested_model_sha256 = Get-StringSha256 ($ApiModelName.Trim().ToLowerInvariant())
+      requested_model_sha256 = Get-StringSha256 ($ApiModelName.Trim())
     }
     return [ordered]@{
       benchmark = $Benchmark

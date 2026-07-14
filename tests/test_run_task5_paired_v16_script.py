@@ -321,6 +321,54 @@ if($captured -ne '{{"space value": "quoted ok"}}'){{throw "capture mismatch: $ca
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def test_logged_native_executes_exact_argv_without_shell_wrapper(tmp_path: Path) -> None:
+    arguments = [
+        "%TASK5_ARGV_SENTINEL%", ">", "&", "|", "^", 'embedded"quote',
+        "trailing\\", "", "space value",
+    ]
+    source = tmp_path / "argv-probe.cs"
+    executable = tmp_path / "argv-probe.exe"
+    argv_output = tmp_path / "argv-output.txt"
+    source.write_text(
+        "using System; using System.IO; using System.Linq; using System.Text; "
+        "public static class P { public static int Main(string[] a) { "
+        "File.WriteAllText(a[0], String.Join(\",\", a.Skip(1).Select(x=>Convert.ToBase64String(Encoding.UTF8.GetBytes(x)))), new UTF8Encoding(false)); "
+        "return 0; } }",
+        encoding="utf-8",
+    )
+    compile_result = subprocess.run(
+        [str(POWERSHELL), "-NoProfile", "-Command", f"Add-Type -Path '{source}' -OutputAssembly '{executable}' -OutputType WindowsApplication"],
+        cwd=tmp_path, text=True, capture_output=True, check=False,
+    )
+    assert compile_result.returncode == 0, compile_result.stdout + compile_result.stderr
+    files_before = {path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file()}
+    env = os.environ.copy()
+    env["TASK5_ARGV_SENTINEL"] = "EXPANDED-BY-SHELL"
+    result = _native_integrity_probe(
+        tmp_path,
+        "",
+        executable=str(executable),
+        argument_list=[str(argv_output), *arguments],
+        env=env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    encoded_argv = argv_output.read_text(encoding="utf-8")
+    assert [base64.b64decode(value).decode() for value in encoded_argv.split(",")] == arguments
+    record = json.loads((tmp_path / "commands" / "probe.jsonl").read_text(encoding="utf-8"))
+    assert record["descendant_pids"] == []
+    script_text = _text()
+    assert "CreateProcessW(executable,cmd" in script_text
+    assert "ComSpec" not in script_text and '"cmd.exe"' not in script_text
+    expected_argv = [str(argv_output), *arguments]
+    assert record["arguments_sha256"] == hashlib.sha256("\0".join(expected_argv).encode()).hexdigest()
+    assert not (tmp_path / "commands" / "EXPANDED-BY-SHELL").exists()
+    files_after = {path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file()}
+    assert files_after - files_before == {
+        Path("argv-output.txt"), Path("integrity-probe.ps1"),
+        Path("commands/probe-native.log"), Path("commands/probe.jsonl"),
+    }
+
+
 def test_runner_binds_exact_environment_and_stage_integrity_contract() -> None:
     text = _text()
     assert "[int]$CommandTimeoutSeconds = 86400" in text
@@ -344,6 +392,7 @@ def _native_integrity_probe(
     grace: int = 2,
     executable: str | None = None,
     argument_list: list[str] | None = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     harness = tmp_path / "integrity-probe.ps1"
     command_root = tmp_path / "commands"
@@ -381,7 +430,7 @@ Write-Output "CAPTURE=$captured"
     )
     return subprocess.run(
         ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
-        cwd=ROOT, text=True, capture_output=True, check=False, timeout=30,
+        cwd=ROOT, text=True, capture_output=True, check=False, timeout=30, env=env,
     )
 
 
@@ -412,6 +461,35 @@ def test_structured_redaction_recurses_and_scrubs_free_text(tmp_path: Path) -> N
         assert sentinel not in disk
 
 
+def test_redaction_handles_jsonl_embedded_json_and_scans_entire_command_tree(tmp_path: Path) -> None:
+    sentinels = {
+        "AUTH-JSONL", "BEARER-JSONL", "API-EMBEDDED", "TOKEN-NESTED",
+        "CREDENTIAL-ARRAY", "SIG-AMZ", "SIG-SIGNED-URL", "PROMPT-TEXT",
+        "PAYLOAD-NESTED", "RAW-RESULT-TEXT",
+    }
+    lines = [
+        '{"authorization":"Bearer AUTH-JSONL","bearer":"BEARER-JSONL"}',
+        'prefix {"api_key":"API-EMBEDDED","nested":[{"token":"TOKEN-NESTED"},'
+        '{"credential":"CREDENTIAL-ARRAY","payload":"PAYLOAD-NESTED"}]} suffix',
+        'signed=https://host/item?X-Amz-Signature=SIG-AMZ&signature=SIG-SIGNED-URL',
+        'prompt: PROMPT-TEXT',
+        'raw result: RAW-RESULT-TEXT',
+    ]
+    code = "import sys; print('\\n'.join(sys.argv[1:]))"
+    result = _native_integrity_probe(tmp_path, code, argument_list=["-c", code, *lines])
+    assert result.returncode == 0, result.stdout + result.stderr
+    persisted = "".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in (tmp_path / "commands").rglob("*") if path.is_file()
+    )
+    for sentinel in sentinels:
+        assert sentinel not in persisted
+    assert "<redacted>" in persisted
+    assert "<prompt-redacted>" in persisted
+    assert "<payload-redacted>" in persisted
+    assert "<raw-result-redacted>" in persisted
+
+
 def test_server_environment_never_persists_raw_requested_model_and_rejects_empty_gpu() -> None:
     text = _text()
     assert "requested_model = $ApiModelName" not in text
@@ -419,7 +497,10 @@ def test_server_environment_never_persists_raw_requested_model_and_rejects_empty
     assert "GPU environment identity is empty" in text
 
 
-def _environment_contract_probe(tmp_path: Path, *, empty_gpu: bool = False) -> subprocess.CompletedProcess[str]:
+def _environment_contract_probe(
+    tmp_path: Path, *, empty_gpu: bool = False, model_name: str = r"C:\secret\MODEL-SENTINEL.gguf",
+    require_strict_server_json: bool = False,
+) -> subprocess.CompletedProcess[str]:
     tmp_path.mkdir(parents=True)
     harness = tmp_path / "environment.ps1"
     gpu_body = "return @()" if empty_gpu else "return @([pscustomobject]@{Name='AMD Radeon';PNPDeviceID='PCI\\VEN_1002';DriverVersion='1.2.3'})"
@@ -430,10 +511,13 @@ $ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$
 foreach($name in @('Get-Sha256','Get-StringSha256','Get-EnvironmentContract')){{
  $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true);Invoke-Expression $fn.Extent.Text
 }}
-$RepoRoot='{ROOT}';$Benchmark='OmniDocBench-v1.6';$PythonExe='python-stub.exe';$ScorerPythonExe='scorer-stub.exe';$ServerUrl='http://stub/v1';$ApiModelName='C:\secret\MODEL-SENTINEL.gguf'
+$RepoRoot='{ROOT}';$Benchmark='OmniDocBench-v1.6';$PythonExe='python-stub.exe';$ScorerPythonExe='scorer-stub.exe';$ServerUrl='http://stub/v1';$ApiModelName='{model_name}'
 function Get-CimInstance{{param([Parameter(ValueFromRemainingArguments=$true)]$rest);{gpu_body}}}
 function Invoke-DirectPython{{param([string]$Code,[string[]]$Arguments)
- if($Code -like '*urllib.request*'){{return '{{"models_sha256":"{('c'*64)}"}}'}}
+ if($Code -like '*urllib.request*'){{
+  if({'$true' if require_strict_server_json else '$false'} -and ($Code -notlike '*object_pairs_hook*' -or $Code -notlike '*parse_constant*')){{throw 'server JSON parser is not strict'}}
+  return '{{"models_sha256":"{('c'*64)}"}}'
+ }}
  if($Code -like '*onnxruntime*'){{return '{{"version":"1.0","available_providers":["DmlExecutionProvider","CPUExecutionProvider"]}}'}}
  if($Code -like '*importlib.metadata*'){{return '{{"version":"1.0"}}'}}
  return '{{"version":"3.10","executable_sha256":"{('a'*64)}"}}'
@@ -460,6 +544,19 @@ def test_actual_environment_helper_redacts_model_and_validates_gpu(tmp_path: Pat
     empty = _environment_contract_probe(tmp_path / "empty", empty_gpu=True)
     assert empty.returncode != 0
     assert "GPU environment identity is empty" in empty.stdout + empty.stderr
+
+
+def test_environment_model_identity_is_exact_trimmed_utf8_and_server_json_is_strict(tmp_path: Path) -> None:
+    model = "  CaseSensitive-Model  "
+    result = _environment_contract_probe(
+        tmp_path / "strict", model_name=model, require_strict_server_json=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    environment = json.loads(result.stdout)
+    expected = hashlib.sha256(model.strip().encode("utf-8")).hexdigest()
+    lowercased = hashlib.sha256(model.strip().lower().encode("utf-8")).hexdigest()
+    assert environment["server_model_runtime"]["requested_model_sha256"] == expected
+    assert expected != lowercased
 
 
 def test_logged_native_timeout_is_bounded_and_durable(tmp_path: Path) -> None:
