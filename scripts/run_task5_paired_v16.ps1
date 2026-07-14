@@ -85,24 +85,14 @@ try {
   }
 
   function Invoke-DirectPython([string]$Code, [string[]]$Arguments) {
-    $info = [Diagnostics.ProcessStartInfo]::new()
-    $info.FileName = $PythonExe; $info.UseShellExecute = $false; $info.CreateNoWindow = $true
-    $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
+    Initialize-NativeJobRunner
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Code))
     $wrapper = "import base64;exec(base64.b64decode('$encoded'))"
     $nativeArguments = @("-c", $wrapper) + @($Arguments)
-    $info.Arguments = (($nativeArguments | ForEach-Object { ConvertTo-NativeArgument ([string]$_) }) -join ' ')
-    $process = [Diagnostics.Process]::Start($info)
-    $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync()
-    if (-not $process.WaitForExit(30000)) {
-      & taskkill.exe /PID $process.Id /T /F 2>&1 | Out-Null
-      $process.Dispose()
-      throw "strict helper timeout"
-    }
-    $stdout = $stdoutTask.GetAwaiter().GetResult(); $stderr = $stderrTask.GetAwaiter().GetResult()
-    $exitCode = $process.ExitCode; $process.Dispose()
-    if ($exitCode -ne 0) { throw "strict helper failed: $(Get-StringSha256 $stderr)" }
-    return $stdout.Trim()
+    $rendered = (($nativeArguments | ForEach-Object { ConvertTo-NativeArgument ([string]$_) }) -join ' ')
+    $job = [Task5NativeJob]::Run($PythonExe, $rendered, $RepoRoot, 30000, 5000)
+    if ($job.ExitCode -ne 0 -or $job.TimedOut -or $job.NormalExitOrphan -or $job.FinalActiveCount -ne 0) { throw "strict helper failed: $(Get-StringSha256 ([string]$job.Stderr))" }
+    return ([string]$job.Stdout).Trim()
   }
 
   function ConvertTo-CanonicalJson([object]$Value) {
@@ -145,7 +135,7 @@ try {
     Add-CommandRecord $StageName ([ordered]@{
       name=$Name; executable_sha256=Get-StringSha256 "internal"; arguments_sha256=Get-StringSha256 $Description
       started_at_utc=$now; ended_at_utc=$now; exit_code=0; timed_out=$false; descendant_pids=@()
-      termination_result="not-required"; orphan_audit="PASS"; log_path=$relativeLog; log_sha256=Get-Sha256 $logPath
+      survivor_pids=@(); job_active_count=0; termination_result="not-required"; orphan_audit="PASS"; log_path=$relativeLog; log_sha256=Get-Sha256 $logPath
     })
   }
 
@@ -171,125 +161,164 @@ try {
 
   function Protect-LoggedText([string]$Value) {
     if ($null -eq $Value) { return "" }
-    $redacted = $Value
-    $redacted = [regex]::Replace($redacted, '(?im)(Authorization\s*:\s*)[^\r\n]+', '${1}<redacted>')
-    $redacted = [regex]::Replace($redacted, '(?i)Bearer\s+[^\s,;"''\]]+', 'Bearer <redacted>')
-    $redacted = [regex]::Replace($redacted, '(?i)\b(api[_-]?key|token|signature)\s*[=:]\s*[^\s,;"''\]]+', '${1}=<redacted>')
-    $redacted = [regex]::Replace($redacted, '(?i)\bprompt\s*[=:]\s*[^\r\n]+', 'prompt=<prompt-redacted>')
-    $redacted = [regex]::Replace($redacted, '(?i)\bpayload\s*[=:]\s*[^\r\n]+', 'payload=<payload-redacted>')
-    $redacted = [regex]::Replace($redacted, '(?i)\braw[_-]?result\s*[=:]\s*[^\r\n]+', 'raw_result=<raw-result-redacted>')
-    $redacted = [regex]::Replace($redacted, '(?i)(?<![A-Za-z0-9_])[A-Z]:\\[^\r\n\t"'']+', '<absolute-model-path>')
-    return $redacted
-  }
-
-  function Get-ProcessTreeSnapshot([int]$RootPid, [DateTimeOffset]$RootStartedAt) {
-    $all = @(Get-CimInstance Win32_Process -ErrorAction Stop)
-    $children = @{}
-    foreach ($item in $all) {
-      $parent = [int]$item.ParentProcessId
-      if (-not $children.ContainsKey($parent)) { $children[$parent] = [Collections.ArrayList]::new() }
-      [void]$children[$parent].Add($item)
-    }
-    $records = [Collections.ArrayList]::new()
-    $queue = [Collections.Queue]::new()
-    $queue.Enqueue([pscustomobject]@{ pid=$RootPid; depth=0 })
-    while ($queue.Count -gt 0) {
-      $node = $queue.Dequeue()
-      if (-not $children.ContainsKey([int]$node.pid)) { continue }
-      foreach ($child in $children[[int]$node.pid]) {
-        $createdUtc = ([DateTimeOffset]$child.CreationDate).ToUniversalTime()
-        # A process older than the authenticated root cannot be its descendant; this is PID-reuse defense.
-        if ($createdUtc -lt $RootStartedAt.AddSeconds(-2)) { continue }
-        $record = [pscustomobject]@{
-          pid = [int]$child.ProcessId
-          parent_pid = [int]$child.ParentProcessId
-          depth = [int]$node.depth + 1
-          creation_utc = $createdUtc.ToString("o")
-          creation_identity = [string]$child.CreationDate
-        }
-        [void]$records.Add($record)
-        $queue.Enqueue([pscustomobject]@{ pid=$record.pid; depth=$record.depth })
+    function Protect-StructuredValue([object]$InputValue, [string]$Key = "") {
+      $normalized = $Key.ToLowerInvariant() -replace '-', '_'
+      $sensitive = @("credential", "authorization", "bearer", "api_key", "apikey", "token", "signature", "prompt", "payload", "raw_result")
+      if ($normalized -in $sensitive) {
+        if ($normalized -eq "prompt") { return "<prompt-redacted>" }
+        if ($normalized -eq "payload") { return "<payload-redacted>" }
+        if ($normalized -eq "raw_result") { return "<raw-result-redacted>" }
+        return "<redacted>"
       }
+      if ($InputValue -is [Collections.IDictionary]) {
+        $result = [ordered]@{}
+        foreach ($entry in $InputValue.GetEnumerator()) { $result[[string]$entry.Key] = Protect-StructuredValue $entry.Value ([string]$entry.Key) }
+        return $result
+      }
+      if ($InputValue -is [pscustomobject]) {
+        $result = [ordered]@{}
+        foreach ($property in $InputValue.PSObject.Properties) { $result[$property.Name] = Protect-StructuredValue $property.Value $property.Name }
+        return $result
+      }
+      if ($InputValue -is [Collections.IEnumerable] -and $InputValue -isnot [string]) {
+        return @($InputValue | ForEach-Object { Protect-StructuredValue $_ "" })
+      }
+      if ($InputValue -is [string]) { return Protect-FreeText ([string]$InputValue) }
+      return $InputValue
     }
-    return @($records)
+    function Protect-FreeText([string]$Text) {
+      $redacted = $Text
+      $redacted = [regex]::Replace($redacted, '(?im)(Authorization\s*:\s*)[^\r\n]+', '${1}<redacted>')
+      $redacted = [regex]::Replace($redacted, '(?i)Bearer\s+[^\s,;"''\]&]+', 'Bearer <redacted>')
+      $redacted = [regex]::Replace($redacted, '(?i)\b(api[_-]?key|token|signature|credential)\s*[=:]\s*[^\s,;"''\]&]+', '${1}=<redacted>')
+      $redacted = [regex]::Replace($redacted, '(?i)([?&][^=]*(?:signature|token|api[_-]?key)[^=]*=)[^&\s]+', '${1}<redacted>')
+      $redacted = [regex]::Replace($redacted, '(?i)\bprompt\s*[=:]\s*[^\r\n]+', 'prompt=<prompt-redacted>')
+      $redacted = [regex]::Replace($redacted, '(?i)\bpayload\s*[=:]\s*[^\r\n]+', 'payload=<payload-redacted>')
+      $redacted = [regex]::Replace($redacted, '(?i)\braw[_-]?result\s*[=:]\s*[^\r\n]+', 'raw_result=<raw-result-redacted>')
+      $redacted = [regex]::Replace($redacted, '(?i)(?<![A-Za-z0-9_])[A-Z]:\\[^\r\n\t"'']+', '<absolute-model-path>')
+      return $redacted
+    }
+    try {
+      $structured = $Value | ConvertFrom-Json -ErrorAction Stop
+      return (Protect-StructuredValue $structured | ConvertTo-Json -Compress -Depth 30)
+    } catch { }
+    return Protect-FreeText $Value
   }
 
-  function Stop-AuthenticatedProcessTree([int]$RootPid, [DateTimeOffset]$RootStartedAt, [object[]]$Snapshot) {
-    $targets = @($Snapshot | Sort-Object depth -Descending)
-    $currentByPid = @{}
-    foreach ($item in @(Get-CimInstance Win32_Process -ErrorAction Stop)) { $currentByPid[[int]$item.ProcessId] = $item }
-    foreach ($target in $targets) {
-      if (-not $currentByPid.ContainsKey([int]$target.pid)) { continue }
-      $current = $currentByPid[[int]$target.pid]
-      if ([int]$current.ParentProcessId -ne [int]$target.parent_pid -or [string]$current.CreationDate -cne [string]$target.creation_identity) { continue }
-      Stop-Process -Id ([int]$target.pid) -Force -ErrorAction SilentlyContinue
-    }
-    $root = $(if ($currentByPid.ContainsKey($RootPid)) { $currentByPid[$RootPid] } else { $null })
-    if ($null -ne $root) {
-      $created = ([DateTimeOffset]$root.CreationDate).ToUniversalTime()
-      if ($created -ge $RootStartedAt.AddSeconds(-2)) { Stop-Process -Id $RootPid -Force -ErrorAction SilentlyContinue }
-    }
-    Start-Sleep -Milliseconds 100
-    return @((Get-ProcessTreeSnapshot $RootPid $RootStartedAt) | ForEach-Object { [int]$_.pid })
+  function Initialize-NativeJobRunner {
+    if ("Task5NativeJob" -as [type]) { return }
+    Add-Type -Language CSharp -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.Win32.SafeHandles;
+
+public sealed class Task5JobResult {
+  public int RootPid { get; set; }
+  public string Stdout { get; set; }
+  public string Stderr { get; set; }
+  public int ExitCode { get; set; }
+  public bool TimedOut { get; set; }
+  public bool NormalExitOrphan { get; set; }
+  public int[] DescendantPids { get; set; }
+  public int[] SurvivorPids { get; set; }
+  public int FinalActiveCount { get; set; }
+  public bool TerminationAttempted { get; set; }
+}
+
+public static class Task5NativeJob {
+  const uint CREATE_SUSPENDED=0x4, CREATE_NO_WINDOW=0x08000000, STARTF_USESTDHANDLES=0x100;
+  const uint HANDLE_FLAG_INHERIT=1, WAIT_OBJECT_0=0, WAIT_TIMEOUT=258;
+  const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE=0x2000;
+  const int JobObjectBasicProcessIdList=3, JobObjectExtendedLimitInformation=9;
+  const uint TH32CS_SNAPPROCESS=2, PROCESS_TERMINATE=1, SYNCHRONIZE=0x00100000;
+
+  [StructLayout(LayoutKind.Sequential)] struct SECURITY_ATTRIBUTES { public int nLength; public IntPtr lpSecurityDescriptor; public int bInheritHandle; }
+  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] struct STARTUPINFO { public int cb; public string lpReserved,lpDesktop,lpTitle; public int dwX,dwY,dwXSize,dwYSize,dwXCountChars,dwYCountChars,dwFillAttribute; public uint dwFlags; public short wShowWindow,cbReserved2; public IntPtr lpReserved2,hStdInput,hStdOutput,hStdError; }
+  [StructLayout(LayoutKind.Sequential)] struct PROCESS_INFORMATION { public IntPtr hProcess,hThread; public int dwProcessId,dwThreadId; }
+  [StructLayout(LayoutKind.Sequential)] struct IO_COUNTERS { public ulong ReadOperationCount,WriteOperationCount,OtherOperationCount,ReadTransferCount,WriteTransferCount,OtherTransferCount; }
+  [StructLayout(LayoutKind.Sequential)] struct BASIC_LIMIT { public long PerProcessUserTimeLimit,PerJobUserTimeLimit; public uint LimitFlags; public UIntPtr MinimumWorkingSetSize,MaximumWorkingSetSize; public uint ActiveProcessLimit; public UIntPtr Affinity; public uint PriorityClass,SchedulingClass; }
+  [StructLayout(LayoutKind.Sequential)] struct EXTENDED_LIMIT { public BASIC_LIMIT BasicLimitInformation; public IO_COUNTERS IoInfo; public UIntPtr ProcessMemoryLimit,JobMemoryLimit,PeakProcessMemoryUsed,PeakJobMemoryUsed; }
+  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Auto)] struct PROCESSENTRY32 { public uint dwSize,cntUsage,th32ProcessID; public IntPtr th32DefaultHeapID; public uint th32ModuleID,cntThreads,th32ParentProcessID; public int pcPriClassBase; public uint dwFlags; [MarshalAs(UnmanagedType.ByValTStr,SizeConst=260)] public string szExeFile; }
+
+  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateProcessW(string app,StringBuilder cmd,IntPtr pa,IntPtr ta,bool inherit,uint flags,IntPtr env,string cwd,ref STARTUPINFO si,out PROCESS_INFORMATION pi);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool CreatePipe(out IntPtr read,out IntPtr write,ref SECURITY_ATTRIBUTES sa,int size);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool SetHandleInformation(IntPtr h,uint mask,uint flags);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr CreateJobObject(IntPtr attrs,string name);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool SetInformationJobObject(IntPtr job,int cls,IntPtr info,uint len);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool AssignProcessToJobObject(IntPtr job,IntPtr process);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool QueryInformationJobObject(IntPtr job,int cls,IntPtr info,uint len,out uint ret);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern uint ResumeThread(IntPtr thread);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern uint WaitForSingleObject(IntPtr h,uint ms);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetExitCodeProcess(IntPtr h,out uint code);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool TerminateJobObject(IntPtr job,uint code);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr OpenProcess(uint access,bool inherit,int pid);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool TerminateProcess(IntPtr process,uint code);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool CloseHandle(IntPtr h);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr CreateToolhelp32Snapshot(uint flags,uint pid);
+  [DllImport("kernel32.dll",CharSet=CharSet.Auto)] static extern bool Process32First(IntPtr snap,ref PROCESSENTRY32 entry);
+  [DllImport("kernel32.dll",CharSet=CharSet.Auto)] static extern bool Process32Next(IntPtr snap,ref PROCESSENTRY32 entry);
+
+  static Exception Win32(string op) { return new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),op); }
+  static int[] Members(IntPtr job) {
+    int cap=4096, header=8; IntPtr mem=Marshal.AllocHGlobal(header+cap*IntPtr.Size);
+    try { uint ret; if(!QueryInformationJobObject(job,JobObjectBasicProcessIdList,mem,(uint)(header+cap*IntPtr.Size),out ret)) throw Win32("QueryInformationJobObject"); int count=Marshal.ReadInt32(mem,4); if(count<0||count>cap) throw new InvalidOperationException("Job member audit capacity exceeded"); var ids=new List<int>(); for(int i=0;i<count;i++){ long v=Marshal.ReadIntPtr(mem,header+i*IntPtr.Size).ToInt64(); if(v>0 && v<=int.MaxValue) ids.Add((int)v); } return ids.Distinct().ToArray(); }
+    finally { Marshal.FreeHGlobal(mem); }
+  }
+  static int[] LiveMembers(IntPtr job) { var live=new List<int>(); foreach(int pid in Members(job)){ IntPtr h=OpenProcess(SYNCHRONIZE,false,pid); if(h==IntPtr.Zero){ if(Marshal.GetLastWin32Error()!=87) live.Add(pid); continue; } try { if(WaitForSingleObject(h,0)==WAIT_TIMEOUT) live.Add(pid); } finally { CloseHandle(h); } } return live.ToArray(); }
+  static Dictionary<int,int> Parents() {
+    var map=new Dictionary<int,int>(); IntPtr snap=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0); if(snap==new IntPtr(-1)) return map;
+    try { var e=new PROCESSENTRY32(); e.dwSize=(uint)Marshal.SizeOf(typeof(PROCESSENTRY32)); if(Process32First(snap,ref e)){ do { map[(int)e.th32ProcessID]=(int)e.th32ParentProcessID; } while(Process32Next(snap,ref e)); } return map; } finally { CloseHandle(snap); }
+  }
+  static int Depth(int pid,HashSet<int> members,Dictionary<int,int> parents) { int d=0,cur=pid; var seen=new HashSet<int>(); while(seen.Add(cur) && parents.ContainsKey(cur) && members.Contains(parents[cur])){ d++; cur=parents[cur]; } return d; }
+  static void DeepestFirstTerminate(IntPtr job,int root) { var ids=LiveMembers(job); var set=new HashSet<int>(ids); var parents=Parents(); foreach(int pid in ids.Where(x=>x!=root).OrderByDescending(x=>Depth(x,set,parents))){ IntPtr h=OpenProcess(PROCESS_TERMINATE,false,pid); if(h!=IntPtr.Zero){ try { TerminateProcess(h,239); } finally { CloseHandle(h); } } } }
+  static Task<string> ReadAsync(IntPtr handle) { var safe=new SafeFileHandle(handle,true); var stream=new FileStream(safe,FileAccess.Read,4096,false); var reader=new StreamReader(stream,new UTF8Encoding(false),true,4096); return Task.Run(()=>{ using(reader) return reader.ReadToEnd(); }); }
+
+  public static Task5JobResult Run(string executable,string arguments,string cwd,long timeoutMs,int graceMs) {
+    IntPtr job=IntPtr.Zero,outRead=IntPtr.Zero,outWrite=IntPtr.Zero,errRead=IntPtr.Zero,errWrite=IntPtr.Zero; PROCESS_INFORMATION pi=new PROCESS_INFORMATION(); bool created=false;
+    var result=new Task5JobResult { Stdout="",Stderr="",ExitCode=-1,DescendantPids=new int[0],SurvivorPids=new int[0] };
+    try {
+      job=CreateJobObject(IntPtr.Zero,null); if(job==IntPtr.Zero) throw Win32("CreateJobObject");
+      var limit=new EXTENDED_LIMIT(); limit.BasicLimitInformation.LimitFlags=JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE; int size=Marshal.SizeOf(typeof(EXTENDED_LIMIT)); IntPtr lim=Marshal.AllocHGlobal(size); try { Marshal.StructureToPtr(limit,lim,false); if(!SetInformationJobObject(job,JobObjectExtendedLimitInformation,lim,(uint)size)) throw Win32("SetInformationJobObject"); } finally { Marshal.FreeHGlobal(lim); }
+      var sa=new SECURITY_ATTRIBUTES{nLength=Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES)),bInheritHandle=1}; if(!CreatePipe(out outRead,out outWrite,ref sa,0)||!CreatePipe(out errRead,out errWrite,ref sa,0)) throw Win32("CreatePipe"); if(!SetHandleInformation(outRead,HANDLE_FLAG_INHERIT,0)||!SetHandleInformation(errRead,HANDLE_FLAG_INHERIT,0)) throw Win32("SetHandleInformation");
+      var si=new STARTUPINFO(); si.cb=Marshal.SizeOf(typeof(STARTUPINFO)); si.dwFlags=STARTF_USESTDHANDLES; si.hStdOutput=outWrite; si.hStdError=errWrite; si.hStdInput=IntPtr.Zero;
+      string host=Environment.GetEnvironmentVariable("ComSpec"); if(String.IsNullOrEmpty(host)) host=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"cmd.exe"); string payload="\""+executable+"\""+(String.IsNullOrEmpty(arguments)?"":" "+arguments); var cmd=new StringBuilder("\""+host+"\" /d /s /c \""+payload+"\""); if(!CreateProcessW(host,cmd,IntPtr.Zero,IntPtr.Zero,true,CREATE_SUSPENDED|CREATE_NO_WINDOW,IntPtr.Zero,cwd,ref si,out pi)) throw Win32("CreateProcessW"); created=true; result.RootPid=pi.dwProcessId;
+      if(!AssignProcessToJobObject(job,pi.hProcess)) throw Win32("AssignProcessToJobObject"); var stdout=ReadAsync(outRead); outRead=IntPtr.Zero; var stderr=ReadAsync(errRead); errRead=IntPtr.Zero; CloseHandle(outWrite); outWrite=IntPtr.Zero; CloseHandle(errWrite); errWrite=IntPtr.Zero; if(ResumeThread(pi.hThread)==UInt32.MaxValue) throw Win32("ResumeThread"); CloseHandle(pi.hThread); pi.hThread=IntPtr.Zero;
+      var observed=new HashSet<int>(); var sw=Stopwatch.StartNew(); bool rootExited=false; while(sw.ElapsedMilliseconds<timeoutMs){ foreach(var id in Members(job)) observed.Add(id); if(WaitForSingleObject(pi.hProcess,100)==WAIT_OBJECT_0){rootExited=true;break;} }
+      foreach(var id in Members(job)) observed.Add(id); int effectiveRoot=result.RootPid;
+      foreach(var id in Members(job)) observed.Add(id); result.TimedOut=!rootExited;
+      if(rootExited){ var settle=Stopwatch.StartNew(); while(settle.ElapsedMilliseconds<500 && LiveMembers(job).Any(id=>id!=result.RootPid&&id!=effectiveRoot)) System.Threading.Thread.Sleep(25); }
+      var active=LiveMembers(job); result.NormalExitOrphan=rootExited && active.Any(id=>id!=result.RootPid&&id!=effectiveRoot); result.TerminationAttempted=result.TimedOut||result.NormalExitOrphan;
+      if(result.TerminationAttempted){ DeepestFirstTerminate(job,effectiveRoot); TerminateJobObject(job,239); var stop=Stopwatch.StartNew(); while(stop.ElapsedMilliseconds<graceMs && LiveMembers(job).Length>0) System.Threading.Thread.Sleep(50); }
+      active=LiveMembers(job); result.FinalActiveCount=active.Length; result.SurvivorPids=active.Where(id=>id!=result.RootPid).Distinct().OrderBy(x=>x).ToArray(); result.DescendantPids=observed.Where(id=>id!=result.RootPid).Distinct().OrderBy(x=>x).ToArray(); uint exit; if(GetExitCodeProcess(pi.hProcess,out exit)) result.ExitCode=unchecked((int)exit);
+      if(!Task.WaitAll(new Task[]{stdout,stderr},Math.Max(1000,graceMs))) { result.Stdout="<raw-result-redacted: stream remained open>"; result.Stderr="<raw-result-redacted: stream remained open>"; } else { result.Stdout=stdout.Result; result.Stderr=stderr.Result; }
+      return result;
+    } finally { if(created && pi.hThread!=IntPtr.Zero) CloseHandle(pi.hThread); if(created && pi.hProcess!=IntPtr.Zero) CloseHandle(pi.hProcess); if(outRead!=IntPtr.Zero) CloseHandle(outRead); if(outWrite!=IntPtr.Zero) CloseHandle(outWrite); if(errRead!=IntPtr.Zero) CloseHandle(errRead); if(errWrite!=IntPtr.Zero) CloseHandle(errWrite); if(job!=IntPtr.Zero) CloseHandle(job); }
+  }
+}
+'@
   }
 
   function Invoke-LoggedNative([string]$StageName, [string]$Name, [string]$Executable, [string[]]$Arguments, [switch]$Capture) {
     $startedOffset = [DateTimeOffset]::UtcNow
     $started = $startedOffset.ToString("o")
-    $info = [Diagnostics.ProcessStartInfo]::new()
-    $info.FileName = $Executable
-    $info.Arguments = (($Arguments | ForEach-Object { ConvertTo-NativeArgument ([string]$_) }) -join ' ')
-    $info.WorkingDirectory = $RepoRoot
-    $info.UseShellExecute = $false
-    $info.CreateNoWindow = $true
-    $info.RedirectStandardOutput = $true
-    $info.RedirectStandardError = $true
-    $info.StandardOutputEncoding = [Text.Encoding]::UTF8
-    $info.StandardErrorEncoding = [Text.Encoding]::UTF8
-    $process = [Diagnostics.Process]::new()
-    $process.StartInfo = $info
-    if (-not $process.Start()) { throw "Unable to launch command: $Name" }
-    $childId = $process.Id
-    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-    $stderrTask = $process.StandardError.ReadToEndAsync()
-    $observedDuringRun = @{}
-    $commandDeadline = [DateTimeOffset]::UtcNow.AddSeconds($CommandTimeoutSeconds)
-    $completed = $false
-    do {
-      $completed = $process.WaitForExit(100)
-      foreach ($item in @(Get-ProcessTreeSnapshot $childId $startedOffset)) {
-        $observedDuringRun["$($item.pid)|$($item.creation_identity)"] = $item
-      }
-    } while (-not $completed -and [DateTimeOffset]::UtcNow -lt $commandDeadline)
-    $timedOut = -not $completed
-    $descendants = @($observedDuringRun.Values)
-    $hadSurvivors = $descendants.Count -gt 0
-    $remaining = @()
-    $terminationResult = "not-required"
-    if ($timedOut -or $hadSurvivors) {
-      $observedByIdentity = @{}
-      foreach ($item in $descendants) { $observedByIdentity["$($item.pid)|$($item.creation_identity)"] = $item }
-      $terminationDeadline = [DateTimeOffset]::UtcNow.AddSeconds($TerminationGraceSeconds)
-      do {
-        $wave = @(Get-ProcessTreeSnapshot $childId $startedOffset)
-        foreach ($item in $wave) { $observedByIdentity["$($item.pid)|$($item.creation_identity)"] = $item }
-        $killSet = @($observedByIdentity.Values)
-        if ($killSet.Count -eq 0) { break }
-        [void](Stop-AuthenticatedProcessTree $childId $startedOffset $killSet)
-        Start-Sleep -Milliseconds 100
-      } while ([DateTimeOffset]::UtcNow -lt $terminationDeadline)
-      $descendants = @($observedByIdentity.Values)
-      $remaining = @((Get-ProcessTreeSnapshot $childId $startedOffset) | ForEach-Object { [int]$_.pid })
-    }
-    if (-not $process.HasExited) { [void]$process.WaitForExit([int]([Math]::Max(1, $TerminationGraceSeconds) * 1000)) }
-    if (-not $process.HasExited) { $remaining += $childId }
-    if ($timedOut -or $hadSurvivors) { $terminationResult = $(if ($remaining.Count -eq 0) { "terminated" } else { "survivors" }) }
-    $streamWaitMs = [int]([Math]::Max(1, $TerminationGraceSeconds) * 1000)
-    $stdout = $(if ($stdoutTask.Wait($streamWaitMs)) { $stdoutTask.GetAwaiter().GetResult() } else { "<raw-result-redacted: stream remained open>" })
-    $stderr = $(if ($stderrTask.Wait($streamWaitMs)) { $stderrTask.GetAwaiter().GetResult() } else { "<raw-result-redacted: stream remained open>" })
-    $exitCode = $(if ($process.HasExited -and -not $timedOut) { $process.ExitCode } else { -1 })
-    $process.Dispose()
-    $rendered = Protect-LoggedText "[stdout]`n$stdout`n[stderr]`n$stderr"
+    Initialize-NativeJobRunner
+    $nativeArguments = (($Arguments | ForEach-Object { ConvertTo-NativeArgument ([string]$_) }) -join ' ')
+    $job = [Task5NativeJob]::Run($Executable, $nativeArguments, $RepoRoot, ([long]$CommandTimeoutSeconds * 1000), ([int]$TerminationGraceSeconds * 1000))
+    $stdout = [string]$job.Stdout
+    $stderr = [string]$job.Stderr
+    $exitCode = [int]$job.ExitCode
+    $timedOut = [bool]$job.TimedOut
+    if ($timedOut) { $exitCode = -1 }
+    $descendantPids = @($job.DescendantPids | ForEach-Object { [int]$_ } | Sort-Object -Unique)
+    $survivorPids = @($job.SurvivorPids | ForEach-Object { [int]$_ } | Sort-Object -Unique)
+    $terminationResult = $(if (-not $job.TerminationAttempted) { $(if ($descendantPids.Count -eq 0) { "not-required" } else { "completed" }) } elseif ($job.FinalActiveCount -ne 0) { "survivors" } elseif ($descendantPids.Count -gt 0) { "terminated" } else { "root-terminated" })
+    $rendered = "[stdout]`n$(Protect-LoggedText $stdout)`n[stderr]`n$(Protect-LoggedText $stderr)"
     $logPath = Join-Path $CommandRoot "$($StageName.ToLowerInvariant())-$Name.log"
     Write-AtomicText $logPath ($rendered + [Environment]::NewLine)
     $relativeLog = $logPath.Substring($AttemptRoot.Length).TrimStart('\', '/') -replace '\\', '/'
@@ -301,14 +330,16 @@ try {
       ended_at_utc = [DateTimeOffset]::UtcNow.ToString("o")
       exit_code = $exitCode
       timed_out = $timedOut
-      descendant_pids = @($descendants | ForEach-Object { [int]$_.pid } | Sort-Object -Unique)
+      descendant_pids = $descendantPids
+      survivor_pids = $survivorPids
+      job_active_count = [int]$job.FinalActiveCount
       termination_result = $terminationResult
-      orphan_audit = $(if ($remaining.Count -eq 0) { "PASS" } else { "FAIL" })
+      orphan_audit = $(if ($job.FinalActiveCount -eq 0 -and $survivorPids.Count -eq 0) { "PASS" } else { "FAIL" })
       log_path = $relativeLog
       log_sha256 = Get-Sha256 $logPath
     })
-    if ($remaining.Count -ne 0) { throw "orphan process audit failed for command: $Name" }
-    if ($hadSurvivors -and -not $timedOut) { throw "orphan process observed after normal command exit: $Name" }
+    if ($job.FinalActiveCount -ne 0 -or $survivorPids.Count -ne 0) { throw "orphan process audit failed for command: $Name" }
+    if ($job.NormalExitOrphan) { throw "orphan process observed after normal command exit: $Name" }
     if ($timedOut) { throw "Command timeout ($Name) after $CommandTimeoutSeconds seconds" }
     if ($exitCode -ne 0) { throw "Command failed ($Name), exit=$exitCode. See $logPath" }
     if ($Capture) { return $stdout.Trim() }
@@ -362,13 +393,24 @@ try {
       return ($value | ConvertFrom-Json)
     }
     $ort = Get-PackageRuntime "onnxruntime-directml" -Providers
-    $serverCode = 'import hashlib,json,sys,urllib.request; u=sys.argv[1].rstrip("/")+"/models"; v=json.load(urllib.request.urlopen(u,timeout=10)); c=json.dumps(v,ensure_ascii=False,separators=(",",":"),sort_keys=True).encode(); print(json.dumps({"models_sha256":hashlib.sha256(c).hexdigest(),"requested_model":sys.argv[2]},sort_keys=True,separators=(",",":")))'
-    try { $server = Invoke-DirectPython $serverCode @($ServerUrl, $ApiModelName) } catch { throw "Server model runtime identity failed" }
+    $serverCode = 'import hashlib,json,sys,urllib.request; u=sys.argv[1].rstrip("/")+"/models"; v=json.load(urllib.request.urlopen(u,timeout=10)); c=json.dumps(v,ensure_ascii=False,separators=(",",":"),sort_keys=True).encode(); print(json.dumps({"models_sha256":hashlib.sha256(c).hexdigest()},sort_keys=True,separators=(",",":")))'
+    try { $server = Invoke-DirectPython $serverCode @($ServerUrl) } catch { throw "Server model runtime identity failed" }
     $gpus = @(
       Get-CimInstance Win32_VideoController -ErrorAction Stop |
         ForEach-Object { [ordered]@{ Name=[string]$_.Name; PNPDeviceID=[string]$_.PNPDeviceID; DriverVersion=[string]$_.DriverVersion } } |
         Sort-Object PNPDeviceID
     )
+    if ($gpus.Count -eq 0) { throw "GPU environment identity is empty" }
+    foreach ($gpu in $gpus) {
+      if ([string]::IsNullOrWhiteSpace($gpu.Name) -or [string]::IsNullOrWhiteSpace($gpu.PNPDeviceID) -or [string]::IsNullOrWhiteSpace($gpu.DriverVersion)) {
+        throw "GPU environment identity contains an empty field"
+      }
+    }
+    $serverIdentity = [ordered]@{
+      models_sha256 = [string]($server | ConvertFrom-Json).models_sha256
+      requested_model = "<redacted>"
+      requested_model_sha256 = Get-StringSha256 ($ApiModelName.Trim().ToLowerInvariant())
+    }
     return [ordered]@{
       benchmark = $Benchmark
       os = [Environment]::OSVersion.VersionString
@@ -387,7 +429,7 @@ try {
         layout = Get-Sha256 (Join-Path $RepoRoot "src/paddleocr_vl_rocm/layout.py")
         pipeline = Get-Sha256 (Join-Path $RepoRoot "src/paddleocr_vl_rocm/pipeline.py")
       }
-      server_model_runtime = ($server | ConvertFrom-Json)
+      server_model_runtime = $serverIdentity
     }
   }
 
@@ -460,7 +502,7 @@ try {
     # Authenticate the durable orphan audit and its backing process-lifecycle fields.
     $code = @'
 import json,re,sys
-expected={"name","executable_sha256","arguments_sha256","started_at_utc","ended_at_utc","exit_code","timed_out","descendant_pids","termination_result","orphan_audit","log_path","log_sha256"}
+expected={"name","executable_sha256","arguments_sha256","started_at_utc","ended_at_utc","exit_code","timed_out","descendant_pids","survivor_pids","job_active_count","termination_result","orphan_audit","log_path","log_sha256"}
 def pairs(v):
     if len(v)!=len(dict(v)): raise ValueError("duplicate JSON key")
     return dict(v)
@@ -473,9 +515,20 @@ for line in open(sys.argv[1],encoding="utf-8"):
     if any(not isinstance(row[k],str) or not re.fullmatch(r"[0-9a-f]{64}",row[k]) for k in ("executable_sha256","arguments_sha256","log_sha256")): raise ValueError("invalid command digest")
     if any(not isinstance(row[k],str) or not row[k] for k in ("started_at_utc","ended_at_utc","termination_result","orphan_audit","log_path")): raise ValueError("invalid command scalar")
     if type(row["exit_code"]) is not int or type(row["timed_out"]) is not bool: raise ValueError("invalid command status type")
-    if not isinstance(row["descendant_pids"],list) or any(type(v) is not int or v<=0 for v in row["descendant_pids"]): raise ValueError("invalid descendant PID list")
-    if row["termination_result"] not in {"not-required","terminated","survivors"}: raise ValueError("invalid termination result")
+    for key in ("descendant_pids","survivor_pids"):
+        if not isinstance(row[key],list) or any(type(v) is not int or v<=0 for v in row[key]) or len(set(row[key]))!=len(row[key]): raise ValueError("invalid PID list")
+    if set(row["descendant_pids"]) & set(row["survivor_pids"]): raise ValueError("duplicate PID across lists")
+    if type(row["job_active_count"]) is not int or row["job_active_count"]<0: raise ValueError("invalid job active count")
+    if row["termination_result"] not in {"not-required","completed","terminated","root-terminated","survivors"}: raise ValueError("invalid termination result")
     if row["orphan_audit"] not in {"PASS","FAIL"}: raise ValueError("invalid orphan audit")
+    descendants=bool(row["descendant_pids"]); survivors=bool(row["survivor_pids"]) or row["job_active_count"]!=0
+    if row["orphan_audit"]=="PASS" and survivors: raise ValueError("false orphan PASS")
+    if row["termination_result"]=="not-required" and (descendants or row["timed_out"]): raise ValueError("contradictory not-required")
+    if row["termination_result"]=="completed" and (not descendants or row["timed_out"] or survivors): raise ValueError("contradictory completed descendants")
+    if row["termination_result"]=="terminated" and (not descendants or survivors): raise ValueError("contradictory terminated")
+    if row["termination_result"]=="root-terminated" and (descendants or not row["timed_out"] or survivors): raise ValueError("contradictory root termination")
+    if row["termination_result"]=="survivors" and (not survivors or row["orphan_audit"]!="FAIL"): raise ValueError("contradictory survivors")
+    if row["timed_out"] and (row["exit_code"]==0 or row["termination_result"]=="not-required"): raise ValueError("contradictory timeout")
     rows.append(row)
 if not rows or len({r["name"] for r in rows})!=len(rows): raise ValueError("duplicate command name")
 print(json.dumps(rows,separators=(",",":"),sort_keys=True))
@@ -540,6 +593,7 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
       $map = Get-OutputMap $OutputRoots
       $commandPath = Join-Path $CommandRoot "$($StageName.ToLowerInvariant()).jsonl"
       if (-not (Test-Path -LiteralPath $commandPath -PathType Leaf)) { throw "Stage command log is missing" }
+      Assert-CommandLogIntegrity $commandPath
       $record = [ordered]@{
         started_at_utc = $started
         ended_at_utc = [DateTimeOffset]::UtcNow.ToString("o")
@@ -559,7 +613,7 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
     }
   }
 
-  function Invoke-Preflight {
+  function Initialize-PreflightAttempt {
     Assert-TrackedWorktreeClean
     Assert-NoReparsePoint $Task5Root "task5 root"
     if (-not (Test-Path -LiteralPath $G0Receipt -PathType Leaf)) { throw "G0 receipt is missing" }
@@ -570,6 +624,9 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
     $state = Read-State
     $state.manifest_sha256 = Get-Sha256 $ManifestPath
     Write-AtomicJson $StageStatePath $state
+  }
+
+  function Invoke-PreflightBusiness {
     $snapshot = Invoke-LoggedNative "Preflight" "g0-snapshot-before" $PythonExe @("-m", "eval.task5_manifest", "snapshot", "--r7-root", $R7Root, "--receipt", $G0Receipt) -Capture
     Write-AtomicText (Join-Path $AttemptRoot "snapshot-before.json") ($snapshot + [Environment]::NewLine)
     Invoke-LoggedNative "Preflight" "python-auth" $PythonExe @("--version")
@@ -578,6 +635,11 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
     Invoke-LoggedNative "Preflight" "scorer-preflight" $ScorerPythonExe @("scripts/check_omnidocbench_scorer.py", "--checkout", (Join-Path $RepoRoot "eval/.omnidocbench"), "--direct-lock", (Join-Path $RepoRoot "eval/requirements-omnidocbench-v16.txt"), "--transitive-lock", (Join-Path $RepoRoot "eval/requirements-omnidocbench-v16-transitive.txt"), "--require-cdm-tools")
     Invoke-LoggedNative "Preflight" "server" $PythonExe @("scripts/check_server.py", "--server-url", $ServerUrl)
     Invoke-LoggedNative "Preflight" "official-constructor" $PythonExe @("scripts/check_official_paddleocr.py", "--construct", "--server-url", $ServerUrl, "--api-model-name", $ApiModelName)
+  }
+
+  function Invoke-PreflightStage {
+    Initialize-PreflightAttempt
+    Invoke-DurableStage "Preflight" { Invoke-PreflightBusiness; Add-InternalCommandRecord "Preflight" "preflight-complete" $Benchmark } @($ManifestPath, (Join-Path $AttemptRoot "snapshot-before.json"))
   }
 
   function Assert-OfficialCoverage([object]$Stats) {
@@ -747,8 +809,7 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
 
   switch ($Stage) {
     "Preflight" {
-      Invoke-Preflight
-      Invoke-DurableStage "Preflight" { Add-InternalCommandRecord "Preflight" "preflight-complete" $Benchmark } @($ManifestPath, (Join-Path $AttemptRoot "snapshot-before.json"))
+      Invoke-PreflightStage
     }
     "Official" { Require-Stages @("Preflight"); Invoke-DurableStage "Official" { Invoke-Official } @((Join-Path $WorkRoot "paired-official"), (Join-Path $WorkRoot "traces/official")) }
     "Lightweight" { Require-Stages @("Preflight", "Official"); Invoke-DurableStage "Lightweight" { Invoke-Lightweight } @((Join-Path $WorkRoot "lightweight"), (Join-Path $WorkRoot "traces/lightweight"), (Join-Path $WorkRoot "profiles")) }
@@ -756,8 +817,7 @@ print(json.dumps(rows,separators=(",",":"),sort_keys=True))
     "Compare" { Require-Stages @("Preflight", "Official", "Lightweight", "Score"); Invoke-DurableStage "Compare" { Invoke-Compare } @((Join-Path $WorkRoot "comparison")) }
     "Decide" { Require-Stages @("Preflight", "Official", "Lightweight", "Score", "Compare"); Invoke-DurableStage "Decide" { Invoke-Decide } @((Join-Path $Task5Root "results"), (Join-Path $Task5Root "comparison"), (Join-Path $Task5Root "selected-attempt.json"), (Join-Path $AttemptRoot "snapshot-after.json")); Complete-Receipt }
     "All" {
-      Invoke-Preflight
-      Invoke-DurableStage "Preflight" { Add-InternalCommandRecord "Preflight" "preflight-complete" $Benchmark } @($ManifestPath, (Join-Path $AttemptRoot "snapshot-before.json"))
+      Invoke-PreflightStage
       Invoke-DurableStage "Official" { Invoke-Official } @((Join-Path $WorkRoot "paired-official"), (Join-Path $WorkRoot "traces/official"))
       Invoke-DurableStage "Lightweight" { Invoke-Lightweight } @((Join-Path $WorkRoot "lightweight"), (Join-Path $WorkRoot "traces/lightweight"), (Join-Path $WorkRoot "profiles"))
       Invoke-DurableStage "Score" { Invoke-Score } @((Join-Path $WorkRoot "results"))
