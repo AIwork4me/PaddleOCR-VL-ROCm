@@ -9,7 +9,9 @@ import math
 import os
 import stat
 import sys
+import tempfile
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from eval.artifact_utils import analyze_metric_quality, extract_notebook_metrics
@@ -17,21 +19,26 @@ from eval.artifact_utils import analyze_metric_quality, extract_notebook_metrics
 EXPECTED_PAIRED_PAGES = 1650
 G3_MINIMUM_OVERALL = 96.13
 RECEIPT_NAME = "receipt.sha256.json"
+APPROVED_EXCLUDED_STEM = "newspaper_The Times UK_0801@magazinesclubnew_page_031"
+
+
+@dataclass(frozen=True)
+class _StableFile:
+    path: Path
+    content: bytes
+    sha256: str
+    byte_count: int
+    mtime_ns: int
+    ctime_ns: int
 
 _ROOT_RECEIPT_FILES = {
     "manifest.json",
     "selected-attempt.json",
-    "decision.json",
-    "provider-attestation.json",
 }
 _ATTEMPT_FILES = {
-    "manifest.json",
     "stage-state.json",
     "snapshot-before.json",
     "snapshot-after.json",
-    "selected-stage-state.json",
-    "provider-attestation.json",
-    "decision.json",
 }
 _RESULT_FILES = {
     "metric.json",
@@ -42,22 +49,11 @@ _RESULT_FILES = {
     "provenance-cdm.json",
 }
 _COMPARISON_FILES = {
-    "input.json",
-    "input-comparison.json",
-    "output.json",
-    "output-comparison.json",
-    "trace.json",
-    "trace-comparison.json",
-    "provider-attestation.json",
+    "input-contract.json",
+    "normalized-output.json",
+    "trace-diff.json",
+    "directml-attestation.json",
     "decision.json",
-}
-_MANIFEST_FILES = {
-    "predictions-manifest.json",
-    "prediction-manifest.json",
-    "traces-manifest.json",
-    "trace-manifest.json",
-    "predictions.manifest.sha256.json",
-    "traces.manifest.sha256.json",
 }
 
 
@@ -120,10 +116,28 @@ def strict_equivalence_decision(
     output_report: Mapping[str, object], trace_report: Mapping[str, object]
 ) -> dict[str, object]:
     """Render strict equivalence with output differences taking priority."""
+    report_verdict = output_report.get("verdict")
+    if report_verdict not in {"PASS", "FAIL"}:
+        raise ValueError("Normalized-output report verdict must be PASS or FAIL")
+    expected = _nonnegative_int(
+        output_report.get("expected_paired_pages"), "expected_paired_pages"
+    )
+    if expected != EXPECTED_PAIRED_PAGES:
+        raise ValueError(
+            f"expected_paired_pages must be exactly {EXPECTED_PAIRED_PAGES}"
+        )
     paired = _nonnegative_int(output_report.get("paired_pages"), "paired_pages")
+    equal = _nonnegative_int(output_report.get("equal_pages"), "equal_pages")
     different = _nonnegative_int(output_report.get("different_pages"), "different_pages")
-    official_only = _optional_nonnegative_int(output_report, "official_only_pages")
-    lightweight_only = _optional_nonnegative_int(output_report, "lightweight_only_pages")
+    official_only = _nonnegative_int(
+        output_report.get("official_only_pages"), "official_only_pages"
+    )
+    lightweight_only = _nonnegative_int(
+        output_report.get("lightweight_only_pages"), "lightweight_only_pages"
+    )
+    if equal + different != paired:
+        raise ValueError("equal_pages plus different_pages must equal paired_pages")
+    _validate_approved_exclusion(output_report.get("approved_exclusion"))
     trace_verdict = trace_report.get("verdict")
     if trace_verdict not in {"PASS", "UNKNOWN", "FAIL"}:
         raise ValueError("Trace report verdict must be PASS, UNKNOWN, or FAIL")
@@ -134,6 +148,11 @@ def strict_equivalence_decision(
         and official_only == 0
         and lightweight_only == 0
     )
+    expected_report_verdict = "PASS" if output_pass else "FAIL"
+    if report_verdict != expected_report_verdict:
+        raise ValueError(
+            "Normalized-output report verdict contradicts its coverage and differences"
+        )
     if not output_pass or trace_verdict == "FAIL":
         verdict = "FAIL"
     elif trace_verdict == "UNKNOWN":
@@ -146,6 +165,7 @@ def strict_equivalence_decision(
         "trace_verdict": trace_verdict,
         "expected_paired_pages": EXPECTED_PAIRED_PAGES,
         "paired_pages": paired,
+        "equal_pages": equal,
         "different_pages": different,
         "official_only_pages": official_only,
         "lightweight_only_pages": lightweight_only,
@@ -297,15 +317,50 @@ def _metric_quality_passes(scores: Mapping[str, object]) -> bool:
 
 
 def _lightweight_stats_pass(stats: Mapping[str, object]) -> bool:
-    raw = (stats.get("count"), stats.get("ok"), stats.get("fail"), stats.get("fallback"))
-    summary = (
-        stats.get("prediction_count"),
-        stats.get("ok_pages"),
-        stats.get("failed_pages"),
-        stats.get("fallback_pages"),
+    raw_keys = ("count", "ok", "fail", "fallback")
+    summary_keys = (
+        "prediction_count",
+        "ok_pages",
+        "failed_pages",
+        "fallback_pages",
     )
-    expected = (1651, 1650, 1, 0)
-    return (raw == expected or summary == expected) and _provider_runtime_passes(stats)
+    raw_present = tuple(key in stats for key in raw_keys)
+    summary_present = tuple(key in stats for key in summary_keys)
+    if any(raw_present) and not all(raw_present):
+        return False
+    if any(summary_present) and not all(summary_present):
+        return False
+    if not any(raw_present) and not any(summary_present):
+        return False
+    expected = (1651, 1651, 0, 0)
+    raw = tuple(stats[key] for key in raw_keys) if all(raw_present) else None
+    summary = tuple(stats[key] for key in summary_keys) if all(summary_present) else None
+    if raw is not None and not all(type(value) is int for value in raw):
+        return False
+    if summary is not None and not all(type(value) is int for value in summary):
+        return False
+    if raw is not None and raw != expected:
+        return False
+    if summary is not None and summary != expected:
+        return False
+    if raw is not None and summary is not None and raw != summary:
+        return False
+    return _provider_runtime_passes(stats)
+
+
+def _validate_approved_exclusion(value: object) -> None:
+    if not isinstance(value, Mapping) or set(value) != {
+        "stem",
+        "official_present",
+        "lightweight_present",
+    }:
+        raise ValueError("approved_exclusion must contain the complete comparator coverage")
+    if value.get("stem") != APPROVED_EXCLUDED_STEM:
+        raise ValueError("approved_exclusion stem is not approved")
+    if type(value.get("official_present")) is not bool or type(
+        value.get("lightweight_present")
+    ) is not bool:
+        raise ValueError("approved_exclusion presence fields must be booleans")
 
 
 def _provider_runtime_passes(stats: Mapping[str, object]) -> bool:
@@ -433,51 +488,100 @@ def _receipt_path_allowed(relative: PurePosixPath) -> bool:
     parts = relative.parts
     if len(parts) == 1:
         return parts[0] in _ROOT_RECEIPT_FILES
-    if len(parts) < 3 or parts[0] != "attempts" or not parts[1]:
-        return False
-    tail = parts[2:]
-    if len(tail) == 1:
-        return tail[0] in _ATTEMPT_FILES or tail[0] in _MANIFEST_FILES
-    if len(tail) == 3 and tail[0] == "results" and tail[1] in {"official", "lightweight"}:
-        return tail[2] in _RESULT_FILES
-    if len(tail) == 2 and tail[0] in {"comparison", "comparisons"}:
-        return tail[1] in _COMPARISON_FILES
-    if len(tail) == 2 and tail[0] in {"manifests", "raw-manifests"}:
-        return tail[1] in _MANIFEST_FILES
+    if len(parts) == 2 and parts[0] == "comparison":
+        return parts[1] in _COMPARISON_FILES
+    if len(parts) == 3 and parts[0] == "results":
+        return parts[1] in {"official", "lightweight"} and parts[2] in _RESULT_FILES
+    if len(parts) == 3 and parts[0] == "attempts" and parts[1]:
+        return parts[2] in _ATTEMPT_FILES
     return False
 
 
 def _relative_file_identity(root: Path, name: str, path: Path) -> dict[str, object]:
-    before = path.stat(follow_symlinks=False)
+    snapshot = _read_stable_file(path, label=f"Receipt input {name}")
+    final_path = snapshot.path.resolve(strict=True)
+    if final_path.parent != root and root not in final_path.parents:
+        raise ValueError("Receipt path cannot escape the Task 5 root")
+    return {
+        "path": name,
+        "bytes": snapshot.byte_count,
+        "mtime_ns": snapshot.mtime_ns,
+        "ctime_ns": snapshot.ctime_ns,
+        "sha256": snapshot.sha256,
+    }
+
+
+def _read_stable_file(path: Path, *, label: str) -> _StableFile:
+    if path.is_symlink():
+        raise ValueError(f"{label} cannot be a symlink")
+    resolved = path.resolve(strict=True)
+    before = resolved.stat(follow_symlinks=False)
     if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
-        raise ValueError(f"Receipt input must be a non-symlink regular file: {name}")
+        raise ValueError(f"{label} must be a non-symlink regular file")
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
-    descriptor = os.open(path, flags)
+    descriptor = os.open(resolved, flags)
     try:
         opened_before = os.fstat(descriptor)
-        digest = hashlib.sha256()
-        byte_count = 0
-        while True:
-            chunk = os.read(descriptor, 1024 * 1024)
-            if not chunk:
-                break
-            digest.update(chunk)
-            byte_count += len(chunk)
+        first = _read_descriptor(descriptor)
+        opened_middle = os.fstat(descriptor)
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        second = _read_descriptor(descriptor)
         opened_after = os.fstat(descriptor)
     finally:
         os.close(descriptor)
-    after = path.stat(follow_symlinks=False)
-    identities = (before, opened_before, opened_after, after)
-    if any(
-        (item.st_dev, item.st_ino, item.st_size) != (before.st_dev, before.st_ino, before.st_size)
-        for item in identities[1:]
+    after = resolved.stat(follow_symlinks=False)
+    final_resolved = path.resolve(strict=True)
+    if (
+        final_resolved != resolved
+        or path.is_symlink()
+        or first != second
+        or len(first) != before.st_size
+        or _stat_identity(after) != _stat_identity(before)
+        or _handle_identity(opened_before) != _handle_identity(before)
+        or _handle_identity(opened_middle) != _handle_identity(opened_before)
+        or _handle_identity(opened_after) != _handle_identity(opened_before)
     ):
-        raise ValueError(f"Receipt input changed while hashing: {name}")
-    if byte_count != before.st_size:
-        raise ValueError(f"Receipt input changed while hashing: {name}")
-    if path.resolve(strict=True).parent != root and root not in path.resolve(strict=True).parents:
-        raise ValueError("Receipt path cannot escape the Task 5 root")
-    return {"path": name, "bytes": byte_count, "sha256": digest.hexdigest()}
+        raise ValueError(f"{label} changed while reading")
+    return _StableFile(
+        path=resolved,
+        content=first,
+        sha256=hashlib.sha256(first).hexdigest(),
+        byte_count=len(first),
+        mtime_ns=before.st_mtime_ns,
+        ctime_ns=before.st_ctime_ns,
+    )
+
+
+def _read_descriptor(descriptor: int) -> bytes:
+    chunks: list[bytes] = []
+    while True:
+        chunk = os.read(descriptor, 1024 * 1024)
+        if not chunk:
+            return b"".join(chunks)
+        chunks.append(chunk)
+
+
+def _stat_identity(value: os.stat_result) -> tuple[int, int, int, int, int, int]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+
+
+def _handle_identity(value: os.stat_result) -> tuple[int, int, int, int, int]:
+    # Windows can expose sub-millisecond ctime rounding differences between
+    # path stat and handle fstat. Path before/after still compares exact ctime.
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_size,
+        value.st_mtime_ns,
+    )
 
 
 def _reject_json_constant(value: str) -> None:
@@ -494,12 +598,25 @@ def _reject_duplicate_pairs(pairs: list[tuple[str, object]]) -> dict[str, object
 
 
 def _load_json_object(path: Path) -> dict[str, object]:
+    snapshot = _read_stable_file(path, label=f"JSON input {path}")
+    return _parse_json_object(snapshot.content, path)
+
+
+def _load_json_object_with_digest(path: Path) -> tuple[dict[str, object], str]:
+    snapshot = _read_stable_file(path, label=f"Decision input {path}")
+    return _parse_json_object(snapshot.content, path), snapshot.sha256
+
+
+def _parse_json_object(raw: bytes, path: Path) -> dict[str, object]:
     try:
+        text = raw.decode("utf-8")
         value = json.loads(
-            path.read_text(encoding="utf-8"),
+            text,
             parse_constant=_reject_json_constant,
             object_pairs_hook=_reject_duplicate_pairs,
         )
+    except UnicodeDecodeError as error:
+        raise ValueError(f"invalid UTF-8 in {path}") from error
     except json.JSONDecodeError as error:
         raise ValueError(f"invalid JSON in {path}: {error.msg}") from error
     if not isinstance(value, dict):
@@ -507,17 +624,34 @@ def _load_json_object(path: Path) -> dict[str, object]:
     return value
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _write_json(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if path.is_symlink():
+        raise ValueError("JSON output cannot be a symlink")
+    parent = path.parent.resolve(strict=True)
+    output = parent / path.name
+    rendered = (
+        json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    descriptor = -1
+    temporary: Path | None = None
+    try:
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{path.name}.", suffix=".tmp", dir=parent
+        )
+        temporary = Path(temporary_name)
+        with os.fdopen(descriptor, "wb") as stream:
+            descriptor = -1
+            stream.write(rendered)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, output)
+        temporary = None
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def _decide(args: argparse.Namespace) -> int:
@@ -531,7 +665,11 @@ def _decide(args: argparse.Namespace) -> int:
         "provider_attestation": args.provider_attestation,
         "lightweight_stats": args.lightweight_stats,
     }
-    loaded = {name: _load_json_object(path) for name, path in paths.items()}
+    _reject_output_input_collision(args.output, paths.values())
+    loaded: dict[str, dict[str, object]] = {}
+    digests: dict[str, str] = {}
+    for name, path in paths.items():
+        loaded[name], digests[name] = _load_json_object_with_digest(path)
     official = extract_paired_scores(loaded["official_non_cdm"], loaded["official_cdm"])
     lightweight = extract_paired_scores(
         loaded["lightweight_non_cdm"], loaded["lightweight_cdm"]
@@ -556,7 +694,7 @@ def _decide(args: argparse.Namespace) -> int:
         "amd_adaptation": amd,
         "g3": amd["g3"],
         "evidence": {
-            name: {"sha256": _sha256(path)} for name, path in sorted(paths.items())
+            name: {"sha256": digests[name]} for name in sorted(paths)
         },
     }
     _write_json(args.output, decision)
@@ -565,6 +703,9 @@ def _decide(args: argparse.Namespace) -> int:
 
 def _build_receipt_cli(args: argparse.Namespace) -> int:
     receipt = build_task5_receipt(args.task5_root, args.path)
+    root = _safe_root(args.task5_root)
+    inputs = [_contained_file(root, name)[1] for name in args.path]
+    _reject_output_input_collision(args.output, inputs)
     _write_json(args.output, receipt)
     return 0
 
@@ -572,6 +713,18 @@ def _build_receipt_cli(args: argparse.Namespace) -> int:
 def _validate_receipt_cli(args: argparse.Namespace) -> int:
     validate_task5_receipt(args.task5_root, _load_json_object(args.receipt))
     return 0
+
+
+def _reject_output_input_collision(output: Path, inputs: Sequence[Path]) -> None:
+    if output.is_symlink():
+        raise ValueError("JSON output cannot be a symlink")
+    output_resolved = output.resolve(strict=False)
+    for input_path in inputs:
+        resolved_input = input_path.resolve(strict=True)
+        if output_resolved == resolved_input or (
+            output.exists() and output.samefile(resolved_input)
+        ):
+            raise ValueError("JSON output cannot overwrite an input evidence file")
 
 
 def _parser() -> argparse.ArgumentParser:
