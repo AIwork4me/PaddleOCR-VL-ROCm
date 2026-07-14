@@ -70,6 +70,9 @@ def attest_directml_profile(
 
     dml_nodes = providers.count(DML_PROVIDER)
     cpu_nodes = providers.count(CPU_PROVIDER)
+    provider_nodes = dml_nodes + cpu_nodes
+    dml_node_share = dml_nodes / provider_nodes if provider_nodes else 0.0
+    cpu_node_share = cpu_nodes / provider_nodes if provider_nodes else 0.0
     other_providers = sorted(set(providers) - {DML_PROVIDER, CPU_PROVIDER})
     other_provider_nodes = sum(provider in other_providers for provider in providers)
     requested = run_stats.get("layout_provider_requested")
@@ -83,13 +86,15 @@ def attest_directml_profile(
         and type(fallback_disabled) is bool
         and fallback_disabled is True
         and dml_nodes > 0
-        and cpu_nodes == 0
+        and dml_node_share > 0.5
         and missing_provider_nodes == 0
         and not other_providers
     )
     return {
         "dml_node_events": dml_nodes,
         "cpu_node_events": cpu_nodes,
+        "dml_node_share": dml_node_share,
+        "cpu_node_share": cpu_node_share,
         "missing_provider_node_events": missing_provider_nodes,
         "other_provider_node_events": other_provider_nodes,
         "node_providers": sorted(set(providers)),

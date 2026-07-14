@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -54,17 +55,22 @@ def _write_valid_stats(tmp_path: Path) -> Path:
     return stats
 
 
-def test_attestation_requires_positive_dml_and_zero_cpu_nodes(tmp_path: Path) -> None:
-    profile = _write_profile(tmp_path, ["DmlExecutionProvider"] * 7)
+def test_attestation_accepts_directml_majority_with_cpu_graph_partitions(tmp_path: Path) -> None:
+    profile = _write_profile(
+        tmp_path,
+        ["DmlExecutionProvider"] * 7 + ["CPUExecutionProvider"] * 3,
+    )
 
     report = attest_directml_profile(profile, _valid_directml_stats())
 
     assert report["verdict"] == "PASS"
     assert report["dml_node_events"] == 7
-    assert report["cpu_node_events"] == 0
+    assert report["cpu_node_events"] == 3
+    assert report["dml_node_share"] == 0.7
+    assert report["cpu_node_share"] == 0.3
     assert report["missing_provider_node_events"] == 0
     assert report["other_provider_node_events"] == 0
-    assert report["node_providers"] == ["DmlExecutionProvider"]
+    assert report["node_providers"] == ["CPUExecutionProvider", "DmlExecutionProvider"]
     assert report["other_providers"] == []
     assert report["profile_sha256"] == hashlib.sha256(profile.read_bytes()).hexdigest()
     assert report["profile_bytes"] == profile.stat().st_size
@@ -72,14 +78,36 @@ def test_attestation_requires_positive_dml_and_zero_cpu_nodes(tmp_path: Path) ->
 
 @pytest.mark.parametrize(
     "providers",
-    [[], ["CPUExecutionProvider"], ["DmlExecutionProvider", "CPUExecutionProvider"], [None]],
+    [
+        [],
+        ["CPUExecutionProvider"],
+        ["DmlExecutionProvider", "CPUExecutionProvider"],
+        ["DmlExecutionProvider", "CPUExecutionProvider", "CPUExecutionProvider"],
+        [None],
+    ],
 )
-def test_attestation_fails_missing_or_cpu_node_execution(
+def test_attestation_fails_without_strict_dml_majority(
     tmp_path: Path, providers: list[str | None]
 ) -> None:
     report = attest_directml_profile(_write_profile(tmp_path, providers), _valid_directml_stats())
 
     assert report["verdict"] == "FAIL"
+    assert math.isfinite(report["dml_node_share"])
+    assert math.isfinite(report["cpu_node_share"])
+    assert 0.0 <= report["dml_node_share"] <= 1.0
+    assert 0.0 <= report["cpu_node_share"] <= 1.0
+
+
+def test_attestation_node_shares_sum_to_one_when_provider_nodes_exist(tmp_path: Path) -> None:
+    report = attest_directml_profile(
+        _write_profile(
+            tmp_path,
+            ["DmlExecutionProvider"] * 2 + ["CPUExecutionProvider"],
+        ),
+        _valid_directml_stats(),
+    )
+
+    assert report["dml_node_share"] + report["cpu_node_share"] == pytest.approx(1.0)
 
 
 @pytest.mark.parametrize(
@@ -117,6 +145,8 @@ def test_attestation_counts_other_providers_without_copying_raw_profile(tmp_path
     assert set(report) == {
         "dml_node_events",
         "cpu_node_events",
+        "dml_node_share",
+        "cpu_node_share",
         "missing_provider_node_events",
         "other_provider_node_events",
         "node_providers",
