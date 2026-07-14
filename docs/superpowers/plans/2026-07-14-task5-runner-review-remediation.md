@@ -222,7 +222,7 @@ git commit -m "fix(eval): harden Task 5 runner integrity"
 - Candidate: `attempts/<id>/selected-attempt.json`.
 - Global commit point: root `selected-attempt.json`, written create-if-absent and byte-equal to the candidate.
 
-- [ ] **Step 1: Write executable RED transaction tests**
+- [x] **Step 1: Write executable RED transaction tests**
 
 Inject interruption during compact copy, receipt creation, receipt validation, and root-pointer creation. Assert:
 
@@ -235,11 +235,11 @@ assert no_file_from_failed_attempt_was_copied_into_new_attempt()
 
 Also assert that an already valid root pointer blocks every later AttemptId and that pointer retry for the same already-sealed attempt changes no attempt-local byte.
 
-- [ ] **Step 2: Move compact production into the current attempt**
+- [x] **Step 2: Move compact production into the current attempt**
 
 Write score and comparison outputs directly under `attempts/<id>/compact`; do not copy them to shared root directories. Before sealing, require exact file-name sets for both engines and comparison, and bind the output maps in final stage state.
 
-- [ ] **Step 3: Freeze candidate and stage state before the receipt**
+- [x] **Step 3: Freeze candidate and stage state before the receipt**
 
 The candidate has exactly:
 
@@ -257,19 +257,19 @@ The candidate has exactly:
 
 Set stage state to sealed, write candidate atomically, then prohibit later writes to stage state, snapshots, candidate, or compact evidence.
 
-- [ ] **Step 4: Generate and validate the attempt-local receipt**
+- [x] **Step 4: Generate and validate the attempt-local receipt**
 
 Pass exactly `required_attempt_receipt_paths(AttemptId)` to `eval.task5_decision receipt`, output to `attempts/<id>/receipt.sha256.json`, immediately run `validate-receipt`, then run `validate-selection` against a temporary pointer byte-equal to the candidate. Receipt failure leaves the attempt untouched and unselected.
 
-- [ ] **Step 5: Atomically create the root pointer**
+- [x] **Step 5: Atomically create the root pointer**
 
 Create a same-directory temporary file with candidate bytes, flush it, and rename without overwrite to root `selected-attempt.json`. Then run `validate-selection` against the real pointer. If pointer creation is interrupted, a rerun for the same sealed attempt may only repeat this create-if-absent step; it cannot rerun earlier stages. If the existing pointer is byte-identical and validates, return success idempotently; otherwise fail closed.
 
-- [ ] **Step 6: Complete the Step 7 end-to-end fault matrix**
+- [x] **Step 6: Complete the Step 7 end-to-end fault matrix**
 
 The stub harness must execute full stage flow and inject: CPU-first provider order; zero/50% DML; missing/other provider nodes; missing profile; Official fallback; Lightweight partial coverage; stale score; CDM timeout; TEDS error; direct/grandchild orphan; command/log/output/G0/input/manifest drift; old-attempt reuse; compact interruption; receipt creation/validation/mutation; pointer interruption; strict UNKNOWN; AMD FAIL. Assert process exit, immutable state, decision durability, selected/receipt validity, and absence of false PASS for every row.
 
-- [ ] **Step 7: Run Task 3 GREEN and the full offline gate**
+- [x] **Step 7: Run Task 3 GREEN and the full offline gate**
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests\test_task5_manifest.py tests\test_task5_comparison.py tests\test_directml_attestation.py tests\test_task5_decision.py tests\test_run_task5_paired_v16_script.py -q
@@ -282,7 +282,7 @@ git diff --check
 
 Expected: all pass with only previously documented environment skips. No real inference or external r7 mutation occurs.
 
-- [ ] **Step 8: Commit Task 3**
+- [x] **Step 8: Commit Task 3**
 
 ```powershell
 git add scripts/run_task5_paired_v16.ps1 tests/test_run_task5_paired_v16_script.py
