@@ -206,6 +206,10 @@ try {
     }
     function Protect-FreeText([string]$Text) {
       $redacted = $Text
+      $redacted = [regex]::Replace($redacted, '(?i)(["'']?prompt["'']?\s*[:=]\s*)(?:"[^"\r\n]*"|''[^''\r\n]*''|[^\s,;&]+)', '${1}"<prompt-redacted>"')
+      $redacted = [regex]::Replace($redacted, '(?i)(["'']?payload["'']?\s*[:=]\s*)(?:"[^"\r\n]*"|''[^''\r\n]*''|[^\s,;&]+)', '${1}"<payload-redacted>"')
+      $redacted = [regex]::Replace($redacted, '(?i)(["'']?raw[ _-]?result["'']?\s*[:=]\s*)(?:"[^"\r\n]*"|''[^''\r\n]*''|[^\s,;&]+)', '${1}"<raw-result-redacted>"')
+      $redacted = [regex]::Replace($redacted, '(?i)(["'']?(?:api[ _-]?key|token|[^\s=:"'']*signature|credential|authorization|bearer)["'']?\s*[:=]\s*)(?:"[^"\r\n]*"|''[^''\r\n]*''|[^\s,;&]+)', '${1}"<redacted>"')
       $redacted = [regex]::Replace($redacted, '(?im)(Authorization\s*:\s*)[^\r\n]+', '${1}<redacted>')
       $redacted = [regex]::Replace($redacted, '(?i)Bearer\s+[^\s,;"''\]&]+', 'Bearer <redacted>')
       $redacted = [regex]::Replace($redacted, '(?i)\b(api[ _-]?key|token|[^\s=:]*signature|credential|authorization)\s*[=:]\s*[^\s,;"''\]&]+', '${1}=<redacted>')
@@ -254,7 +258,7 @@ try {
       }
       return Protect-FreeText $output.ToString()
     }
-    $protected = (([regex]::Split($Value, '\r\n|\n|\r') | ForEach-Object { Protect-JsonFragments $_ }) -join [Environment]::NewLine)
+    $protected = Protect-JsonFragments $Value
     foreach ($secret in @($sensitiveValues | Sort-Object Length -Descending -Unique)) {
       if ($secret.Length -gt 0) { $protected = $protected.Replace($secret, '<redacted>') }
     }
@@ -337,6 +341,10 @@ public static class Task5NativeJob {
   static Task<string> ReadAsync(IntPtr handle) { var safe=new SafeFileHandle(handle,true); var stream=new FileStream(safe,FileAccess.Read,4096,false); var reader=new StreamReader(stream,new UTF8Encoding(false),true,4096); return Task.Run(()=>{ using(reader) return reader.ReadToEnd(); }); }
 
   public static Task5JobResult Run(string executable,string arguments,string cwd,long timeoutMs,int graceMs) {
+    return Run(executable,arguments,cwd,timeoutMs,graceMs,false);
+  }
+
+  public static Task5JobResult Run(string executable,string arguments,string cwd,long timeoutMs,int graceMs,bool forceAssignFailure) {
     IntPtr job=IntPtr.Zero,outRead=IntPtr.Zero,outWrite=IntPtr.Zero,errRead=IntPtr.Zero,errWrite=IntPtr.Zero; PROCESS_INFORMATION pi=new PROCESS_INFORMATION(); bool created=false;
     var result=new Task5JobResult { Stdout="",Stderr="",ExitCode=-1,DescendantPids=new int[0],SurvivorPids=new int[0] };
     try {
@@ -345,7 +353,7 @@ public static class Task5NativeJob {
       var sa=new SECURITY_ATTRIBUTES{nLength=Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES)),bInheritHandle=1}; if(!CreatePipe(out outRead,out outWrite,ref sa,0)||!CreatePipe(out errRead,out errWrite,ref sa,0)) throw Win32("CreatePipe"); if(!SetHandleInformation(outRead,HANDLE_FLAG_INHERIT,0)||!SetHandleInformation(errRead,HANDLE_FLAG_INHERIT,0)) throw Win32("SetHandleInformation");
       var si=new STARTUPINFO(); si.cb=Marshal.SizeOf(typeof(STARTUPINFO)); si.dwFlags=STARTF_USESTDHANDLES; si.hStdOutput=outWrite; si.hStdError=errWrite; si.hStdInput=IntPtr.Zero;
       var cmd=new StringBuilder("\""+executable+"\""+(String.IsNullOrEmpty(arguments)?"":" "+arguments)); if(!CreateProcessW(executable,cmd,IntPtr.Zero,IntPtr.Zero,true,CREATE_SUSPENDED|CREATE_NO_WINDOW,IntPtr.Zero,cwd,ref si,out pi)) throw Win32("CreateProcessW"); created=true; result.RootPid=pi.dwProcessId;
-      if(!AssignProcessToJobObject(job,pi.hProcess)) throw Win32("AssignProcessToJobObject"); var stdout=ReadAsync(outRead); outRead=IntPtr.Zero; var stderr=ReadAsync(errRead); errRead=IntPtr.Zero; CloseHandle(outWrite); outWrite=IntPtr.Zero; CloseHandle(errWrite); errWrite=IntPtr.Zero; if(ResumeThread(pi.hThread)==UInt32.MaxValue) throw Win32("ResumeThread"); CloseHandle(pi.hThread); pi.hThread=IntPtr.Zero;
+      bool assigned=AssignProcessToJobObject(forceAssignFailure?IntPtr.Zero:job,pi.hProcess); if(!assigned){ int assignError=Marshal.GetLastWin32Error(); bool terminated=TerminateProcess(pi.hProcess,239); int terminateError=Marshal.GetLastWin32Error(); uint waited=WaitForSingleObject(pi.hProcess,(uint)Math.Max(1000,graceMs)); if(!terminated) throw new System.ComponentModel.Win32Exception(terminateError,"TerminateProcess after AssignProcessToJobObject failure"); if(waited!=WAIT_OBJECT_0) throw new InvalidOperationException("Wait after AssignProcessToJobObject failure did not observe process termination"); throw new System.ComponentModel.Win32Exception(assignError,"AssignProcessToJobObject"); } var stdout=ReadAsync(outRead); outRead=IntPtr.Zero; var stderr=ReadAsync(errRead); errRead=IntPtr.Zero; CloseHandle(outWrite); outWrite=IntPtr.Zero; CloseHandle(errWrite); errWrite=IntPtr.Zero; if(ResumeThread(pi.hThread)==UInt32.MaxValue) throw Win32("ResumeThread"); CloseHandle(pi.hThread); pi.hThread=IntPtr.Zero;
       var observed=new HashSet<int>(); var sw=Stopwatch.StartNew(); bool rootExited=false; while(sw.ElapsedMilliseconds<timeoutMs){ foreach(var id in Members(job)) observed.Add(id); if(WaitForSingleObject(pi.hProcess,100)==WAIT_OBJECT_0){rootExited=true;break;} }
       foreach(var id in Members(job)) observed.Add(id); int effectiveRoot=result.RootPid;
       foreach(var id in Members(job)) observed.Add(id); result.TimedOut=!rootExited;

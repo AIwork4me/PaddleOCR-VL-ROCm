@@ -465,7 +465,7 @@ def test_redaction_handles_jsonl_embedded_json_and_scans_entire_command_tree(tmp
     sentinels = {
         "AUTH-JSONL", "BEARER-JSONL", "API-EMBEDDED", "TOKEN-NESTED",
         "CREDENTIAL-ARRAY", "SIG-AMZ", "SIG-SIGNED-URL", "PROMPT-TEXT",
-        "PAYLOAD-NESTED", "RAW-RESULT-TEXT",
+        "PAYLOAD-NESTED", "RAW-RESULT-TEXT", "QUOTED-FALLBACK",
     }
     lines = [
         '{"authorization":"Bearer AUTH-JSONL","bearer":"BEARER-JSONL"}',
@@ -474,6 +474,7 @@ def test_redaction_handles_jsonl_embedded_json_and_scans_entire_command_tree(tmp
         'signed=https://host/item?X-Amz-Signature=SIG-AMZ&signature=SIG-SIGNED-URL',
         'prompt: PROMPT-TEXT',
         'raw result: RAW-RESULT-TEXT',
+        'malformed prefix "api_key": "QUOTED-FALLBACK" without object',
     ]
     code = "import sys; print('\\n'.join(sys.argv[1:]))"
     result = _native_integrity_probe(tmp_path, code, argument_list=["-c", code, *lines])
@@ -485,6 +486,35 @@ def test_redaction_handles_jsonl_embedded_json_and_scans_entire_command_tree(tmp
     for sentinel in sentinels:
         assert sentinel not in persisted
     assert "<redacted>" in persisted
+    assert "<prompt-redacted>" in persisted
+    assert "<payload-redacted>" in persisted
+    assert "<raw-result-redacted>" in persisted
+
+
+def test_redaction_balances_pretty_multiline_json_before_free_text_fallback(tmp_path: Path) -> None:
+    sentinels = {
+        "PRETTY-API", "PRETTY-PROMPT", "PRETTY-PAYLOAD", "PRETTY-RAW",
+        "PRETTY-AUTH", "PRETTY-TOKEN", "PRETTY-AMZ",
+    }
+    document = {
+        "outer": {
+            "api_key": "PRETTY-API",
+            "prompt": "PRETTY-PROMPT",
+            "items": [{"payload": "PRETTY-PAYLOAD"}, {"raw_result": "PRETTY-RAW"}],
+            "headers": {"Authorization": "Bearer PRETTY-AUTH"},
+            "token": "PRETTY-TOKEN",
+            "signed": {"X-Amz-Signature": "PRETTY-AMZ"},
+        }
+    }
+    output = f"ordinary prefix\n{json.dumps(document, indent=2)}\nordinary suffix"
+    result = _native_integrity_probe(tmp_path, f"print({output!r})")
+    assert result.returncode == 0, result.stdout + result.stderr
+    persisted = "".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in (tmp_path / "commands").rglob("*") if path.is_file()
+    )
+    for sentinel in sentinels:
+        assert sentinel not in persisted
     assert "<prompt-redacted>" in persisted
     assert "<payload-redacted>" in persisted
     assert "<raw-result-redacted>" in persisted
@@ -649,6 +679,40 @@ def test_job_contains_fast_launcher_escape_before_root_executes(tmp_path: Path) 
     )
     # The audit shell contains the marker in its own command line; no second PID may survive.
     assert audit.returncode == 0 and audit.stdout.strip() == "1"
+
+
+def test_assign_job_failure_terminates_and_waits_for_suspended_root(tmp_path: Path) -> None:
+    marker = "task5-forced-assign-failure-8d91"
+    harness = tmp_path / "assign-failure.ps1"
+    harness.write_text(
+        rf"""
+$ErrorActionPreference='Stop';$errors=$null;$tokens=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$tokens,[ref]$errors)
+foreach($name in @('ConvertTo-NativeArgument','Initialize-NativeJobRunner')){{
+ $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true)
+ Invoke-Expression $fn.Extent.Text
+}}
+Initialize-NativeJobRunner
+$caught=''
+try {{
+ [Task5NativeJob]::Run('{POWERSHELL}',(ConvertTo-NativeArgument '{marker}'),'{tmp_path}',5000,1000,$true) | Out-Null
+}} catch {{ $caught=$_.Exception.Message }}
+Start-Sleep -Milliseconds 200
+$hits=@(Get-CimInstance Win32_Process | Where-Object {{ $_.ProcessId -ne $PID -and ([string]$_.CommandLine).Contains('{marker}') }})
+$residual=$hits.Count
+foreach($hit in $hits){{ Stop-Process -Id $hit.ProcessId -Force -ErrorAction SilentlyContinue }}
+if($caught -notlike '*AssignProcessToJobObject*'){{throw "unexpected fault: $caught"}}
+if($residual -ne 0){{throw "suspended root survived failed assignment: $residual"}}
+Write-Output 'ASSIGN_FAILURE_CLEAN=1'
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [str(POWERSHELL), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
+        cwd=ROOT, text=True, capture_output=True, check=False, timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "ASSIGN_FAILURE_CLEAN=1" in result.stdout
 
 
 def _command_log_probe(tmp_path: Path, record_text: str) -> subprocess.CompletedProcess[str]:
