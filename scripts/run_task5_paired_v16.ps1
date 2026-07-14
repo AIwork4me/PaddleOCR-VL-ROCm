@@ -11,7 +11,9 @@ param(
   [string]$DatasetDir = "data/omnidocbench/v16",
   [string]$LayoutModel = "models/PP-DocLayoutV3-onnx",
   [string]$RuntimeConfig = "$HOME/.paddleocr-vl-rocm/config.json",
-  [string]$G0Receipt = ""
+  [string]$G0Receipt = "",
+  [ValidateRange(1, 2147483)][int]$CommandTimeoutSeconds = 86400,
+  [ValidateRange(0, 300)][int]$TerminationGraceSeconds = 10
 )
 
 $ErrorActionPreference = "Stop"
@@ -75,6 +77,39 @@ try {
     return Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json
   }
 
+  function Read-StrictJson([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Missing JSON evidence: $Path" }
+    $code = 'import json,sys; p=sys.argv[1]; seen=lambda pairs: (_ for _ in ()).throw(ValueError("duplicate JSON key")) if len(pairs)!=len(dict(pairs)) else dict(pairs); v=json.loads(open(p,"r",encoding="utf-8").read(),object_pairs_hook=seen,parse_constant=lambda x: (_ for _ in ()).throw(ValueError("non-finite JSON"))); print(json.dumps(v,separators=(",",":"),sort_keys=True))'
+    $canonical = Invoke-DirectPython $code @($Path)
+    return ($canonical | ConvertFrom-Json)
+  }
+
+  function Invoke-DirectPython([string]$Code, [string[]]$Arguments) {
+    $info = [Diagnostics.ProcessStartInfo]::new()
+    $info.FileName = $PythonExe; $info.UseShellExecute = $false; $info.CreateNoWindow = $true
+    $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Code))
+    $wrapper = "import base64;exec(base64.b64decode('$encoded'))"
+    $nativeArguments = @("-c", $wrapper) + @($Arguments)
+    $info.Arguments = (($nativeArguments | ForEach-Object { ConvertTo-NativeArgument ([string]$_) }) -join ' ')
+    $process = [Diagnostics.Process]::Start($info)
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync(); $stderrTask = $process.StandardError.ReadToEndAsync()
+    if (-not $process.WaitForExit(30000)) {
+      & taskkill.exe /PID $process.Id /T /F 2>&1 | Out-Null
+      $process.Dispose()
+      throw "strict helper timeout"
+    }
+    $stdout = $stdoutTask.GetAwaiter().GetResult(); $stderr = $stderrTask.GetAwaiter().GetResult()
+    $exitCode = $process.ExitCode; $process.Dispose()
+    if ($exitCode -ne 0) { throw "strict helper failed: $(Get-StringSha256 $stderr)" }
+    return $stdout.Trim()
+  }
+
+  function ConvertTo-CanonicalJson([object]$Value) {
+    $code = 'import json,sys; v=json.loads(sys.argv[1],parse_constant=lambda x: (_ for _ in ()).throw(ValueError("non-finite JSON"))); print(json.dumps(v,ensure_ascii=False,separators=(",",":"),sort_keys=True))'
+    return Invoke-DirectPython $code @(($Value | ConvertTo-Json -Compress -Depth 20))
+  }
+
   function Assert-NoReparsePoint([string]$Path, [string]$Label) {
     if (-not (Test-Path -LiteralPath $Path)) { return }
     $item = Get-Item -Force -LiteralPath $Path
@@ -102,6 +137,18 @@ try {
     [IO.File]::AppendAllText($path, (($Record | ConvertTo-Json -Compress -Depth 8) + [Environment]::NewLine), [Text.UTF8Encoding]::new($false))
   }
 
+  function Add-InternalCommandRecord([string]$StageName, [string]$Name, [string]$Description) {
+    $logPath = Join-Path $CommandRoot "$($StageName.ToLowerInvariant())-$Name.log"
+    Write-AtomicText $logPath ((Protect-LoggedText $Description) + [Environment]::NewLine)
+    $relativeLog = $logPath.Substring($AttemptRoot.Length).TrimStart('\', '/') -replace '\\', '/'
+    $now = [DateTimeOffset]::UtcNow.ToString("o")
+    Add-CommandRecord $StageName ([ordered]@{
+      name=$Name; executable_sha256=Get-StringSha256 "internal"; arguments_sha256=Get-StringSha256 $Description
+      started_at_utc=$now; ended_at_utc=$now; exit_code=0; timed_out=$false; descendant_pids=@()
+      termination_result="not-required"; orphan_audit="PASS"; log_path=$relativeLog; log_sha256=Get-Sha256 $logPath
+    })
+  }
+
   function ConvertTo-NativeArgument([string]$Value) {
     if ($Value.Length -gt 0 -and $Value -notmatch '[\s"]') { return $Value }
     $builder = [Text.StringBuilder]::new('"')
@@ -122,8 +169,73 @@ try {
     return $builder.ToString()
   }
 
+  function Protect-LoggedText([string]$Value) {
+    if ($null -eq $Value) { return "" }
+    $redacted = $Value
+    $redacted = [regex]::Replace($redacted, '(?im)(Authorization\s*:\s*)[^\r\n]+', '${1}<redacted>')
+    $redacted = [regex]::Replace($redacted, '(?i)Bearer\s+[^\s,;"''\]]+', 'Bearer <redacted>')
+    $redacted = [regex]::Replace($redacted, '(?i)\b(api[_-]?key|token|signature)\s*[=:]\s*[^\s,;"''\]]+', '${1}=<redacted>')
+    $redacted = [regex]::Replace($redacted, '(?i)\bprompt\s*[=:]\s*[^\r\n]+', 'prompt=<prompt-redacted>')
+    $redacted = [regex]::Replace($redacted, '(?i)\bpayload\s*[=:]\s*[^\r\n]+', 'payload=<payload-redacted>')
+    $redacted = [regex]::Replace($redacted, '(?i)\braw[_-]?result\s*[=:]\s*[^\r\n]+', 'raw_result=<raw-result-redacted>')
+    $redacted = [regex]::Replace($redacted, '(?i)(?<![A-Za-z0-9_])[A-Z]:\\[^\r\n\t"'']+', '<absolute-model-path>')
+    return $redacted
+  }
+
+  function Get-ProcessTreeSnapshot([int]$RootPid, [DateTimeOffset]$RootStartedAt) {
+    $all = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+    $children = @{}
+    foreach ($item in $all) {
+      $parent = [int]$item.ParentProcessId
+      if (-not $children.ContainsKey($parent)) { $children[$parent] = [Collections.ArrayList]::new() }
+      [void]$children[$parent].Add($item)
+    }
+    $records = [Collections.ArrayList]::new()
+    $queue = [Collections.Queue]::new()
+    $queue.Enqueue([pscustomobject]@{ pid=$RootPid; depth=0 })
+    while ($queue.Count -gt 0) {
+      $node = $queue.Dequeue()
+      if (-not $children.ContainsKey([int]$node.pid)) { continue }
+      foreach ($child in $children[[int]$node.pid]) {
+        $createdUtc = ([DateTimeOffset]$child.CreationDate).ToUniversalTime()
+        # A process older than the authenticated root cannot be its descendant; this is PID-reuse defense.
+        if ($createdUtc -lt $RootStartedAt.AddSeconds(-2)) { continue }
+        $record = [pscustomobject]@{
+          pid = [int]$child.ProcessId
+          parent_pid = [int]$child.ParentProcessId
+          depth = [int]$node.depth + 1
+          creation_utc = $createdUtc.ToString("o")
+          creation_identity = [string]$child.CreationDate
+        }
+        [void]$records.Add($record)
+        $queue.Enqueue([pscustomobject]@{ pid=$record.pid; depth=$record.depth })
+      }
+    }
+    return @($records)
+  }
+
+  function Stop-AuthenticatedProcessTree([int]$RootPid, [DateTimeOffset]$RootStartedAt, [object[]]$Snapshot) {
+    $targets = @($Snapshot | Sort-Object depth -Descending)
+    $currentByPid = @{}
+    foreach ($item in @(Get-CimInstance Win32_Process -ErrorAction Stop)) { $currentByPid[[int]$item.ProcessId] = $item }
+    foreach ($target in $targets) {
+      if (-not $currentByPid.ContainsKey([int]$target.pid)) { continue }
+      $current = $currentByPid[[int]$target.pid]
+      if ([int]$current.ParentProcessId -ne [int]$target.parent_pid -or [string]$current.CreationDate -cne [string]$target.creation_identity) { continue }
+      Stop-Process -Id ([int]$target.pid) -Force -ErrorAction SilentlyContinue
+    }
+    $root = $(if ($currentByPid.ContainsKey($RootPid)) { $currentByPid[$RootPid] } else { $null })
+    if ($null -ne $root) {
+      $created = ([DateTimeOffset]$root.CreationDate).ToUniversalTime()
+      if ($created -ge $RootStartedAt.AddSeconds(-2)) { Stop-Process -Id $RootPid -Force -ErrorAction SilentlyContinue }
+    }
+    Start-Sleep -Milliseconds 100
+    return @((Get-ProcessTreeSnapshot $RootPid $RootStartedAt) | ForEach-Object { [int]$_.pid })
+  }
+
   function Invoke-LoggedNative([string]$StageName, [string]$Name, [string]$Executable, [string[]]$Arguments, [switch]$Capture) {
-    $started = [DateTimeOffset]::UtcNow.ToString("o")
+    $startedOffset = [DateTimeOffset]::UtcNow
+    $started = $startedOffset.ToString("o")
     $info = [Diagnostics.ProcessStartInfo]::new()
     $info.FileName = $Executable
     $info.Arguments = (($Arguments | ForEach-Object { ConvertTo-NativeArgument ([string]$_) }) -join ' ')
@@ -140,15 +252,47 @@ try {
     $childId = $process.Id
     $stdoutTask = $process.StandardOutput.ReadToEndAsync()
     $stderrTask = $process.StandardError.ReadToEndAsync()
-    $process.WaitForExit()
-    $stdout = $stdoutTask.GetAwaiter().GetResult()
-    $stderr = $stderrTask.GetAwaiter().GetResult()
-    $exitCode = $process.ExitCode
+    $observedDuringRun = @{}
+    $commandDeadline = [DateTimeOffset]::UtcNow.AddSeconds($CommandTimeoutSeconds)
+    $completed = $false
+    do {
+      $completed = $process.WaitForExit(100)
+      foreach ($item in @(Get-ProcessTreeSnapshot $childId $startedOffset)) {
+        $observedDuringRun["$($item.pid)|$($item.creation_identity)"] = $item
+      }
+    } while (-not $completed -and [DateTimeOffset]::UtcNow -lt $commandDeadline)
+    $timedOut = -not $completed
+    $descendants = @($observedDuringRun.Values)
+    $hadSurvivors = $descendants.Count -gt 0
+    $remaining = @()
+    $terminationResult = "not-required"
+    if ($timedOut -or $hadSurvivors) {
+      $observedByIdentity = @{}
+      foreach ($item in $descendants) { $observedByIdentity["$($item.pid)|$($item.creation_identity)"] = $item }
+      $terminationDeadline = [DateTimeOffset]::UtcNow.AddSeconds($TerminationGraceSeconds)
+      do {
+        $wave = @(Get-ProcessTreeSnapshot $childId $startedOffset)
+        foreach ($item in $wave) { $observedByIdentity["$($item.pid)|$($item.creation_identity)"] = $item }
+        $killSet = @($observedByIdentity.Values)
+        if ($killSet.Count -eq 0) { break }
+        [void](Stop-AuthenticatedProcessTree $childId $startedOffset $killSet)
+        Start-Sleep -Milliseconds 100
+      } while ([DateTimeOffset]::UtcNow -lt $terminationDeadline)
+      $descendants = @($observedByIdentity.Values)
+      $remaining = @((Get-ProcessTreeSnapshot $childId $startedOffset) | ForEach-Object { [int]$_.pid })
+    }
+    if (-not $process.HasExited) { [void]$process.WaitForExit([int]([Math]::Max(1, $TerminationGraceSeconds) * 1000)) }
+    if (-not $process.HasExited) { $remaining += $childId }
+    if ($timedOut -or $hadSurvivors) { $terminationResult = $(if ($remaining.Count -eq 0) { "terminated" } else { "survivors" }) }
+    $streamWaitMs = [int]([Math]::Max(1, $TerminationGraceSeconds) * 1000)
+    $stdout = $(if ($stdoutTask.Wait($streamWaitMs)) { $stdoutTask.GetAwaiter().GetResult() } else { "<raw-result-redacted: stream remained open>" })
+    $stderr = $(if ($stderrTask.Wait($streamWaitMs)) { $stderrTask.GetAwaiter().GetResult() } else { "<raw-result-redacted: stream remained open>" })
+    $exitCode = $(if ($process.HasExited -and -not $timedOut) { $process.ExitCode } else { -1 })
     $process.Dispose()
-    $orphans = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $childId" -ErrorAction Stop)
-    $rendered = "[stdout]`n$stdout`n[stderr]`n$stderr"
+    $rendered = Protect-LoggedText "[stdout]`n$stdout`n[stderr]`n$stderr"
     $logPath = Join-Path $CommandRoot "$($StageName.ToLowerInvariant())-$Name.log"
     Write-AtomicText $logPath ($rendered + [Environment]::NewLine)
+    $relativeLog = $logPath.Substring($AttemptRoot.Length).TrimStart('\', '/') -replace '\\', '/'
     Add-CommandRecord $StageName ([ordered]@{
       name = $Name
       executable_sha256 = Get-StringSha256 $Executable
@@ -156,10 +300,16 @@ try {
       started_at_utc = $started
       ended_at_utc = [DateTimeOffset]::UtcNow.ToString("o")
       exit_code = $exitCode
+      timed_out = $timedOut
+      descendant_pids = @($descendants | ForEach-Object { [int]$_.pid } | Sort-Object -Unique)
+      termination_result = $terminationResult
+      orphan_audit = $(if ($remaining.Count -eq 0) { "PASS" } else { "FAIL" })
+      log_path = $relativeLog
       log_sha256 = Get-Sha256 $logPath
-      orphan_audit = $(if ($orphans.Count -eq 0) { "PASS: no orphan process observed after synchronous child exit" } else { "FAIL: orphan process observed" }) # orphan audit
     })
-    if ($orphans.Count -ne 0) { throw "orphan process audit failed for command: $Name" }
+    if ($remaining.Count -ne 0) { throw "orphan process audit failed for command: $Name" }
+    if ($hadSurvivors -and -not $timedOut) { throw "orphan process observed after normal command exit: $Name" }
+    if ($timedOut) { throw "Command timeout ($Name) after $CommandTimeoutSeconds seconds" }
     if ($exitCode -ne 0) { throw "Command failed ($Name), exit=$exitCode. See $logPath" }
     if ($Capture) { return $stdout.Trim() }
   }
@@ -198,12 +348,46 @@ try {
   }
 
   function Get-EnvironmentContract {
+    function Get-PythonRuntime([string]$Executable) {
+      $code = 'import json,sys; print(json.dumps({"version":sys.version.split()[0],"executable_sha256":__import__("hashlib").sha256(open(sys.executable,"rb").read()).hexdigest()},sort_keys=True,separators=(",",":")))'
+      if ($Executable -cne $PythonExe) {
+        $originalPython = $script:PythonExe; $script:PythonExe = $Executable
+        try { $value = Invoke-DirectPython $code @() } finally { $script:PythonExe = $originalPython }
+      } else { $value = Invoke-DirectPython $code @() }
+      return ($value | ConvertFrom-Json)
+    }
+    function Get-PackageRuntime([string]$Package, [switch]$Providers) {
+      $code = $(if ($Providers) { 'import json,onnxruntime as m; print(json.dumps({"version":m.__version__,"available_providers":m.get_available_providers()},sort_keys=True,separators=(",",":")))' } else { 'import importlib.metadata as m,json,sys; p=sys.argv[1]; print(json.dumps({"version":m.version(p)},sort_keys=True,separators=(",",":")))' })
+      try { $value = Invoke-DirectPython $code @($Package) } catch { throw "Package environment identity failed: $Package" }
+      return ($value | ConvertFrom-Json)
+    }
+    $ort = Get-PackageRuntime "onnxruntime-directml" -Providers
+    $serverCode = 'import hashlib,json,sys,urllib.request; u=sys.argv[1].rstrip("/")+"/models"; v=json.load(urllib.request.urlopen(u,timeout=10)); c=json.dumps(v,ensure_ascii=False,separators=(",",":"),sort_keys=True).encode(); print(json.dumps({"models_sha256":hashlib.sha256(c).hexdigest(),"requested_model":sys.argv[2]},sort_keys=True,separators=(",",":")))'
+    try { $server = Invoke-DirectPython $serverCode @($ServerUrl, $ApiModelName) } catch { throw "Server model runtime identity failed" }
+    $gpus = @(
+      Get-CimInstance Win32_VideoController -ErrorAction Stop |
+        ForEach-Object { [ordered]@{ Name=[string]$_.Name; PNPDeviceID=[string]$_.PNPDeviceID; DriverVersion=[string]$_.DriverVersion } } |
+        Sort-Object PNPDeviceID
+    )
     return [ordered]@{
       benchmark = $Benchmark
       os = [Environment]::OSVersion.VersionString
       machine = [Environment]::MachineName
-      server_url_sha256 = Get-StringSha256 $ServerUrl
-      api_model_name = $ApiModelName
+      gpu_devices = $gpus
+      python = Get-PythonRuntime $PythonExe
+      scorer_python = Get-PythonRuntime $ScorerPythonExe
+      onnxruntime = [ordered]@{ version=[string]$ort.version }
+      available_providers = @($ort.available_providers)
+      paddleocr = Get-PackageRuntime "paddleocr"
+      official_adapter = [ordered]@{
+        image_to_markdown = Get-Sha256 (Join-Path $RepoRoot "eval/PaddleOCRVLROCm_img2md.py")
+        evaluation = Get-Sha256 (Join-Path $RepoRoot "eval/run_eval.py")
+      }
+      lightweight_adapter = [ordered]@{
+        layout = Get-Sha256 (Join-Path $RepoRoot "src/paddleocr_vl_rocm/layout.py")
+        pipeline = Get-Sha256 (Join-Path $RepoRoot "src/paddleocr_vl_rocm/pipeline.py")
+      }
+      server_model_runtime = ($server | ConvertFrom-Json)
     }
   }
 
@@ -266,9 +450,63 @@ try {
       if (-not (Test-Path -LiteralPath $commandPath -PathType Leaf) -or (Get-Sha256 $commandPath) -ne $record.command_log_sha256) {
         throw "command log integrity mismatch: $($property.Name)"
       }
+      Assert-CommandLogIntegrity $commandPath
       $map = Get-OutputMap @($record.output_roots)
       if ((Get-OutputMapSha $map) -ne $record.output_map_sha256) { throw "output integrity mismatch: $($property.Name)" }
     }
+  }
+
+  function Assert-CommandLogIntegrity([string]$JsonlPath) {
+    # Authenticate the durable orphan audit and its backing process-lifecycle fields.
+    $code = @'
+import json,re,sys
+expected={"name","executable_sha256","arguments_sha256","started_at_utc","ended_at_utc","exit_code","timed_out","descendant_pids","termination_result","orphan_audit","log_path","log_sha256"}
+def pairs(v):
+    if len(v)!=len(dict(v)): raise ValueError("duplicate JSON key")
+    return dict(v)
+rows=[]
+for line in open(sys.argv[1],encoding="utf-8"):
+    if not line.strip(): raise ValueError("blank JSONL line")
+    row=json.loads(line,object_pairs_hook=pairs,parse_constant=lambda x: (_ for _ in ()).throw(ValueError("non-finite JSON")))
+    if set(row)!=expected: raise ValueError("command record schema mismatch")
+    if not isinstance(row["name"],str) or not row["name"]: raise ValueError("invalid command name")
+    if any(not isinstance(row[k],str) or not re.fullmatch(r"[0-9a-f]{64}",row[k]) for k in ("executable_sha256","arguments_sha256","log_sha256")): raise ValueError("invalid command digest")
+    if any(not isinstance(row[k],str) or not row[k] for k in ("started_at_utc","ended_at_utc","termination_result","orphan_audit","log_path")): raise ValueError("invalid command scalar")
+    if type(row["exit_code"]) is not int or type(row["timed_out"]) is not bool: raise ValueError("invalid command status type")
+    if not isinstance(row["descendant_pids"],list) or any(type(v) is not int or v<=0 for v in row["descendant_pids"]): raise ValueError("invalid descendant PID list")
+    if row["termination_result"] not in {"not-required","terminated","survivors"}: raise ValueError("invalid termination result")
+    if row["orphan_audit"] not in {"PASS","FAIL"}: raise ValueError("invalid orphan audit")
+    rows.append(row)
+if not rows or len({r["name"] for r in rows})!=len(rows): raise ValueError("duplicate command name")
+print(json.dumps(rows,separators=(",",":"),sort_keys=True))
+'@
+    try { $parsed = Invoke-DirectPython $code @($JsonlPath) }
+    catch { throw "command log strict JSON integrity mismatch: $JsonlPath ($($_.Exception.Message))" }
+    $records = @(($parsed | ConvertFrom-Json))
+    foreach ($entry in $records) {
+      if ($entry.exit_code -ne 0 -or $entry.timed_out -ne $false -or $entry.orphan_audit -cne "PASS") { throw "command log execution integrity mismatch" }
+      if ([string]$entry.log_path -match '(^[\\/]|^[A-Za-z]:|\.\.)') { throw "command log path integrity mismatch" }
+      $logPath = [IO.Path]::GetFullPath((Join-Path $AttemptRoot ([string]$entry.log_path -replace '/', '\')))
+      if (-not $logPath.StartsWith($AttemptRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
+          -not (Test-Path -LiteralPath $logPath -PathType Leaf) -or (Get-Sha256 $logPath) -cne [string]$entry.log_sha256) {
+        throw "command log digest mismatch"
+      }
+    }
+  }
+
+  function Assert-StageStartIntegrity([object]$State, [string]$StageName, [string]$CommandName = "manifest-revalidate") {
+    $head = Get-GitCommit
+    $manifest = Read-StrictJson $ManifestPath
+    if ([string]$manifest.git_commit -cne $head -or [string]$State.producing_commit -cne [string]$manifest.git_commit) {
+      throw "producing commit integrity mismatch"
+    }
+    if ([string]$State.manifest_sha256 -cne (Get-Sha256 $ManifestPath)) { throw "manifest integrity mismatch" }
+    $environment = Get-EnvironmentContract
+    if ((ConvertTo-CanonicalJson $manifest.environment) -cne (ConvertTo-CanonicalJson $environment)) {
+      throw "manifest environment integrity mismatch"
+    }
+    # This is intentionally after all direct prechecks so its own log cannot recursively authenticate itself.
+    Invoke-LoggedNative $StageName $CommandName $PythonExe @("-m", "eval.task5_manifest", "validate", "--manifest", $ManifestPath, "--task5-root", $Task5Root)
   }
 
   function Start-Attempt {
@@ -294,6 +532,7 @@ try {
   function Invoke-DurableStage([string]$StageName, [scriptblock]$Body, [string[]]$OutputRoots) {
     $state = Read-State
     Assert-RecordedStagesIntegrity $state
+    Assert-StageStartIntegrity $state $StageName
     if ($state.stages.PSObject.Properties.Name -contains $StageName) { throw "Stage already completed: $StageName" }
     $started = [DateTimeOffset]::UtcNow.ToString("o")
     try {
@@ -403,7 +642,7 @@ try {
     Invoke-LoggedNative "Compare" "trace-diff" $PythonExe @("scripts/compare_inference_traces.py", (Join-Path $WorkRoot "traces/official"), (Join-Path $WorkRoot "traces/lightweight"), "--output", (Join-Path $comparison "trace-diff.json"))
     $contract = [ordered]@{ benchmark=$Benchmark; pages=$ExpectedPages; paired_pages=$ExpectedPairs; approved_exclusion=$ApprovedExcludedStem; formula="CDM"; table="TEDS" }
     Write-AtomicJson (Join-Path $comparison "input-contract.json") $contract
-    Add-CommandRecord "Compare" ([ordered]@{name="input-contract";executable_sha256=Get-StringSha256 "internal";arguments_sha256=Get-StringSha256 ($contract | ConvertTo-Json -Compress);started_at_utc=[DateTimeOffset]::UtcNow.ToString("o");ended_at_utc=[DateTimeOffset]::UtcNow.ToString("o");exit_code=0;log_sha256=Get-StringSha256 "internal";orphan_audit="PASS"})
+    Add-InternalCommandRecord "Compare" "input-contract" ($contract | ConvertTo-Json -Compress)
   }
 
   function Copy-CompactEvidence {
@@ -458,6 +697,7 @@ try {
     $beforeObject = Read-Json (Join-Path $AttemptRoot "snapshot-before.json")
     $afterObject = Read-Json (Join-Path $AttemptRoot "snapshot-after.json")
     if (($beforeObject | ConvertTo-Json -Compress -Depth 20) -cne ($afterObject | ConvertTo-Json -Compress -Depth 20)) { throw "G0 integrity mismatch" }
+    Assert-StageStartIntegrity (Read-State) "Decide" "manifest-revalidate-seal"
     Copy-CompactEvidence
     $decision = Read-Json (Join-Path $comparison "decision.json")
     $selected = [ordered]@{schema=1;attempt_id=$AttemptId;manifest_sha256=Get-Sha256 $ManifestPath;strict_equivalence=$decision.strict_equivalence.verdict;amd_adaptation=$decision.amd_adaptation.verdict;effective_only_with_valid_receipt=$true;g0_closure="PASS";selected_at_utc=[DateTimeOffset]::UtcNow.ToString("o")}
@@ -465,6 +705,9 @@ try {
   }
 
   function Complete-Receipt {
+    $state = Read-State
+    Assert-RecordedStagesIntegrity $state
+    Assert-StageStartIntegrity $state "Receipt" "manifest-revalidate-receipt"
     $receipt = Join-Path $Task5Root "receipt.sha256.json"
     if (Test-Path -LiteralPath $receipt) { throw "receipt mutation or replacement is forbidden" }
     $paths = @(
@@ -505,7 +748,7 @@ try {
   switch ($Stage) {
     "Preflight" {
       Invoke-Preflight
-      Invoke-DurableStage "Preflight" { Add-CommandRecord "Preflight" ([ordered]@{name="preflight-complete";executable_sha256=Get-StringSha256 "internal";arguments_sha256=Get-StringSha256 $Benchmark;started_at_utc=[DateTimeOffset]::UtcNow.ToString("o");ended_at_utc=[DateTimeOffset]::UtcNow.ToString("o");exit_code=0;log_sha256=Get-StringSha256 "internal";orphan_audit="PASS"}) } @($ManifestPath, (Join-Path $AttemptRoot "snapshot-before.json"))
+      Invoke-DurableStage "Preflight" { Add-InternalCommandRecord "Preflight" "preflight-complete" $Benchmark } @($ManifestPath, (Join-Path $AttemptRoot "snapshot-before.json"))
     }
     "Official" { Require-Stages @("Preflight"); Invoke-DurableStage "Official" { Invoke-Official } @((Join-Path $WorkRoot "paired-official"), (Join-Path $WorkRoot "traces/official")) }
     "Lightweight" { Require-Stages @("Preflight", "Official"); Invoke-DurableStage "Lightweight" { Invoke-Lightweight } @((Join-Path $WorkRoot "lightweight"), (Join-Path $WorkRoot "traces/lightweight"), (Join-Path $WorkRoot "profiles")) }
@@ -514,7 +757,7 @@ try {
     "Decide" { Require-Stages @("Preflight", "Official", "Lightweight", "Score", "Compare"); Invoke-DurableStage "Decide" { Invoke-Decide } @((Join-Path $Task5Root "results"), (Join-Path $Task5Root "comparison"), (Join-Path $Task5Root "selected-attempt.json"), (Join-Path $AttemptRoot "snapshot-after.json")); Complete-Receipt }
     "All" {
       Invoke-Preflight
-      Invoke-DurableStage "Preflight" { Add-CommandRecord "Preflight" ([ordered]@{name="preflight-complete";executable_sha256=Get-StringSha256 "internal";arguments_sha256=Get-StringSha256 $Benchmark;started_at_utc=[DateTimeOffset]::UtcNow.ToString("o");ended_at_utc=[DateTimeOffset]::UtcNow.ToString("o");exit_code=0;log_sha256=Get-StringSha256 "internal";orphan_audit="PASS"}) } @($ManifestPath, (Join-Path $AttemptRoot "snapshot-before.json"))
+      Invoke-DurableStage "Preflight" { Add-InternalCommandRecord "Preflight" "preflight-complete" $Benchmark } @($ManifestPath, (Join-Path $AttemptRoot "snapshot-before.json"))
       Invoke-DurableStage "Official" { Invoke-Official } @((Join-Path $WorkRoot "paired-official"), (Join-Path $WorkRoot "traces/official"))
       Invoke-DurableStage "Lightweight" { Invoke-Lightweight } @((Join-Path $WorkRoot "lightweight"), (Join-Path $WorkRoot "traces/lightweight"), (Join-Path $WorkRoot "profiles"))
       Invoke-DurableStage "Score" { Invoke-Score } @((Join-Path $WorkRoot "results"))

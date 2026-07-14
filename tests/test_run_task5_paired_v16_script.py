@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import subprocess
+import time
 from pathlib import Path
+
+import pytest
+
+import eval.task5_manifest as task5_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "run_task5_paired_v16.ps1"
@@ -286,12 +293,15 @@ $errors=$null
 $tokens=$null
 $ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$tokens,[ref]$errors)
 if($errors.Count){{exit 90}}
-foreach($name in @('Get-Sha256','Get-StringSha256','Write-AtomicText','Add-CommandRecord','ConvertTo-NativeArgument','Invoke-LoggedNative')){{
+foreach($name in @('Get-Sha256','Get-StringSha256','Write-AtomicText','Add-CommandRecord','ConvertTo-NativeArgument','Protect-LoggedText','Get-ProcessTreeSnapshot','Stop-AuthenticatedProcessTree','Invoke-LoggedNative')){{
   $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true)
   Invoke-Expression $fn.Extent.Text
 }}
 $RepoRoot='{ROOT}'
+$AttemptRoot='{tmp_path}'
 $CommandRoot='{command_root}'
+$CommandTimeoutSeconds=5
+$TerminationGraceSeconds=2
 $python='{ROOT / ".venv/Scripts/python.exe"}'
 $code='import json; print(json.dumps({{"space value":"quoted ok"}}))'
 $captured=Invoke-LoggedNative 'Probe' 'quoted' $python @('-c',$code) -Capture
@@ -307,3 +317,317 @@ if($captured -ne '{{"space value": "quoted ok"}}'){{throw "capture mismatch: $ca
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_runner_binds_exact_environment_and_stage_integrity_contract() -> None:
+    text = _text()
+    assert "[int]$CommandTimeoutSeconds = 86400" in text
+    assert "[int]$TerminationGraceSeconds = 10" in text
+    for key in (
+        "benchmark", "os", "machine", "gpu_devices", "python", "scorer_python",
+        "onnxruntime", "available_providers", "paddleocr", "official_adapter",
+        "lightweight_adapter", "server_model_runtime",
+    ):
+        assert f"{key} =" in text
+    assert "Assert-StageStartIntegrity" in text
+    assert "manifest-revalidate" in text
+    assert "manifest integrity mismatch" in text
+
+
+def _native_integrity_probe(
+    tmp_path: Path, code: str, *, timeout: int = 5, grace: int = 2
+) -> subprocess.CompletedProcess[str]:
+    harness = tmp_path / "integrity-probe.ps1"
+    command_root = tmp_path / "commands"
+    command_root.mkdir()
+    function_names = (
+        "Get-Sha256", "Get-StringSha256", "Write-AtomicText", "Add-CommandRecord",
+        "ConvertTo-NativeArgument", "Protect-LoggedText", "Get-ProcessTreeSnapshot",
+        "Stop-AuthenticatedProcessTree", "Invoke-LoggedNative",
+    )
+    imports = ",".join(f"'{name}'" for name in function_names)
+    harness.write_text(
+        rf"""
+$errors=$null
+$tokens=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$tokens,[ref]$errors)
+if($errors.Count){{exit 90}}
+foreach($name in @({imports})){{
+  $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true)
+  if($null -eq $fn){{throw "missing function: $name"}}
+  Invoke-Expression $fn.Extent.Text
+}}
+$RepoRoot='{ROOT}'
+$AttemptRoot='{tmp_path}'
+$CommandRoot='{command_root}'
+$CommandTimeoutSeconds={timeout}
+$TerminationGraceSeconds={grace}
+$python='{ROOT / ".venv/Scripts/python.exe"}'
+$captured=Invoke-LoggedNative 'Probe' 'native' $python @('-c','{code.replace("'", "''")}') -Capture
+Write-Output "CAPTURE=$captured"
+""",
+        encoding="utf-8",
+    )
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
+        cwd=ROOT, text=True, capture_output=True, check=False, timeout=30,
+    )
+
+
+def test_logged_native_redacts_before_disk_but_capture_remains_raw(tmp_path: Path) -> None:
+    secrets = "Bearer S3CRET api_key=KEY123 token=T0K signature=SIG prompt=PRIVATE"
+    result = _native_integrity_probe(tmp_path, f"print({secrets!r})")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert secrets in result.stdout
+    disk = "".join(path.read_text(encoding="utf-8") for path in (tmp_path / "commands").iterdir())
+    for sentinel in ("S3CRET", "KEY123", "T0K", "SIG", "PRIVATE"):
+        assert sentinel not in disk
+    assert "<redacted>" in disk and "<prompt-redacted>" in disk
+
+
+def test_logged_native_timeout_is_bounded_and_durable(tmp_path: Path) -> None:
+    started = time.monotonic()
+    result = _native_integrity_probe(tmp_path, "import time; time.sleep(30)", timeout=1, grace=2)
+    elapsed = time.monotonic() - started
+    assert result.returncode != 0
+    assert elapsed < 15
+    record = json.loads((tmp_path / "commands" / "probe.jsonl").read_text(encoding="utf-8"))
+    assert record["timed_out"] is True
+    assert record["orphan_audit"] == "PASS"
+    assert record["termination_result"] == "terminated"
+
+
+def test_logged_native_kills_surviving_grandchild_and_records_tree(tmp_path: Path) -> None:
+    grandchild_path = tmp_path / "grandchild.py"
+    child_path = tmp_path / "child.py"
+    grandchild_path.write_text("import time; time.sleep(30)\n", encoding="utf-8")
+    child_path.write_text(
+        f"import subprocess,sys,time; subprocess.Popen([sys.executable,{str(grandchild_path)!r}]); time.sleep(30)\n",
+        encoding="utf-8",
+    )
+    parent = f"import subprocess,sys,time; subprocess.Popen([sys.executable,{str(child_path)!r}]); time.sleep(30)"
+    result = _native_integrity_probe(tmp_path, parent, timeout=1, grace=1)
+    assert result.returncode != 0
+    record = json.loads((tmp_path / "commands" / "probe.jsonl").read_text(encoding="utf-8"))
+    assert len(record["descendant_pids"]) >= 2
+    assert record["orphan_audit"] == "PASS"
+    assert record["termination_result"] == "terminated"
+
+
+def test_logged_native_rejects_child_surviving_normal_root_exit(tmp_path: Path) -> None:
+    child_path = tmp_path / "child.py"
+    child_path.write_text("import time; time.sleep(20)\n", encoding="utf-8")
+    parent = f"import subprocess,sys,time; subprocess.Popen([sys.executable,{str(child_path)!r}]); time.sleep(1)"
+    result = _native_integrity_probe(tmp_path, parent, timeout=5, grace=2)
+    assert result.returncode != 0
+    assert "orphan process observed after normal command exit" in result.stdout + result.stderr
+    record = json.loads((tmp_path / "commands" / "probe.jsonl").read_text(encoding="utf-8"))
+    assert record["timed_out"] is False
+    assert record["descendant_pids"]
+    assert record["termination_result"] == "terminated"
+
+
+def _command_log_probe(tmp_path: Path, record_text: str) -> subprocess.CompletedProcess[str]:
+    attempt = tmp_path / "attempt"
+    commands = attempt / "commands"
+    commands.mkdir(parents=True)
+    (commands / "probe.log").write_bytes(b"safe\n")
+    jsonl = commands / "probe.jsonl"
+    jsonl.write_text(record_text, encoding="utf-8")
+    harness = tmp_path / "command-log-probe.ps1"
+    harness.write_text(
+        rf"""
+$errors=$null;$tokens=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$tokens,[ref]$errors)
+foreach($name in @('Get-Sha256','Get-StringSha256','ConvertTo-NativeArgument','Invoke-DirectPython','Assert-CommandLogIntegrity')){{
+  $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true)
+  Invoke-Expression $fn.Extent.Text
+}}
+$PythonExe='{ROOT / ".venv/Scripts/python.exe"}'
+$AttemptRoot='{attempt}'
+Assert-CommandLogIntegrity '{jsonl}'
+""",
+        encoding="utf-8",
+    )
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
+        cwd=ROOT, text=True, capture_output=True, check=False,
+    )
+
+
+def _valid_command_record() -> dict[str, object]:
+    digest = hashlib.sha256(b"safe\n").hexdigest()
+    return {
+        "name": "probe", "executable_sha256": "a" * 64, "arguments_sha256": "b" * 64,
+        "started_at_utc": "2026-07-14T00:00:00Z", "ended_at_utc": "2026-07-14T00:00:01Z",
+        "exit_code": 0, "timed_out": False, "descendant_pids": [],
+        "termination_result": "not-required", "orphan_audit": "PASS",
+        "log_path": "commands/probe.log", "log_sha256": digest,
+    }
+
+
+def test_command_log_integrity_helper_accepts_exact_record(tmp_path: Path) -> None:
+    result = _command_log_probe(tmp_path, json.dumps(_valid_command_record()) + "\n")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_command_log_integrity_helper_rejects_semantic_and_jsonl_mutations(tmp_path: Path) -> None:
+    base = _valid_command_record()
+    mutations = {
+        "nonzero": json.dumps({**base, "exit_code": 1}) + "\n",
+        "wrong_type": json.dumps({**base, "exit_code": "0"}) + "\n",
+        "timeout": json.dumps({**base, "timed_out": True}) + "\n",
+        "orphan": json.dumps({**base, "orphan_audit": "FAIL"}) + "\n",
+        "digest": json.dumps({**base, "log_sha256": "0" * 64}) + "\n",
+        "duplicate_name": json.dumps(base) + "\n" + json.dumps(base) + "\n",
+        "duplicate_key": json.dumps(base)[:-1] + ',"name":"again"}\n',
+        "nan": json.dumps(base)[:-1] + ',"extra":NaN}\n',
+    }
+    for name, text in mutations.items():
+        result = _command_log_probe(tmp_path / name, text)
+        assert result.returncode != 0, name
+
+
+def test_next_stage_precheck_rejects_rehashed_but_semantically_corrupt_log(tmp_path: Path) -> None:
+    attempt = tmp_path / "attempt"
+    commands = attempt / "commands"
+    commands.mkdir(parents=True)
+    (commands / "official-probe.log").write_bytes(b"mutated\n")
+    record = _valid_command_record()
+    record.update({"name": "probe", "log_path": "commands/official-probe.log"})
+    jsonl = commands / "official.jsonl"
+    jsonl.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    manifest = tmp_path / "manifest.json"
+    manifest.write_bytes(b"{}\n")
+    command_sha = hashlib.sha256(jsonl.read_bytes()).hexdigest()
+    manifest_sha = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    state = {
+        "producing_commit": commit,
+        "manifest_sha256": manifest_sha,
+        "stages": {"Official": {"command_log_sha256": command_sha, "output_roots": ["ignored"], "output_map_sha256": "ok"}},
+    }
+    harness = tmp_path / "next-stage.ps1"
+    harness.write_text(
+        rf"""
+$errors=$null;$tokens=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$tokens,[ref]$errors)
+foreach($name in @('Get-Sha256','Get-StringSha256','ConvertTo-NativeArgument','Invoke-DirectPython','Assert-CommandLogIntegrity','Get-GitCommit','Assert-RecordedStagesIntegrity')){{
+  $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true)
+  Invoke-Expression $fn.Extent.Text
+}}
+function Get-OutputMap([string[]]$Roots){{return @{{}}}}
+function Get-OutputMapSha([object]$Map){{return 'ok'}}
+$PythonExe='{ROOT / ".venv/Scripts/python.exe"}'
+$AttemptRoot='{attempt}';$CommandRoot='{commands}';$ManifestPath='{manifest}'
+$state='{json.dumps(state, separators=(',', ':'))}' | ConvertFrom-Json
+Assert-RecordedStagesIntegrity $state
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)],
+        cwd=ROOT, text=True, capture_output=True, check=False,
+    )
+    assert result.returncode != 0
+    assert "digest mismatch" in result.stdout + result.stderr
+
+
+def _make_stage_manifest(tmp_path: Path, commit: str) -> tuple[Path, dict[str, Path], dict[str, str], dict[str, object]]:
+    r7 = tmp_path / "r7"
+    (r7 / "results" / "official").mkdir(parents=True)
+    (r7 / "task5").mkdir()
+    (r7 / "manifest.json").write_text('{"sealed":true}\n', encoding="utf-8")
+    authority: dict[str, str] = {}
+    for relative in task5_manifest.OFFICIAL_OUTPUTS:
+        path = r7 / relative
+        path.write_text(json.dumps({"output": relative}) + "\n", encoding="utf-8")
+        authority[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    inputs = {
+        "dataset": tmp_path / "dataset.json",
+        "layout_model": tmp_path / "layout.onnx",
+        "runtime_config": tmp_path / "runtime-config.json",
+        "python_executable": tmp_path / "python-stub.exe",
+        "scorer_python_executable": tmp_path / "scorer-python-stub.exe",
+    }
+    for name, path in inputs.items():
+        path.write_bytes((name + "\n").encode())
+    environment: dict[str, object] = {
+        "benchmark": "OmniDocBench-v1.6", "os": "Windows", "machine": "probe",
+        "gpu_devices": [], "python": {"version": "stub"}, "scorer_python": {"version": "stub"},
+        "onnxruntime": {"version": "stub"}, "available_providers": ["DmlExecutionProvider", "CPUExecutionProvider"],
+        "paddleocr": {"version": "stub"}, "official_adapter": {"sha256": "a" * 64},
+        "lightweight_adapter": {"sha256": "b" * 64},
+        "server_model_runtime": {"models_sha256": "c" * 64, "requested_model": "stub"},
+    }
+    receipt = ROOT / "docs" / "releases" / "0.1.0-g0-evidence.md"
+    original = task5_manifest.APPROVED_G0_OUTPUT_SHA256
+    task5_manifest.APPROVED_G0_OUTPUT_SHA256 = authority
+    try:
+        manifest = task5_manifest.build_task5_manifest(
+            r7_root=r7, receipt_path=receipt, git_commit=commit,
+            inputs=inputs, environment=environment,
+            contracts={"benchmark": "OmniDocBench-v1.6"},
+        )
+    finally:
+        task5_manifest.APPROVED_G0_OUTPUT_SHA256 = original
+    manifest_path = r7 / "task5" / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8")
+    return manifest_path, inputs, authority, environment
+
+
+def _stage_integrity_probe(tmp_path: Path, *, mutate_input: str | None = None, bad_commit: bool = False, environment_drift: bool = False) -> subprocess.CompletedProcess[str]:
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    manifest_path, inputs, authority, environment = _make_stage_manifest(tmp_path, commit)
+    if mutate_input:
+        inputs[mutate_input].write_bytes(b"changed\n")
+    if bad_commit:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["git_commit"] = "0" * 40
+        manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8")
+    state = {
+        "producing_commit": "0" * 40 if bad_commit else commit,
+        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+    }
+    bootstrap = f"import eval.task5_manifest as m,sys;m.APPROVED_G0_OUTPUT_SHA256={authority!r};raise SystemExit(m.main())"
+    bootstrap_b64 = base64.b64encode(bootstrap.encode()).decode()
+    recomputed_environment = dict(environment)
+    if environment_drift:
+        recomputed_environment["os"] = "Windows-drifted"
+    environment_json = json.dumps(recomputed_environment, separators=(",", ":"))
+    harness = tmp_path / "stage-integrity.ps1"
+    harness.write_text(
+        rf"""
+$errors=$null;$tokens=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$tokens,[ref]$errors)
+foreach($name in @('Get-Sha256','Get-StringSha256','ConvertTo-NativeArgument','Invoke-DirectPython','ConvertTo-CanonicalJson','Read-StrictJson','Get-GitCommit','Assert-StageStartIntegrity')){{
+ $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true); Invoke-Expression $fn.Extent.Text
+}}
+$PythonExe='{ROOT / ".venv/Scripts/python.exe"}';$ManifestPath='{manifest_path}';$Task5Root='{manifest_path.parent}'
+function Get-EnvironmentContract{{return ('{environment_json}' | ConvertFrom-Json)}}
+function Invoke-LoggedNative([string]$StageName,[string]$Name,[string]$Executable,[string[]]$Arguments){{
+ $bootstrap=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{bootstrap_b64}'))
+ Invoke-DirectPython $bootstrap @('validate','--manifest',$ManifestPath,'--task5-root',$Task5Root) | Out-Null
+}}
+$state='{json.dumps(state, separators=(',', ':'))}' | ConvertFrom-Json
+Assert-StageStartIntegrity $state 'Official'
+""",
+        encoding="utf-8",
+    )
+    return subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(harness)], cwd=ROOT, text=True, capture_output=True, check=False)
+
+
+@pytest.mark.parametrize("input_name", ["dataset", "layout_model", "runtime_config", "python_executable", "scorer_python_executable"])
+def test_stage_start_integrity_revalidates_each_bound_input(tmp_path: Path, input_name: str) -> None:
+    drift = _stage_integrity_probe(tmp_path / input_name, mutate_input=input_name)
+    assert drift.returncode != 0
+
+
+def test_stage_start_integrity_revalidates_environment_and_commit(tmp_path: Path) -> None:
+    assert _stage_integrity_probe(tmp_path / "valid").returncode == 0
+    environment = _stage_integrity_probe(tmp_path / "environment", environment_drift=True)
+    assert environment.returncode != 0
+    assert "environment integrity mismatch" in environment.stdout + environment.stderr
+    mismatch = _stage_integrity_probe(tmp_path / "commit", bad_commit=True)
+    assert mismatch.returncode != 0
+    assert "producing commit integrity mismatch" in mismatch.stdout + mismatch.stderr
