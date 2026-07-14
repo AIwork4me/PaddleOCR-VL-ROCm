@@ -40,9 +40,7 @@ TEST_G0_OUTPUT_DIGESTS = {
 
 @pytest.fixture(autouse=True)
 def use_test_g0_authority(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        task5_manifest, "APPROVED_G0_OUTPUT_SHA256", TEST_G0_OUTPUT_DIGESTS
-    )
+    monkeypatch.setattr(task5_manifest, "APPROVED_G0_OUTPUT_SHA256", TEST_G0_OUTPUT_DIGESTS)
 
 
 def scores(
@@ -199,9 +197,7 @@ def valid_provider_attestation(*, dml: int = 1101, cpu: int = 150) -> dict[str, 
     }
 
 
-def decide_amd(
-    official: dict[str, object], lightweight: dict[str, object]
-) -> dict[str, object]:
+def decide_amd(official: dict[str, object], lightweight: dict[str, object]) -> dict[str, object]:
     return amd_adaptation_decision(
         official_scores=official,
         lightweight_scores=lightweight,
@@ -263,12 +259,9 @@ def test_strict_fail_beats_unknown() -> None:
 
 def test_strict_verdict_requires_complete_equal_outputs_and_trace() -> None:
     complete = valid_output_report()
+    assert strict_equivalence_decision(complete, valid_trace_report())["verdict"] == "PASS"
     assert (
-        strict_equivalence_decision(complete, valid_trace_report())["verdict"] == "PASS"
-    )
-    assert (
-        strict_equivalence_decision(complete, valid_trace_report("UNKNOWN"))["verdict"]
-        == "UNKNOWN"
+        strict_equivalence_decision(complete, valid_trace_report("UNKNOWN"))["verdict"] == "UNKNOWN"
     )
     assert (
         strict_equivalence_decision(
@@ -309,16 +302,12 @@ def test_strict_rejects_report_verdict_or_coverage_contradiction(
     contradiction: dict[str, object],
 ) -> None:
     with pytest.raises(ValueError, match="report|expected_paired_pages"):
-        strict_equivalence_decision(
-            valid_output_report(**contradiction), valid_trace_report()
-        )
+        strict_equivalence_decision(valid_output_report(**contradiction), valid_trace_report())
 
 
 @pytest.mark.parametrize("verdict", ["PASS", "UNKNOWN", "FAIL"])
 def test_strict_accepts_complete_trace_pass_unknown_and_fail(verdict: str) -> None:
-    decision = strict_equivalence_decision(
-        valid_output_report(), valid_trace_report(verdict)
-    )
+    decision = strict_equivalence_decision(valid_output_report(), valid_trace_report(verdict))
     assert decision["verdict"] == verdict
 
 
@@ -331,9 +320,7 @@ def test_strict_accepts_complete_trace_coverage_fail() -> None:
 
 def test_strict_accepts_real_trace_with_multiple_unobservable_boundaries() -> None:
     official_boundaries = {
-        name: unobservable()
-        if name in {"prompt", "raw_result"}
-        else observation(f"same-{name}")
+        name: unobservable() if name in {"prompt", "raw_result"} else observation(f"same-{name}")
         for name in TRACE_BOUNDARIES
     }
     report = _with_trace_coverage(
@@ -345,10 +332,7 @@ def test_strict_accepts_real_trace_with_multiple_unobservable_boundaries() -> No
     assert report["verdict"] == "UNKNOWN"
     assert report["unobservable_records"] == 1
     assert sum(report["unobservable_counts"].values()) == 2  # type: ignore[union-attr]
-    assert (
-        strict_equivalence_decision(valid_output_report(), report)["verdict"]
-        == "UNKNOWN"
-    )
+    assert strict_equivalence_decision(valid_output_report(), report)["verdict"] == "UNKNOWN"
 
 
 def test_strict_accepts_real_different_trace_with_unobservable_boundaries() -> None:
@@ -372,9 +356,7 @@ def test_strict_accepts_real_different_trace_with_unobservable_boundaries() -> N
     assert report["different_records"] == 1
     assert report["unobservable_records"] == 0
     assert sum(report["unobservable_counts"].values()) == 2  # type: ignore[union-attr]
-    assert (
-        strict_equivalence_decision(valid_output_report(), report)["verdict"] == "FAIL"
-    )
+    assert strict_equivalence_decision(valid_output_report(), report)["verdict"] == "FAIL"
 
 
 @pytest.mark.parametrize(
@@ -632,9 +614,7 @@ def test_provider_condition_allows_cpu_nodes_when_dml_has_strict_majority() -> N
     assert decision["verdict"] == "PASS"
 
 
-def test_provider_condition_rejects_equal_dml_and_cpu_even_if_verdict_claims_pass() -> (
-    None
-):
+def test_provider_condition_rejects_equal_dml_and_cpu_even_if_verdict_claims_pass() -> None:
     decision = amd_adaptation_decision(
         official_scores=scores(),
         lightweight_scores=scores(),
@@ -688,9 +668,7 @@ def _make_complete_selection(root: Path, attempt_id: str = "a1") -> dict[str, Pa
         contracts={"benchmark": "OmniDocBench-v1.6"},
     )
     _write_receiptable(root, "manifest.json", manifest)
-    manifest_sha = task5_decision.hashlib.sha256(
-        (root / "manifest.json").read_bytes()
-    ).hexdigest()
+    manifest_sha = task5_decision.hashlib.sha256((root / "manifest.json").read_bytes()).hexdigest()
     base = f"attempts/{attempt_id}"
     stage = {
         "schema": 1,
@@ -778,8 +756,7 @@ def _make_complete_selection(root: Path, attempt_id: str = "a1") -> dict[str, Pa
         "lightweight_stats": f"{base}/compact/results/lightweight/run-summary.json",
     }
     decision["evidence"] = {
-        name: {"sha256": sha256_file(root / relative)}
-        for name, relative in evidence_paths.items()
+        name: {"sha256": sha256_file(root / relative)} for name, relative in evidence_paths.items()
     }
     _write_receiptable(root, f"{base}/compact/comparison/decision.json", decision)
     receipt = build_task5_receipt(root, required_attempt_receipt_paths(attempt_id))
@@ -798,24 +775,18 @@ def _make_complete_selection(root: Path, attempt_id: str = "a1") -> dict[str, Pa
         "manifest": root / "manifest.json",
         "metric": root / base / "compact/results/official/metric.json",
         "input_contract": root / base / "compact/comparison/input-contract.json",
-        "lightweight_stats": root
-        / base
-        / "compact/results/lightweight/run-summary.json",
+        "lightweight_stats": root / base / "compact/results/lightweight/run-summary.json",
     }
 
 
 def _refresh_selection_receipt(root: Path, paths: dict[str, Path]) -> None:
     receipt = build_task5_receipt(root, required_attempt_receipt_paths("a1"))
-    paths["receipt"].write_text(
-        json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    paths["receipt"].write_text(json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _refresh_lightweight_stats_evidence(root: Path, paths: dict[str, Path]) -> None:
     decision = json.loads(paths["decision"].read_text(encoding="utf-8"))
-    decision["evidence"]["lightweight_stats"]["sha256"] = sha256_file(
-        paths["lightweight_stats"]
-    )
+    decision["evidence"]["lightweight_stats"]["sha256"] = sha256_file(paths["lightweight_stats"])
     paths["decision"].write_text(json.dumps(decision) + "\n", encoding="utf-8")
     _refresh_selection_receipt(root, paths)
 
@@ -861,9 +832,7 @@ def test_receipt_rejects_self_hash_escape_absolute_unallowlisted_and_symlink(
     except OSError:
         pytest.skip("symlink creation is unavailable")
     with pytest.raises(ValueError, match="symlink"):
-        build_task5_receipt(
-            root, ["attempts/a1/compact/comparison/directml-attestation.json"]
-        )
+        build_task5_receipt(root, ["attempts/a1/compact/comparison/directml-attestation.json"])
 
 
 def test_receipt_accepts_only_attempt_local_compact_authority(tmp_path: Path) -> None:
@@ -977,9 +946,7 @@ def test_selection_recomputes_amd_from_real_lightweight_run_summary(
         summary["layout_providers_active"] = value
     else:
         summary["prediction_count"] = value
-    paths["lightweight_stats"].write_text(
-        json.dumps(summary) + "\n", encoding="utf-8"
-    )
+    paths["lightweight_stats"].write_text(json.dumps(summary) + "\n", encoding="utf-8")
     _refresh_lightweight_stats_evidence(root, paths)
 
     with pytest.raises(ValueError, match="AMD adaptation"):
@@ -1022,9 +989,7 @@ def test_selection_validation_fails_closed_on_mutation(
     pointer = json.loads(paths["pointer"].read_text(encoding="utf-8"))
 
     if case == "pointer-bytes":
-        paths["pointer"].write_text(
-            json.dumps(pointer, separators=(",", ":")), encoding="utf-8"
-        )
+        paths["pointer"].write_text(json.dumps(pointer, separators=(",", ":")), encoding="utf-8")
     elif case == "bad-attempt":
         pointer["attempt_id"] = "Bad/Attempt"
         paths["pointer"].write_text(json.dumps(pointer), encoding="utf-8")
@@ -1068,9 +1033,7 @@ def test_selection_validation_fails_closed_on_mutation(
         "absolute-disclosure",
     }:
         receipt = build_task5_receipt(root, required_attempt_receipt_paths("a1"))
-        paths["receipt"].write_text(
-            json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8"
-        )
+        paths["receipt"].write_text(json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8")
 
     with pytest.raises((OSError, ValueError), match=match):
         validate_task5_selection(root)
@@ -1146,16 +1109,12 @@ def test_selection_rechecks_authority_bytes_after_final_exact22_rehash(
             target.write_bytes(target.read_bytes() + b" ")
         return original(task5_root, receipt)
 
-    monkeypatch.setattr(
-        task5_decision, "validate_task5_receipt", mutate_during_final_rehash
-    )
+    monkeypatch.setattr(task5_decision, "validate_task5_receipt", mutate_during_final_rehash)
     with pytest.raises(ValueError, match="changed|identity"):
         validate_task5_selection(root)
 
 
-@pytest.mark.parametrize(
-    "snapshot", [{}, {"receipt": {}, "official_outputs": {}}, {"extra": True}]
-)
+@pytest.mark.parametrize("snapshot", [{}, {"receipt": {}, "official_outputs": {}}, {"extra": True}])
 def test_selection_rejects_equal_snapshots_that_do_not_match_manifest_g0(
     tmp_path: Path, snapshot: dict[str, object]
 ) -> None:
@@ -1164,9 +1123,7 @@ def test_selection_rejects_equal_snapshots_that_do_not_match_manifest_g0(
     for name in ("before", "after"):
         paths[name].write_text(json.dumps(snapshot) + "\n", encoding="utf-8")
     receipt = build_task5_receipt(root, required_attempt_receipt_paths("a1"))
-    paths["receipt"].write_text(
-        json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    paths["receipt"].write_text(json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="G0|manifest"):
         validate_task5_selection(root)
 
@@ -1174,9 +1131,7 @@ def test_selection_rejects_equal_snapshots_that_do_not_match_manifest_g0(
 @pytest.mark.parametrize(
     "case", ["empty-scores", "pass-g3-false", "wrong-evidence", "wrong-overall"]
 )
-def test_selection_independently_recomputes_compact_decision(
-    tmp_path: Path, case: str
-) -> None:
+def test_selection_independently_recomputes_compact_decision(tmp_path: Path, case: str) -> None:
     root = tmp_path / "task5"
     paths = _make_complete_selection(root)
     decision = json.loads(paths["decision"].read_text(encoding="utf-8"))
@@ -1191,9 +1146,7 @@ def test_selection_independently_recomputes_compact_decision(
         decision["scores"]["lightweight"]["overall"] = 0.0
     paths["decision"].write_text(json.dumps(decision) + "\n", encoding="utf-8")
     receipt = build_task5_receipt(root, required_attempt_receipt_paths("a1"))
-    paths["receipt"].write_text(
-        json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    paths["receipt"].write_text(json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="decision|evidence|score|g3"):
         validate_task5_selection(root)
 
@@ -1227,9 +1180,7 @@ def test_cli_decide_writes_fail_decision_without_infrastructure_error(
         "official-cdm": metric(table=0.96),
         "lightweight-non-cdm": metric(table=0.96),
         "lightweight-cdm": metric(table=0.96),
-        "output-report": valid_output_report(
-            verdict="FAIL", equal_pages=1649, different_pages=1
-        ),
+        "output-report": valid_output_report(verdict="FAIL", equal_pages=1649, different_pages=1),
         "trace-report": valid_trace_report(),
         "provider-attestation": valid_provider_attestation(),
         "lightweight-stats": valid_lightweight_stats(),
@@ -1296,9 +1247,7 @@ def _decision_cli_namespace(tmp_path: Path) -> Namespace:
     )
 
 
-def test_decision_rejects_parse_hash_race(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_decision_rejects_parse_hash_race(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     args = _decision_cli_namespace(tmp_path)
     target = args.official_non_cdm
     original_read = os.read

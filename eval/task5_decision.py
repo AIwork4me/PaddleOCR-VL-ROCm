@@ -98,17 +98,13 @@ def extract_paired_scores(
         left = _required_score(non_cdm_values, name, minimum, maximum)
         right = _required_score(cdm_values, name, minimum, maximum)
         if left != right:
-            raise ValueError(
-                f"Non-CDM and CDM {name} must agree after approved rounding"
-            )
+            raise ValueError(f"Non-CDM and CDM {name} must agree after approved rounding")
         selected[name] = left
 
     formula = _required_score(cdm_values, "formula_cdm_percent", 0.0, 100.0)
     selected["formula_cdm_percent"] = formula
     selected["overall"] = (
-        (1.0 - selected["text_edit_dist"]) * 100.0
-        + formula
-        + selected["table_teds_percent"]
+        (1.0 - selected["text_edit_dist"]) * 100.0 + formula + selected["table_teds_percent"]
     ) / 3.0
 
     non_cdm_quality = analyze_metric_quality(non_cdm_metric)
@@ -141,18 +137,12 @@ def strict_equivalence_decision(
     report_verdict = output_report.get("verdict")
     if report_verdict not in {"PASS", "FAIL"}:
         raise ValueError("Normalized-output report verdict must be PASS or FAIL")
-    expected = _nonnegative_int(
-        output_report.get("expected_paired_pages"), "expected_paired_pages"
-    )
+    expected = _nonnegative_int(output_report.get("expected_paired_pages"), "expected_paired_pages")
     if expected != EXPECTED_PAIRED_PAGES:
-        raise ValueError(
-            f"expected_paired_pages must be exactly {EXPECTED_PAIRED_PAGES}"
-        )
+        raise ValueError(f"expected_paired_pages must be exactly {EXPECTED_PAIRED_PAGES}")
     paired = _nonnegative_int(output_report.get("paired_pages"), "paired_pages")
     equal = _nonnegative_int(output_report.get("equal_pages"), "equal_pages")
-    different = _nonnegative_int(
-        output_report.get("different_pages"), "different_pages"
-    )
+    different = _nonnegative_int(output_report.get("different_pages"), "different_pages")
     official_only = _nonnegative_int(
         output_report.get("official_only_pages"), "official_only_pages"
     )
@@ -194,9 +184,7 @@ def strict_equivalence_decision(
     }
 
 
-def component_not_worse(
-    official: Mapping[str, float], lightweight: Mapping[str, float]
-) -> bool:
+def component_not_worse(official: Mapping[str, float], lightweight: Mapping[str, float]) -> bool:
     return (
         lightweight["text_edit_dist"] <= official["text_edit_dist"]
         and lightweight["formula_cdm_percent"] >= official["formula_cdm_percent"]
@@ -253,13 +241,9 @@ def amd_adaptation_decision(
     }
 
 
-def build_task5_receipt(
-    task5_root: Path, relative_paths: Sequence[str]
-) -> dict[str, object]:
+def build_task5_receipt(task5_root: Path, relative_paths: Sequence[str]) -> dict[str, object]:
     """Hash an explicit allowlist of small Task 5 evidence files."""
-    if not isinstance(relative_paths, Sequence) or isinstance(
-        relative_paths, (str, bytes)
-    ):
+    if not isinstance(relative_paths, Sequence) or isinstance(relative_paths, (str, bytes)):
         raise ValueError("Receipt paths must be a sequence")
     names = list(relative_paths)
     if RECEIPT_NAME in names:
@@ -285,9 +269,7 @@ def build_task5_receipt(
     return {"schema": 1, "algorithm": "sha256", "files": files}
 
 
-def validate_task5_receipt(
-    task5_root: Path, receipt: Mapping[str, object]
-) -> dict[str, object]:
+def validate_task5_receipt(task5_root: Path, receipt: Mapping[str, object]) -> dict[str, object]:
     """Re-hash every receipt input and reject any identity change."""
     if set(receipt) != {"schema", "algorithm", "files"}:
         raise ValueError("Receipt must contain exactly schema, algorithm, and files")
@@ -308,15 +290,11 @@ def validate_task5_receipt(
 def attempt_result_paths(base: str, engine: str) -> tuple[str, ...]:
     if engine not in {"official", "lightweight"}:
         raise ValueError("Receipt engine must be official or lightweight")
-    return tuple(
-        f"{base}/compact/results/{engine}/{name}" for name in sorted(_RESULT_FILES)
-    )
+    return tuple(f"{base}/compact/results/{engine}/{name}" for name in sorted(_RESULT_FILES))
 
 
 def attempt_comparison_paths(base: str) -> tuple[str, ...]:
-    return tuple(
-        f"{base}/compact/comparison/{name}" for name in sorted(_COMPARISON_FILES)
-    )
+    return tuple(f"{base}/compact/comparison/{name}" for name in sorted(_COMPARISON_FILES))
 
 
 def required_attempt_receipt_paths(attempt_id: str) -> tuple[str, ...]:
@@ -388,10 +366,7 @@ def validate_task5_selection(
         snapshot = _read_stable_file(path, label=f"Selected {label}")
         relative = path.relative_to(root).as_posix()
         identity = receipt_files.get(relative)
-        if (
-            not isinstance(identity, Mapping)
-            or identity.get("sha256") != snapshot.sha256
-        ):
+        if not isinstance(identity, Mapping) or identity.get("sha256") != snapshot.sha256:
             raise ValueError(f"Selected {label} does not match its receipt")
         loaded[label] = _parse_json_object(snapshot.content, path)
         snapshots[label] = snapshot
@@ -415,10 +390,7 @@ def validate_task5_selection(
     if candidate["g0_closure"] != "PASS":
         raise ValueError("Selection candidate G0 closure must be PASS")
     manifest_sha = snapshots["manifest"].sha256
-    if (
-        candidate["manifest_sha256"] != manifest_sha
-        or stage["manifest_sha256"] != manifest_sha
-    ):
+    if candidate["manifest_sha256"] != manifest_sha or stage["manifest_sha256"] != manifest_sha:
         raise ValueError("Selection manifest SHA-256 does not match current bytes")
 
     decision = loaded["decision"]
@@ -430,15 +402,11 @@ def validate_task5_selection(
         "lightweight_cdm": attempt_root / "compact/results/lightweight/metric-cdm.json",
         "output_report": attempt_root / "compact/comparison/normalized-output.json",
         "trace_report": attempt_root / "compact/comparison/trace-diff.json",
-        "provider_attestation": attempt_root
-        / "compact/comparison/directml-attestation.json",
-        "lightweight_stats": attempt_root
-        / "compact/results/lightweight/run-summary.json",
+        "provider_attestation": attempt_root / "compact/comparison/directml-attestation.json",
+        "lightweight_stats": attempt_root / "compact/results/lightweight/run-summary.json",
     }
     contract_path = attempt_root / "compact/comparison/input-contract.json"
-    contract_snapshot = _read_stable_file(
-        contract_path, label="Compact public input contract"
-    )
+    contract_snapshot = _read_stable_file(contract_path, label="Compact public input contract")
     contract = _parse_json_object(contract_snapshot.content, contract_path)
     _validate_public_input_contract(contract)
     compact: dict[str, dict[str, object]] = {}
@@ -447,9 +415,7 @@ def validate_task5_selection(
         snapshot = _read_stable_file(path, label=f"Compact decision input {name}")
         compact[name] = _parse_json_object(snapshot.content, path)
         compact_digests[name] = snapshot.sha256
-    official_scores = extract_paired_scores(
-        compact["official_non_cdm"], compact["official_cdm"]
-    )
+    official_scores = extract_paired_scores(compact["official_non_cdm"], compact["official_cdm"])
     lightweight_scores = extract_paired_scores(
         compact["lightweight_non_cdm"], compact["lightweight_cdm"]
     )
@@ -469,9 +435,7 @@ def validate_task5_selection(
     }:
         raise ValueError("Compact decision scores do not match recomputed scores")
     if decision["strict_equivalence"] != recomputed_strict:
-        raise ValueError(
-            "Compact decision strict equivalence does not match recomputation"
-        )
+        raise ValueError("Compact decision strict equivalence does not match recomputation")
     if decision["amd_adaptation"] != recomputed_amd:
         raise ValueError("Compact decision AMD adaptation does not match recomputation")
     if decision["g3"] is not recomputed_amd["g3"]:
@@ -499,36 +463,24 @@ def validate_task5_selection(
         "amd_adaptation": candidate["amd_adaptation"],
         "g0_closure": candidate["g0_closure"],
     }
-    if (
-        _read_stable_file(pointer, label="Selection pointer").content
-        != pointer_snapshot.content
-    ):
+    if _read_stable_file(pointer, label="Selection pointer").content != pointer_snapshot.content:
         raise ValueError("Selection pointer changed during validation")
     if (
         _read_stable_file(candidate_path, label="Selection candidate").content
         != candidate_snapshot.content
     ):
         raise ValueError("Selection candidate changed during validation")
-    if (
-        _read_stable_file(receipt_path, label="Attempt receipt").content
-        != receipt_snapshot.content
-    ):
+    if _read_stable_file(receipt_path, label="Attempt receipt").content != receipt_snapshot.content:
         raise ValueError("Attempt receipt changed during validation")
     validate_task5_receipt(root, receipt)
-    if (
-        _read_stable_file(pointer, label="Selection pointer").content
-        != pointer_snapshot.content
-    ):
+    if _read_stable_file(pointer, label="Selection pointer").content != pointer_snapshot.content:
         raise ValueError("Selection pointer changed during final receipt validation")
     if (
         _read_stable_file(candidate_path, label="Selection candidate").content
         != candidate_snapshot.content
     ):
         raise ValueError("Selection candidate changed during final receipt validation")
-    if (
-        _read_stable_file(receipt_path, label="Attempt receipt").content
-        != receipt_snapshot.content
-    ):
+    if _read_stable_file(receipt_path, label="Attempt receipt").content != receipt_snapshot.content:
         raise ValueError("Attempt receipt changed during final receipt validation")
     return result
 
@@ -547,9 +499,7 @@ def _validate_public_input_contract(contract: Mapping[str, object]) -> None:
     for name, value in expected.items():
         actual = contract.get(name)
         if type(actual) is not type(value) or actual != value:
-            raise ValueError(
-                f"Public input contract {name} does not match the approved value"
-            )
+            raise ValueError(f"Public input contract {name} does not match the approved value")
 
 
 def _required_score(
@@ -591,10 +541,7 @@ def _metric_quality_passes(scores: Mapping[str, object]) -> bool:
         return False
     if set(quality) != {"formula_cdm", "table_teds"}:
         return False
-    return all(
-        isinstance(item, Mapping) and item.get("valid") is True
-        for item in quality.values()
-    )
+    return all(isinstance(item, Mapping) and item.get("valid") is True for item in quality.values())
 
 
 def _lightweight_stats_pass(stats: Mapping[str, object]) -> bool:
@@ -615,9 +562,7 @@ def _lightweight_stats_pass(stats: Mapping[str, object]) -> bool:
         return False
     expected = (1651, 1651, 0, 0)
     raw = tuple(stats[key] for key in raw_keys) if all(raw_present) else None
-    summary = (
-        tuple(stats[key] for key in summary_keys) if all(summary_present) else None
-    )
+    summary = tuple(stats[key] for key in summary_keys) if all(summary_present) else None
     if raw is not None and not all(type(value) is int for value in raw):
         return False
     if summary is not None and not all(type(value) is int for value in summary):
@@ -637,9 +582,7 @@ def _validate_approved_exclusion(value: object) -> None:
         "official_present",
         "lightweight_present",
     }:
-        raise ValueError(
-            "approved_exclusion must contain the complete comparator coverage"
-        )
+        raise ValueError("approved_exclusion must contain the complete comparator coverage")
     if value.get("stem") != APPROVED_EXCLUDED_STEM:
         raise ValueError("approved_exclusion stem is not approved")
     if (
@@ -653,24 +596,16 @@ def _validated_trace_verdict(report: Mapping[str, object]) -> str:
     verdict = report.get("verdict")
     if verdict not in {"PASS", "UNKNOWN", "FAIL"}:
         raise ValueError("Trace report verdict must be PASS, UNKNOWN, or FAIL")
-    expected = _nonnegative_int(
-        report.get("expected_paired_pages"), "trace expected_paired_pages"
-    )
+    expected = _nonnegative_int(report.get("expected_paired_pages"), "trace expected_paired_pages")
     if expected != EXPECTED_PAIRED_PAGES:
-        raise ValueError(
-            f"Trace expected_paired_pages must be exactly {EXPECTED_PAIRED_PAGES}"
-        )
+        raise ValueError(f"Trace expected_paired_pages must be exactly {EXPECTED_PAIRED_PAGES}")
     paired = _nonnegative_int(report.get("paired_pages"), "trace paired_pages")
-    official_only = _nonnegative_int(
-        report.get("official_only_pages"), "trace official_only_pages"
-    )
+    official_only = _nonnegative_int(report.get("official_only_pages"), "trace official_only_pages")
     lightweight_only = _nonnegative_int(
         report.get("lightweight_only_pages"), "trace lightweight_only_pages"
     )
     empty = _nonnegative_int(report.get("empty_page_traces"), "trace empty_page_traces")
-    different = _nonnegative_int(
-        report.get("different_records"), "trace different_records"
-    )
+    different = _nonnegative_int(report.get("different_records"), "trace different_records")
     unobservable = _nonnegative_int(
         report.get("unobservable_records"), "trace unobservable_records"
     )
@@ -688,16 +623,10 @@ def _validated_trace_verdict(report: Mapping[str, object]) -> str:
     )
     unobservable_occurrences = sum(unobservable_counts.values())
     if unobservable_occurrences < unobservable:
-        raise ValueError(
-            "unobservable_counts cannot total less than unobservable_records"
-        )
-    maximum_unobservable_occurrences = len(_TRACE_BOUNDARIES) * (
-        unobservable + different
-    )
+        raise ValueError("unobservable_counts cannot total less than unobservable_records")
+    maximum_unobservable_occurrences = len(_TRACE_BOUNDARIES) * (unobservable + different)
     if unobservable_occurrences > maximum_unobservable_occurrences:
-        raise ValueError(
-            "unobservable_counts exceed the Task 2 per-record boundary maximum"
-        )
+        raise ValueError("unobservable_counts exceed the Task 2 per-record boundary maximum")
     _validate_approved_exclusion(report.get("approved_exclusion"))
     coverage_ok = (
         paired == EXPECTED_PAIRED_PAGES
@@ -706,22 +635,14 @@ def _validated_trace_verdict(report: Mapping[str, object]) -> str:
         and empty == 0
     )
     recomputed = (
-        "FAIL"
-        if not coverage_ok or different > 0
-        else "UNKNOWN"
-        if unobservable > 0
-        else "PASS"
+        "FAIL" if not coverage_ok or different > 0 else "UNKNOWN" if unobservable > 0 else "PASS"
     )
     if verdict != recomputed:
-        raise ValueError(
-            "Trace report verdict contradicts its coverage and record counts"
-        )
+        raise ValueError("Trace report verdict contradicts its coverage and record counts")
     return recomputed
 
 
-def _exact_count_mapping(
-    value: object, expected_keys: set[str], label: str
-) -> dict[str, int]:
+def _exact_count_mapping(value: object, expected_keys: set[str], label: str) -> dict[str, int]:
     if not isinstance(value, Mapping) or set(value) != expected_keys:
         raise ValueError(f"{label} must contain exactly the Task 2 schema keys")
     counts = dict(value)
@@ -736,8 +657,7 @@ def _provider_runtime_passes(stats: Mapping[str, object]) -> bool:
         type(stats.get("layout_provider_requested")) is str
         and stats.get("layout_provider_requested") == "auto"
         and type(stats.get("layout_providers_active")) is list
-        and stats.get("layout_providers_active")
-        == ["DmlExecutionProvider", "CPUExecutionProvider"]
+        and stats.get("layout_providers_active") == ["DmlExecutionProvider", "CPUExecutionProvider"]
         and type(stats.get("layout_fallback_disabled")) is bool
         and stats.get("layout_fallback_disabled") is True
     )
@@ -752,9 +672,7 @@ def _provider_attestation_passes(
     cpu_share = attestation.get("cpu_node_share")
     missing = attestation.get("missing_provider_node_events")
     other = attestation.get("other_provider_node_events")
-    valid_counts = all(
-        type(value) is int and value >= 0 for value in (dml, cpu, missing, other)
-    )
+    valid_counts = all(type(value) is int and value >= 0 for value in (dml, cpu, missing, other))
     valid_shares = all(
         type(value) is float and math.isfinite(value) and 0.0 <= value <= 1.0
         for value in (dml_share, cpu_share)
@@ -772,9 +690,7 @@ def _provider_attestation_passes(
             expected_cpu_share = cpu / provider_nodes
             counts_match_shares = math.isclose(
                 dml_share, expected_dml_share, rel_tol=0.0, abs_tol=1e-12
-            ) and math.isclose(
-                cpu_share, expected_cpu_share, rel_tol=0.0, abs_tol=1e-12
-            )
+            ) and math.isclose(cpu_share, expected_cpu_share, rel_tol=0.0, abs_tol=1e-12)
             majority = dml > 0 and expected_dml_share > 0.5
     runtime_pass = _provider_runtime_passes(stats)
     passed = (
@@ -854,11 +770,7 @@ def _receipt_path_allowed(relative: PurePosixPath) -> bool:
     parts = relative.parts
     if len(parts) == 1:
         return parts[0] in _ROOT_RECEIPT_FILES
-    if (
-        len(parts) == 3
-        and parts[0] == "attempts"
-        and ATTEMPT_ID.fullmatch(parts[1]) is not None
-    ):
+    if len(parts) == 3 and parts[0] == "attempts" and ATTEMPT_ID.fullmatch(parts[1]) is not None:
         return parts[2] in _ATTEMPT_FILES
     if (
         len(parts) == 6
@@ -971,8 +883,7 @@ def _validate_decision_schema(decision: Mapping[str, object]) -> None:
         raise ValueError("Compact decision expected coverage is invalid")
     _nonnegative_int(coverage.get("paired_pages"), "paired_pages")
     if set(scores) != {"official", "lightweight"} or not all(
-        isinstance(scores.get(engine), Mapping)
-        for engine in ("official", "lightweight")
+        isinstance(scores.get(engine), Mapping) for engine in ("official", "lightweight")
     ):
         raise ValueError("Compact decision scores schema is invalid")
     expected_evidence = {
@@ -1062,11 +973,7 @@ def _require_exact_directory(root: Path, path: Path, *, label: str) -> None:
         current = current / part
         _reject_reparse(current, label=label)
     resolved = path.resolve(strict=True)
-    if (
-        resolved != path.absolute()
-        or root not in resolved.parents
-        or not resolved.is_dir()
-    ):
+    if resolved != path.absolute() or root not in resolved.parents or not resolved.is_dir():
         raise ValueError(f"{label} must be an exact contained directory")
 
 
@@ -1216,9 +1123,9 @@ def _write_json(path: Path, value: object) -> None:
         raise ValueError("JSON output cannot be a symlink")
     parent = path.parent.resolve(strict=True)
     output = parent / path.name
-    rendered = (
-        json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
-    ).encode("utf-8")
+    rendered = (json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode(
+        "utf-8"
+    )
     descriptor = -1
     temporary: Path | None = None
     try:
@@ -1257,12 +1164,8 @@ def _decide(args: argparse.Namespace) -> int:
     for name, path in paths.items():
         loaded[name], digests[name] = _load_json_object_with_digest(path)
     official = extract_paired_scores(loaded["official_non_cdm"], loaded["official_cdm"])
-    lightweight = extract_paired_scores(
-        loaded["lightweight_non_cdm"], loaded["lightweight_cdm"]
-    )
-    strict = strict_equivalence_decision(
-        loaded["output_report"], loaded["trace_report"]
-    )
+    lightweight = extract_paired_scores(loaded["lightweight_non_cdm"], loaded["lightweight_cdm"])
+    strict = strict_equivalence_decision(loaded["output_report"], loaded["trace_report"])
     amd = amd_adaptation_decision(
         official_scores=official,
         lightweight_scores=lightweight,
