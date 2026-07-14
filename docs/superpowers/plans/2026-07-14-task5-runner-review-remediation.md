@@ -298,7 +298,7 @@ git commit -m "fix(eval): make Task 5 selection transactional"
 - Consumes all remediated Task 5 code.
 - Produces an explicit offline `Approved` or `Changes requested`; it does not run the real 1,651-page workload.
 
-- [ ] **Step 1: Generate one review package from `54e05e7` through remediation HEAD**
+- [x] **Step 1: Generate one review package from `54e05e7` through remediation HEAD**
 
 ```powershell
 & 'C:\Program Files\Git\bin\bash.exe' `
@@ -307,14 +307,14 @@ git commit -m "fix(eval): make Task 5 selection transactional"
   '.superpowers/sdd/task5-runner-remediation-review.diff'
 ```
 
-- [ ] **Step 2: Require independent runtime-probe review**
+- [x] **Step 2: Require independent runtime-probe review**
 
 The reviewer must independently reproduce input drift rejection, log mutation rejection, timeout/descendant cleanup, receipt-failure recovery with a new AttemptId, pointer idempotence, strict UNKNOWN, AMD FAIL, and 1101/150 DirectML PASS. Static token inspection alone is insufficient.
 
-- [ ] **Step 3: Close all Critical and Important findings**
+- [x] **Step 3: Close all Critical and Important findings**
 
 Return each finding to the responsible task's TDD cycle, commit the focused correction, regenerate the review package, and repeat until no Critical or Important remains.
 
-- [ ] **Step 4: Authorize the next phase only after clean review**
+- [x] **Step 4: Authorize the next phase only after clean review**
 
 Update both SDD ledgers and mark the original Task 5 runner complete only when offline verification is green, the worktree contains only the allowed `eval/.omnidocbench/`, and the independent reviewer explicitly approves. The next phase is a stubbed Preflight/selection rehearsal followed by the separately authorized real paired run.
