@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from eval.artifact_utils import analyze_metric_quality, extract_notebook_metrics
+from eval.task5_manifest import validate_task5_manifest
 
 EXPECTED_PAIRED_PAGES = 1650
 G3_MINIMUM_OVERALL = 96.13
@@ -407,8 +408,10 @@ def validate_task5_selection(
         raise ValueError("Selected attempt stage state must be sealed")
     if stage["attempt_id"] != attempt_id:
         raise ValueError("Selection candidate attempt differs from stage state")
-    if loaded["before"] != loaded["after"]:
-        raise ValueError("Canonical before/after G0 snapshots do not match")
+    manifest = loaded["manifest"]
+    validate_task5_manifest(manifest, task5_root=root)
+    if loaded["before"] != loaded["after"] or loaded["before"] != manifest.get("g0"):
+        raise ValueError("Canonical before/after G0 snapshots do not match manifest G0")
     if candidate["g0_closure"] != "PASS":
         raise ValueError("Selection candidate G0 closure must be PASS")
     manifest_sha = snapshots["manifest"].sha256
@@ -420,6 +423,62 @@ def validate_task5_selection(
 
     decision = loaded["decision"]
     _validate_decision_schema(decision)
+    compact_paths = {
+        "official_non_cdm": attempt_root / "compact/results/official/metric.json",
+        "official_cdm": attempt_root / "compact/results/official/metric-cdm.json",
+        "lightweight_non_cdm": attempt_root / "compact/results/lightweight/metric.json",
+        "lightweight_cdm": attempt_root / "compact/results/lightweight/metric-cdm.json",
+        "output_report": attempt_root / "compact/comparison/normalized-output.json",
+        "trace_report": attempt_root / "compact/comparison/trace-diff.json",
+        "provider_attestation": attempt_root
+        / "compact/comparison/directml-attestation.json",
+        "lightweight_stats": attempt_root
+        / "compact/results/lightweight/run-summary.json",
+    }
+    compact: dict[str, dict[str, object]] = {}
+    compact_digests: dict[str, str] = {}
+    for name, path in compact_paths.items():
+        snapshot = _read_stable_file(path, label=f"Compact decision input {name}")
+        compact[name] = _parse_json_object(snapshot.content, path)
+        compact_digests[name] = snapshot.sha256
+    official_scores = extract_paired_scores(
+        compact["official_non_cdm"], compact["official_cdm"]
+    )
+    lightweight_scores = extract_paired_scores(
+        compact["lightweight_non_cdm"], compact["lightweight_cdm"]
+    )
+    recomputed_strict = strict_equivalence_decision(
+        compact["output_report"], compact["trace_report"]
+    )
+    recomputed_amd = amd_adaptation_decision(
+        official_scores=official_scores,
+        lightweight_scores=lightweight_scores,
+        provider_attestation=compact["provider_attestation"],
+        lightweight_stats=compact["lightweight_stats"],
+        public_contracts_pass=True,
+    )
+    if decision["scores"] != {
+        "official": official_scores,
+        "lightweight": lightweight_scores,
+    }:
+        raise ValueError("Compact decision scores do not match recomputed scores")
+    if decision["strict_equivalence"] != recomputed_strict:
+        raise ValueError(
+            "Compact decision strict equivalence does not match recomputation"
+        )
+    if decision["amd_adaptation"] != recomputed_amd:
+        raise ValueError("Compact decision AMD adaptation does not match recomputation")
+    if decision["g3"] is not recomputed_amd["g3"]:
+        raise ValueError("Compact decision g3 does not match recomputation")
+    if decision["coverage"] != {
+        "expected_paired_pages": EXPECTED_PAIRED_PAGES,
+        "paired_pages": recomputed_strict["paired_pages"],
+    }:
+        raise ValueError("Compact decision coverage does not match recomputation")
+    if decision["evidence"] != {
+        name: {"sha256": compact_digests[name]} for name in sorted(compact_paths)
+    }:
+        raise ValueError("Compact decision evidence does not match current inputs")
     strict = decision["strict_equivalence"]
     amd = decision["amd_adaptation"]
     assert isinstance(strict, Mapping) and isinstance(amd, Mapping)
@@ -443,12 +502,14 @@ def validate_task5_selection(
         != receipt_snapshot.content
     ):
         raise ValueError("Attempt receipt changed during validation")
-    return {
+    result = {
         "attempt_id": attempt_id,
         "strict_equivalence": candidate["strict_equivalence"],
         "amd_adaptation": candidate["amd_adaptation"],
         "g0_closure": candidate["g0_closure"],
     }
+    validate_task5_receipt(root, receipt)
+    return result
 
 
 def _required_score(

@@ -10,6 +10,8 @@ from pathlib import Path
 import pytest
 
 import eval.task5_decision as task5_decision
+import eval.task5_manifest as task5_manifest
+from eval.artifact_utils import sha256_file
 from eval.task5_comparison import (
     compare_boundary_documents,
     observation,
@@ -24,6 +26,23 @@ from eval.task5_decision import (
     validate_task5_receipt,
     validate_task5_selection,
 )
+from eval.task5_manifest import OFFICIAL_OUTPUTS, build_task5_manifest
+
+ROOT = Path(__file__).parents[1]
+G0_RECEIPT = ROOT / "docs/releases/0.1.0-g0-evidence.md"
+TEST_G0_OUTPUT_DIGESTS = {
+    relative: task5_decision.hashlib.sha256(
+        (json.dumps({"output": relative}) + "\n").encode()
+    ).hexdigest()
+    for relative in OFFICIAL_OUTPUTS
+}
+
+
+@pytest.fixture(autouse=True)
+def use_test_g0_authority(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        task5_manifest, "APPROVED_G0_OUTPUT_SHA256", TEST_G0_OUTPUT_DIGESTS
+    )
 
 
 def scores(
@@ -641,8 +660,22 @@ def _write_receiptable(root: Path, name: str, value: object | None = None) -> No
 
 
 def _make_complete_selection(root: Path, attempt_id: str = "a1") -> dict[str, Path]:
+    r7 = root.parent
+    (r7 / "results/official").mkdir(parents=True, exist_ok=True)
+    (r7 / "manifest.json").write_text('{"sealed":true}\n', encoding="utf-8")
+    for relative in OFFICIAL_OUTPUTS:
+        (r7 / relative).write_bytes((json.dumps({"output": relative}) + "\n").encode())
+    dataset = r7 / "dataset.json"
+    dataset.write_text("{}\n", encoding="utf-8")
     root.mkdir()
-    manifest = {"schema": 1, "identity": "task5-test"}
+    manifest = build_task5_manifest(
+        r7_root=r7,
+        receipt_path=G0_RECEIPT,
+        git_commit="a" * 40,
+        inputs={"dataset": dataset},
+        environment={"os": "Windows"},
+        contracts={"benchmark": "OmniDocBench-v1.6"},
+    )
     _write_receiptable(root, "manifest.json", manifest)
     manifest_sha = task5_decision.hashlib.sha256(
         (root / "manifest.json").read_bytes()
@@ -657,7 +690,7 @@ def _make_complete_selection(root: Path, attempt_id: str = "a1") -> dict[str, Pa
         "stages": {},
         "started_at_utc": "2026-07-14T00:00:00Z",
     }
-    snapshot = {"receipt": {"sha256": "b" * 64}, "official_outputs": {}}
+    snapshot = manifest["g0"]
     candidate = {
         "schema": 1,
         "attempt_id": attempt_id,
@@ -667,39 +700,54 @@ def _make_complete_selection(root: Path, attempt_id: str = "a1") -> dict[str, Pa
         "g0_closure": "PASS",
         "effective_only_with_valid_receipt": True,
     }
+    metric_value = metric(formula=0.98, table=0.98)
+    paired_scores = extract_paired_scores(metric_value, metric_value)
     strict = strict_equivalence_decision(valid_output_report(), valid_trace_report())
-    amd = decide_amd(scores(), scores())
-    evidence_names = {
-        "official_non_cdm",
-        "official_cdm",
-        "lightweight_non_cdm",
-        "lightweight_cdm",
-        "output_report",
-        "trace_report",
-        "provider_attestation",
-        "lightweight_stats",
-    }
+    amd = decide_amd(paired_scores, paired_scores)
     decision = {
         "schema": 1,
         "benchmark": "OmniDocBench-v1.6",
         "coverage": {"expected_paired_pages": 1650, "paired_pages": 1650},
-        "scores": {"official": scores(), "lightweight": scores()},
+        "scores": {"official": paired_scores, "lightweight": paired_scores},
         "strict_equivalence": strict,
         "amd_adaptation": amd,
         "g3": True,
-        "evidence": {name: {"sha256": "c" * 64} for name in evidence_names},
+        "evidence": {},
     }
     _write_receiptable(root, f"{base}/stage-state.json", stage)
     _write_receiptable(root, f"{base}/snapshot-before.json", snapshot)
     _write_receiptable(root, f"{base}/snapshot-after.json", snapshot)
     _write_receiptable(root, f"{base}/selected-attempt.json", candidate)
+    compact_values = {
+        f"{base}/compact/results/official/metric.json": metric_value,
+        f"{base}/compact/results/official/metric-cdm.json": metric_value,
+        f"{base}/compact/results/lightweight/metric.json": metric_value,
+        f"{base}/compact/results/lightweight/metric-cdm.json": metric_value,
+        f"{base}/compact/results/lightweight/run-summary.json": valid_lightweight_stats(),
+        f"{base}/compact/comparison/normalized-output.json": valid_output_report(),
+        f"{base}/compact/comparison/trace-diff.json": valid_trace_report(),
+        f"{base}/compact/comparison/directml-attestation.json": valid_provider_attestation(),
+    }
     for name in required_attempt_receipt_paths(attempt_id):
         path = root / name
         if path.exists():
             continue
-        _write_receiptable(
-            root, name, decision if name.endswith("decision.json") else {}
-        )
+        _write_receiptable(root, name, compact_values.get(name, {}))
+    evidence_paths = {
+        "official_non_cdm": f"{base}/compact/results/official/metric.json",
+        "official_cdm": f"{base}/compact/results/official/metric-cdm.json",
+        "lightweight_non_cdm": f"{base}/compact/results/lightweight/metric.json",
+        "lightweight_cdm": f"{base}/compact/results/lightweight/metric-cdm.json",
+        "output_report": f"{base}/compact/comparison/normalized-output.json",
+        "trace_report": f"{base}/compact/comparison/trace-diff.json",
+        "provider_attestation": f"{base}/compact/comparison/directml-attestation.json",
+        "lightweight_stats": f"{base}/compact/results/lightweight/run-summary.json",
+    }
+    decision["evidence"] = {
+        name: {"sha256": sha256_file(root / relative)}
+        for name, relative in evidence_paths.items()
+    }
+    _write_receiptable(root, f"{base}/compact/comparison/decision.json", decision)
     receipt = build_task5_receipt(root, required_attempt_receipt_paths(attempt_id))
     _write_receiptable(root, f"{base}/receipt.sha256.json", receipt)
     (root / "selected-attempt.json").write_bytes(
@@ -714,6 +762,7 @@ def _make_complete_selection(root: Path, attempt_id: str = "a1") -> dict[str, Pa
         "after": root / base / "snapshot-after.json",
         "decision": root / base / "compact/comparison/decision.json",
         "manifest": root / "manifest.json",
+        "metric": root / base / "compact/results/official/metric.json",
     }
 
 
@@ -920,6 +969,78 @@ def test_validate_selection_rejects_symlinked_pointer_or_attempt(
     attempt.rename(moved)
     attempt.symlink_to(moved, target_is_directory=True)
     with pytest.raises(ValueError, match="symlink"):
+        validate_task5_selection(root)
+
+
+@pytest.mark.parametrize(
+    "target_name", ["manifest", "stage", "before", "after", "decision", "metric"]
+)
+def test_selection_final_receipt_rehash_detects_post_semantic_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    target_name: str,
+) -> None:
+    root = tmp_path / "task5"
+    paths = _make_complete_selection(root)
+    original = task5_decision._read_stable_file
+    pointer_reads = 0
+
+    def mutate_after_semantic_read(path: Path, *, label: str):
+        nonlocal pointer_reads
+        if path.resolve() == paths["pointer"].resolve():
+            pointer_reads += 1
+            if pointer_reads == 2:
+                target = paths[target_name]
+                target.write_bytes(target.read_bytes() + b" ")
+        return original(path, label=label)
+
+    monkeypatch.setattr(task5_decision, "_read_stable_file", mutate_after_semantic_read)
+    with pytest.raises(ValueError, match="changed|receipt|identity"):
+        validate_task5_selection(root)
+
+
+@pytest.mark.parametrize(
+    "snapshot", [{}, {"receipt": {}, "official_outputs": {}}, {"extra": True}]
+)
+def test_selection_rejects_equal_snapshots_that_do_not_match_manifest_g0(
+    tmp_path: Path, snapshot: dict[str, object]
+) -> None:
+    root = tmp_path / "task5"
+    paths = _make_complete_selection(root)
+    for name in ("before", "after"):
+        paths[name].write_text(json.dumps(snapshot) + "\n", encoding="utf-8")
+    receipt = build_task5_receipt(root, required_attempt_receipt_paths("a1"))
+    paths["receipt"].write_text(
+        json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="G0|manifest"):
+        validate_task5_selection(root)
+
+
+@pytest.mark.parametrize(
+    "case", ["empty-scores", "pass-g3-false", "wrong-evidence", "wrong-overall"]
+)
+def test_selection_independently_recomputes_compact_decision(
+    tmp_path: Path, case: str
+) -> None:
+    root = tmp_path / "task5"
+    paths = _make_complete_selection(root)
+    decision = json.loads(paths["decision"].read_text(encoding="utf-8"))
+    if case == "empty-scores":
+        decision["scores"] = {"official": {}, "lightweight": {}}
+    elif case == "pass-g3-false":
+        decision["g3"] = False
+        decision["amd_adaptation"]["g3"] = False
+    elif case == "wrong-evidence":
+        decision["evidence"]["official_non_cdm"]["sha256"] = "0" * 64
+    else:
+        decision["scores"]["lightweight"]["overall"] = 0.0
+    paths["decision"].write_text(json.dumps(decision) + "\n", encoding="utf-8")
+    receipt = build_task5_receipt(root, required_attempt_receipt_paths("a1"))
+    paths["receipt"].write_text(
+        json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="decision|evidence|score|g3"):
         validate_task5_selection(root)
 
 
