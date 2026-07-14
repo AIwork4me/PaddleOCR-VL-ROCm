@@ -26,6 +26,7 @@ class PaddleOCRVLROCm:
         vlm_max_workers: int = 1,
         layout_provider: str = "auto",
         skip_server_check: bool = False,
+        layout_profile_prefix: Path | None = None,
     ) -> None:
         self.layout_model_dir = Path(layout_model_dir)
         self.vlm_server_url = vlm_server_url
@@ -38,9 +39,11 @@ class PaddleOCRVLROCm:
         self.vlm_max_workers = vlm_max_workers
         self.layout_provider = layout_provider
         self.skip_server_check = skip_server_check
+        self.layout_profile_prefix = layout_profile_prefix
         self.layout_provider_requested = layout_provider
         self.layout_providers_active: list[str] = []
         self.active_layout_providers = self.layout_providers_active
+        self.layout_fallback_disabled = False
         self._layout_model: PPDocLayoutV3Onnx | None = None
         self.last_timing: dict[str, float] | None = None
 
@@ -54,10 +57,17 @@ class PaddleOCRVLROCm:
                 self.layout_model_dir,
                 providers=providers,
                 requested_provider=self.layout_provider_requested,
+                profiling_prefix=self.layout_profile_prefix,
             )
             self.layout_providers_active = list(self._layout_model.layout_providers_active)
             self.active_layout_providers = self.layout_providers_active
+            self.layout_fallback_disabled = self._layout_model.layout_fallback_disabled
         return self._layout_model
+
+    def finish_layout_profiling(self) -> Path | None:
+        if self._layout_model is None:
+            return None
+        return self._layout_model.finish_profiling()
 
     def predict(
         self,

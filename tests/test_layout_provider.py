@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import platform
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -71,6 +72,125 @@ def test_layout_session_disables_fallback_and_records_active_provider(tmp_path, 
     assert model.active_providers == ["DmlExecutionProvider"]
     assert model.layout_provider_requested == "directml"
     assert model.layout_providers_active == ["DmlExecutionProvider"]
+    assert model.layout_fallback_disabled is True
+
+
+def test_non_evidence_session_records_missing_disable_fallback(tmp_path, monkeypatch):
+    (tmp_path / "inference.onnx").touch()
+
+    class FakeSession:
+        def __init__(self, _path, sess_options, providers):
+            self.requested_providers = providers
+
+        def get_providers(self):
+            return list(self.requested_providers)
+
+    fake_ort = SimpleNamespace(
+        SessionOptions=type("SessionOptions", (), {}),
+        GraphOptimizationLevel=SimpleNamespace(ORT_ENABLE_ALL="all"),
+        ExecutionMode=SimpleNamespace(ORT_SEQUENTIAL="sequential"),
+        InferenceSession=FakeSession,
+    )
+    monkeypatch.setitem(sys.modules, "onnxruntime", fake_ort)
+
+    model = PPDocLayoutV3Onnx(tmp_path, providers=["DmlExecutionProvider"])
+
+    assert model.layout_fallback_disabled is False
+
+
+def test_evidence_session_requires_disable_fallback_api(tmp_path, monkeypatch):
+    (tmp_path / "inference.onnx").touch()
+
+    class FakeSession:
+        def __init__(self, _path, sess_options, providers):
+            self.requested_providers = providers
+
+        def get_providers(self):
+            return list(self.requested_providers)
+
+    fake_ort = SimpleNamespace(
+        SessionOptions=type("SessionOptions", (), {}),
+        GraphOptimizationLevel=SimpleNamespace(ORT_ENABLE_ALL="all"),
+        ExecutionMode=SimpleNamespace(ORT_SEQUENTIAL="sequential"),
+        InferenceSession=FakeSession,
+    )
+    monkeypatch.setitem(sys.modules, "onnxruntime", fake_ort)
+
+    with pytest.raises(RuntimeError, match="disable_fallback"):
+        PPDocLayoutV3Onnx(
+            tmp_path,
+            providers=["DmlExecutionProvider"],
+            profiling_prefix=tmp_path / "profiles" / "layout",
+        )
+
+
+def test_finish_profiling_is_idempotent_and_uses_resolved_prefix(tmp_path, monkeypatch):
+    (tmp_path / "inference.onnx").touch()
+    profile = tmp_path / "profiles" / "layout_2026.json"
+
+    class FakeSession:
+        end_calls = 0
+
+        def __init__(self, _path, sess_options, providers):
+            self.options = sess_options
+            self.requested_providers = providers
+
+        def disable_fallback(self):
+            pass
+
+        def get_providers(self):
+            return ["DmlExecutionProvider", "CPUExecutionProvider"]
+
+        def end_profiling(self):
+            self.end_calls += 1
+            profile.write_text("[]", encoding="utf-8")
+            return str(profile)
+
+    fake_ort = SimpleNamespace(
+        SessionOptions=type("SessionOptions", (), {}),
+        GraphOptimizationLevel=SimpleNamespace(ORT_ENABLE_ALL="all"),
+        ExecutionMode=SimpleNamespace(ORT_SEQUENTIAL="sequential"),
+        InferenceSession=FakeSession,
+    )
+    monkeypatch.setitem(sys.modules, "onnxruntime", fake_ort)
+    prefix = tmp_path / "profiles" / "layout"
+
+    model = PPDocLayoutV3Onnx(
+        tmp_path,
+        providers=["DmlExecutionProvider"],
+        requested_provider="auto",
+        profiling_prefix=prefix,
+    )
+
+    assert model.session.options.enable_profiling is True
+    assert model.session.options.profile_file_prefix == str(prefix.resolve())
+    assert model.finish_profiling() == profile.resolve()
+    assert model.finish_profiling() == profile.resolve()
+    assert model.session.end_calls == 1
+
+
+def test_finish_profiling_is_disabled_by_default(tmp_path, monkeypatch):
+    (tmp_path / "inference.onnx").touch()
+
+    class FakeSession:
+        def __init__(self, _path, sess_options, providers):
+            self.requested_providers = providers
+
+        def disable_fallback(self):
+            pass
+
+        def get_providers(self):
+            return list(self.requested_providers)
+
+    fake_ort = SimpleNamespace(
+        SessionOptions=type("SessionOptions", (), {}),
+        GraphOptimizationLevel=SimpleNamespace(ORT_ENABLE_ALL="all"),
+        ExecutionMode=SimpleNamespace(ORT_SEQUENTIAL="sequential"),
+        InferenceSession=FakeSession,
+    )
+    monkeypatch.setitem(sys.modules, "onnxruntime", fake_ort)
+
+    assert PPDocLayoutV3Onnx(tmp_path).finish_profiling() is None
 
 
 def test_layout_session_rejects_directml_activation_mismatch(tmp_path, monkeypatch):
@@ -100,10 +220,15 @@ def test_layout_session_rejects_directml_activation_mismatch(tmp_path, monkeypat
 
 def test_pipeline_stores_requested_and_active_layout_providers(monkeypatch):
     class FakeLayout:
-        def __init__(self, _model_dir, providers, requested_provider):
+        def __init__(self, _model_dir, providers, requested_provider, profiling_prefix=None):
             self.active_providers = list(providers)
             self.layout_provider_requested = requested_provider
             self.layout_providers_active = list(providers)
+            self.layout_fallback_disabled = True
+            self.profiling_prefix = profiling_prefix
+
+        def finish_profiling(self):
+            return Path("profile.json") if self.profiling_prefix else None
 
     monkeypatch.setattr(platform, "system", lambda: "Windows")
     monkeypatch.setattr(
@@ -111,7 +236,8 @@ def test_pipeline_stores_requested_and_active_layout_providers(monkeypatch):
         lambda: ["DmlExecutionProvider", "CPUExecutionProvider"],
     )
     monkeypatch.setattr("paddleocr_vl_rocm.pipeline.PPDocLayoutV3Onnx", FakeLayout)
-    pipeline = PaddleOCRVLROCm(layout_provider="auto")
+    prefix = Path("profiles/layout")
+    pipeline = PaddleOCRVLROCm(layout_provider="auto", layout_profile_prefix=prefix)
 
     pipeline._layout()
 
@@ -119,6 +245,9 @@ def test_pipeline_stores_requested_and_active_layout_providers(monkeypatch):
     assert pipeline.active_layout_providers == ["DmlExecutionProvider"]
     assert pipeline.layout_provider_requested == "auto"
     assert pipeline.layout_providers_active == ["DmlExecutionProvider"]
+    assert pipeline.layout_fallback_disabled is True
+    assert pipeline._layout_model.profiling_prefix == prefix
+    assert pipeline.finish_layout_profiling() == Path("profile.json")
 
 
 def test_pipeline_passes_layout_provider_metadata_to_trace(tmp_path, monkeypatch):

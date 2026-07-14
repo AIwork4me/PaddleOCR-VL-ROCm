@@ -752,6 +752,7 @@ class PPDocLayoutV3Onnx:
         providers: list[str] | None = None,
         intra_op_threads: int | None = None,
         requested_provider: str | None = None,
+        profiling_prefix: Path | None = None,
     ) -> None:
         import onnxruntime as ort
 
@@ -764,14 +765,26 @@ class PPDocLayoutV3Onnx:
         options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         if intra_op_threads:
             options.intra_op_num_threads = intra_op_threads
+        self._profiling_enabled = profiling_prefix is not None
+        self._profile_path: Path | None = None
+        if profiling_prefix is not None:
+            profiling_prefix.parent.mkdir(parents=True, exist_ok=True)
+            options.enable_profiling = True
+            options.profile_file_prefix = str(profiling_prefix.resolve())
         self.session = ort.InferenceSession(
             str(model_path),
             sess_options=options,
             providers=providers or ["CPUExecutionProvider"],
         )
+        self.layout_fallback_disabled = False
         disable_fallback = getattr(self.session, "disable_fallback", None)
         if disable_fallback is not None:
             disable_fallback()
+            self.layout_fallback_disabled = True
+        elif self._profiling_enabled:
+            raise RuntimeError(
+                "DirectML evidence mode requires the ONNX Runtime disable_fallback() API"
+            )
         requested = providers or ["CPUExecutionProvider"]
         self.layout_provider_requested = requested_provider or (
             "directml" if requested[0] == "DmlExecutionProvider" else "cpu"
@@ -790,6 +803,14 @@ class PPDocLayoutV3Onnx:
                 "DmlExecutionProvider failed to activate; refusing CPU fallback for "
                 "layout inference"
             )
+
+    def finish_profiling(self) -> Path | None:
+        if self._profile_path is not None:
+            return self._profile_path
+        if not self._profiling_enabled:
+            return None
+        self._profile_path = Path(self.session.end_profiling()).resolve(strict=True)
+        return self._profile_path
 
     def predict(
         self,

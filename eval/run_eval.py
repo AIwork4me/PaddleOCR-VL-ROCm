@@ -155,6 +155,7 @@ def stage_infer(args: argparse.Namespace) -> None:
         fallback_pred_dir=args.fallback_pred_dir,
         limit_pages=args.limit_pages,
         trace_dir=getattr(args, "trace_dir", None),
+        layout_profile_prefix=getattr(args, "layout_profile_prefix", None),
     )
     print(f"[infer] {summary['ok']}/{summary['count']} pages succeeded -> {out_dir}")
 
@@ -475,6 +476,7 @@ def main() -> None:
     )
     parser.add_argument("--limit-pages", type=int, default=None)
     parser.add_argument("--trace-dir", default=None)
+    parser.add_argument("--layout-profile-prefix", default=None)
     parser.add_argument("--copy-report", default=None)
     parser.add_argument("--run-summary", default=None)
     parser.add_argument("--provenance", default=None)

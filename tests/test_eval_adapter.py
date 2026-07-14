@@ -77,6 +77,18 @@ def test_run_adapter_passes_limit_pages_to_official_engine(tmp_path, monkeypatch
     assert captured["limit_pages"] == 1
 
 
+def test_run_adapter_rejects_layout_profile_for_official_engine(tmp_path):
+    mod = _load_adapter()
+
+    with pytest.raises(ValueError, match="lightweight"):
+        mod.run_adapter(
+            tmp_path / "images",
+            tmp_path / "predictions",
+            engine="official",
+            layout_profile_prefix=tmp_path / "layout-profile",
+        )
+
+
 def test_official_result_prefers_plain_markdown_export():
     mod = _load_adapter()
 
@@ -272,6 +284,50 @@ def test_lightweight_folder_writes_run_stats_and_error_log(tmp_path, monkeypatch
         },
         "total_seconds": {"count": 1, "mean": 1.5, "p50": 1.5, "p95": 1.5, "p99": 1.5, "max": 1.5},
     }
+
+
+def test_lightweight_profile_finishes_after_prediction_failure(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    out_dir = tmp_path / "predictions"
+    img_dir.mkdir()
+    (img_dir / "page.png").write_bytes(b"fake image")
+    profile = tmp_path / "layout-profile_2026.json"
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+            self.layout_provider_requested = "auto"
+            self.layout_providers_active = []
+            self.layout_fallback_disabled = False
+            self.last_timing = None
+            self.finish_calls = 0
+
+        def _layout(self):
+            self.layout_providers_active = ["DmlExecutionProvider", "CPUExecutionProvider"]
+            self.layout_fallback_disabled = True
+
+        def predict(self, image_path):
+            raise RuntimeError("controlled inference failure")
+
+        def finish_layout_profiling(self):
+            self.finish_calls += 1
+            profile.write_text("[]", encoding="utf-8")
+            return profile
+
+    monkeypatch.setattr(mod, "PaddleOCRVLROCm", FakePipeline, raising=False)
+
+    with pytest.raises(SystemExit):
+        mod.run_lightweight_folder(
+            img_dir=img_dir,
+            out_dir=out_dir,
+            layout_profile_prefix=tmp_path / "layout-profile",
+        )
+
+    stats = json.loads((out_dir / "_run_stats.json").read_text(encoding="utf-8"))
+    assert stats["fail"] == 1
+    assert stats["layout_fallback_disabled"] is True
+    assert stats["layout_profile_path"] == str(profile)
 
 
 def test_lightweight_trace_capture_is_opt_in_and_fingerprint_only(tmp_path, monkeypatch):

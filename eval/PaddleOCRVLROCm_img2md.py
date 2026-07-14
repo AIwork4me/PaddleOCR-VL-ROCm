@@ -106,6 +106,7 @@ def run_adapter(
     fallback_pred_dir: str | Path | None = None,
     limit_pages: int | None = None,
     trace_dir: str | Path | None = None,
+    layout_profile_prefix: str | Path | None = None,
 ) -> dict:
     env = _read_adapter_env()
     default_layout = (
@@ -137,8 +138,13 @@ def run_adapter(
             vlm_backend=vlm_backend,
             limit_pages=limit_pages,
             trace_dir=Path(trace_dir) if trace_dir is not None else None,
+            layout_profile_prefix=(
+                Path(layout_profile_prefix) if layout_profile_prefix is not None else None
+            ),
         )
     if selected_engine == "official":
+        if layout_profile_prefix is not None:
+            raise ValueError("--layout-profile-prefix is supported only by the lightweight engine")
         return run_official_folder(
             img_dir=Path(img_dir),
             out_dir=Path(out_dir),
@@ -162,6 +168,7 @@ def run_lightweight_folder(
     vlm_backend: str = DEFAULT_VLM_BACKEND,
     limit_pages: int | None = None,
     trace_dir: Path | None = None,
+    layout_profile_prefix: Path | None = None,
 ) -> dict:
     """Run the local lightweight pipeline over every image in ``img_dir``."""
     if not img_dir.is_dir():
@@ -177,6 +184,7 @@ def run_lightweight_folder(
         vlm_server_url=server_url,
         api_model_name=api_model_name,
         vlm_backend=vlm_backend,
+        layout_profile_prefix=layout_profile_prefix,
     )
     pipeline._layout()
     layout_provider_requested = pipeline.layout_provider_requested
@@ -185,48 +193,53 @@ def run_lightweight_folder(
     errors_path = out_dir / "_errors.log"
     errors_path.unlink(missing_ok=True)
     stats: list[dict] = []
-    for img in images:
-        start = time.time()
-        destination = out_dir / expected_md_name(img.name)
-        trace_path = trace_dir / f"{img.stem}.jsonl" if trace_dir is not None else None
-        destination.unlink(missing_ok=True)
-        if trace_path is not None:
-            trace_path.unlink(missing_ok=True)
-        try:
-            trace_events: list[dict[str, Any]] | None = [] if trace_dir is not None else None
-            if trace_events is None:
-                result = pipeline.predict(img)
-            else:
-                result = pipeline.predict(img, vlm_trace_events=trace_events)
-            if trace_events is not None:
-                canonical_events = _lightweight_page_trace_events(
-                    img.stem, trace_events, result.markdown_text
-                )
-                _write_trace_jsonl(trace_path, canonical_events)
-            destination.write_text(result.markdown_text, encoding="utf-8")
-            page_stats = {
-                "image": img.name,
-                "status": "ok",
-                "seconds": round(time.time() - start, 2),
-            }
-            if pipeline.last_timing is not None:
-                page_stats["timing"] = dict(pipeline.last_timing)
-            stats.append(page_stats)
-        except Exception as exc:  # noqa: BLE001 - record failure, continue
+    profile_path: Path | None = None
+    try:
+        for img in images:
+            start = time.time()
+            destination = out_dir / expected_md_name(img.name)
+            trace_path = trace_dir / f"{img.stem}.jsonl" if trace_dir is not None else None
+            destination.unlink(missing_ok=True)
             if trace_path is not None:
                 trace_path.unlink(missing_ok=True)
-                destination.unlink(missing_ok=True)
-            tb = traceback.format_exc()
-            with open(out_dir / "_errors.log", "a", encoding="utf-8") as fh:
-                fh.write(f"[{time.strftime('%Y-%m-%dT%H:%M:%S')}] {img.name}: {exc}\n{tb}\n")
-            stats.append(
-                {
+            try:
+                trace_events: list[dict[str, Any]] | None = [] if trace_dir is not None else None
+                if trace_events is None:
+                    result = pipeline.predict(img)
+                else:
+                    result = pipeline.predict(img, vlm_trace_events=trace_events)
+                if trace_events is not None:
+                    canonical_events = _lightweight_page_trace_events(
+                        img.stem, trace_events, result.markdown_text
+                    )
+                    _write_trace_jsonl(trace_path, canonical_events)
+                destination.write_text(result.markdown_text, encoding="utf-8")
+                page_stats = {
                     "image": img.name,
-                    "status": f"failed: {exc}",
+                    "status": "ok",
                     "seconds": round(time.time() - start, 2),
-                    "traceback": tb,
                 }
-            )
+                if pipeline.last_timing is not None:
+                    page_stats["timing"] = dict(pipeline.last_timing)
+                stats.append(page_stats)
+            except Exception as exc:  # noqa: BLE001 - record failure, continue
+                if trace_path is not None:
+                    trace_path.unlink(missing_ok=True)
+                    destination.unlink(missing_ok=True)
+                tb = traceback.format_exc()
+                with open(out_dir / "_errors.log", "a", encoding="utf-8") as fh:
+                    fh.write(f"[{time.strftime('%Y-%m-%dT%H:%M:%S')}] {img.name}: {exc}\n{tb}\n")
+                stats.append(
+                    {
+                        "image": img.name,
+                        "status": f"failed: {exc}",
+                        "seconds": round(time.time() - start, 2),
+                        "traceback": tb,
+                    }
+                )
+    finally:
+        if layout_profile_prefix is not None:
+            profile_path = pipeline.finish_layout_profiling()
 
     ok_count = sum(1 for s in stats if s["status"] == "ok")
     successful_stats = [item for item in stats if item["status"] == "ok"]
@@ -250,6 +263,13 @@ def run_lightweight_folder(
         "timing": summarize_seconds([float(item["seconds"]) for item in successful_stats]),
         "stats": stats,
     }
+    if layout_profile_prefix is not None:
+        summary.update(
+            {
+                "layout_fallback_disabled": pipeline.layout_fallback_disabled,
+                "layout_profile_path": str(profile_path) if profile_path else None,
+            }
+        )
     stage_events = [item["timing"] for item in successful_stats if "timing" in item]
     if stage_events:
         summary["stage_timing"] = {
@@ -275,6 +295,7 @@ def process_folder(
     vlm_backend: str = DEFAULT_VLM_BACKEND,
     limit_pages: int | None = None,
     trace_dir: Path | None = None,
+    layout_profile_prefix: Path | None = None,
 ) -> dict:
     return run_lightweight_folder(
         img_dir=img_dir,
@@ -285,6 +306,7 @@ def process_folder(
         vlm_backend=vlm_backend,
         limit_pages=limit_pages,
         trace_dir=trace_dir,
+        layout_profile_prefix=layout_profile_prefix,
     )
 
 
