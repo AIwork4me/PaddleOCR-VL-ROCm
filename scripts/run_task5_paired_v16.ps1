@@ -160,7 +160,7 @@ try {
   }
 
   function Protect-LoggedText([string]$Value) {
-    if ($null -eq $Value) { return "" }
+    if ([string]::IsNullOrWhiteSpace($Value)) { return [string]$Value }
     $sensitiveValues = [Collections.Generic.List[string]]::new()
     function Add-SensitiveLeaves([object]$InputValue) {
       if ($null -eq $InputValue) { return }
@@ -223,6 +223,7 @@ try {
     function Protect-JsonFragments([string]$Text) {
       try {
         $structured = $Text | ConvertFrom-Json -ErrorAction Stop
+        if ($null -eq $structured) { return "null" }
         return (Protect-StructuredValue $structured | ConvertTo-Json -Compress -Depth 30)
       } catch { }
       $output = [Text.StringBuilder]::new(); $cursor = 0

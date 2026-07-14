@@ -1048,6 +1048,7 @@ def _native_integrity_probe(
     )
     harness.write_text(
         rf"""
+$ErrorActionPreference='Stop'
 $errors=$null
 $tokens=$null
 $ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$tokens,[ref]$errors)
@@ -1077,6 +1078,29 @@ Write-Output "CAPTURE=$captured"
         timeout=30,
         env=env,
     )
+
+
+@pytest.mark.parametrize(
+    ("code", "expected_stdout"),
+    [
+        ("", ""),
+        ("import sys; sys.stderr.write('diagnostic')", ""),
+        ("import sys; sys.stdout.write('ok')", "ok"),
+        ("import sys; sys.stdout.write('  \\r\\n')", ""),
+        ("import sys; sys.stdout.write('null')", "null"),
+    ],
+)
+def test_logged_native_accepts_empty_whitespace_and_json_null_streams(
+    tmp_path: Path, code: str, expected_stdout: str
+) -> None:
+    result = _native_integrity_probe(tmp_path, code)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"CAPTURE={expected_stdout}" in result.stdout
+    record = json.loads((tmp_path / "commands" / "probe.jsonl").read_text(encoding="utf-8"))
+    assert record["exit_code"] == 0
+    assert record["orphan_audit"] == "PASS"
+    persisted = (tmp_path / "commands" / "probe-native.log").read_text(encoding="utf-8")
+    assert "null-valued expression" not in persisted
 
 
 def test_logged_native_redacts_before_disk_but_capture_remains_raw(tmp_path: Path) -> None:
