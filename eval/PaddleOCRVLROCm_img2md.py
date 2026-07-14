@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shutil
+import tempfile
 import time
 import traceback
 from collections.abc import Iterable, Mapping
@@ -38,6 +39,19 @@ def iter_images(img_dir: Path, limit_pages: int | None = None) -> list[Path]:
         return images
     limit = max(0, int(limit_pages))
     return images[:limit]
+
+
+def _validated_images(img_dir: Path, limit_pages: int | None) -> list[Path]:
+    all_images = iter_images(img_dir)
+    by_stem: dict[str, list[str]] = {}
+    for image in all_images:
+        by_stem.setdefault(image.stem, []).append(image.name)
+    duplicates = {stem: names for stem, names in by_stem.items() if len(names) > 1}
+    if duplicates:
+        raise ValueError(f"Duplicate output stem(s): {duplicates}")
+    if limit_pages is None:
+        return all_images
+    return all_images[: max(0, int(limit_pages))]
 
 
 def _read_env_local(repo_root: Path) -> dict[str, str]:
@@ -140,6 +154,7 @@ def run_lightweight_folder(
     """Run the local lightweight pipeline over every image in ``img_dir``."""
     if not img_dir.is_dir():
         raise SystemExit(f"Image directory not found: {img_dir}")
+    images = _validated_images(img_dir, limit_pages)
     try:
         PipelineClass = PaddleOCRVLROCm  # type: ignore[name-defined]
     except NameError:
@@ -157,23 +172,25 @@ def run_lightweight_folder(
     errors_path = out_dir / "_errors.log"
     errors_path.unlink(missing_ok=True)
     stats: list[dict] = []
-    images = iter_images(img_dir, limit_pages=limit_pages)
     for img in images:
         start = time.time()
         destination = out_dir / expected_md_name(img.name)
+        trace_path = trace_dir / f"{img.stem}.jsonl" if trace_dir is not None else None
         destination.unlink(missing_ok=True)
+        if trace_path is not None:
+            trace_path.unlink(missing_ok=True)
         try:
             trace_events: list[dict[str, Any]] | None = [] if trace_dir is not None else None
             if trace_events is None:
                 result = pipeline.predict(img)
             else:
                 result = pipeline.predict(img, vlm_trace_events=trace_events)
-            destination.write_text(result.markdown_text, encoding="utf-8")
             if trace_events is not None:
                 canonical_events = _lightweight_page_trace_events(
                     img.stem, trace_events, result.markdown_text
                 )
-                _write_trace_jsonl(trace_dir / f"{img.stem}.jsonl", canonical_events)
+                _write_trace_jsonl(trace_path, canonical_events)
+            destination.write_text(result.markdown_text, encoding="utf-8")
             page_stats = {
                 "image": img.name,
                 "status": "ok",
@@ -183,6 +200,9 @@ def run_lightweight_folder(
                 page_stats["timing"] = dict(pipeline.last_timing)
             stats.append(page_stats)
         except Exception as exc:  # noqa: BLE001 - record failure, continue
+            if trace_path is not None:
+                trace_path.unlink(missing_ok=True)
+                destination.unlink(missing_ok=True)
             tb = traceback.format_exc()
             with open(out_dir / "_errors.log", "a", encoding="utf-8") as fh:
                 fh.write(f"[{time.strftime('%Y-%m-%dT%H:%M:%S')}] {img.name}: {exc}\n{tb}\n")
@@ -259,6 +279,12 @@ def _canonical_boundary(value: object, *, available: bool) -> dict[str, str]:
     return observation(value) if available else unobservable()
 
 
+def _prehashed_observation(value: object) -> dict[str, str]:
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+        return unobservable()
+    return {"status": "observable", "fingerprint": value}
+
+
 def _lightweight_page_trace_events(
     page: str, events: list[dict[str, Any]], markdown: str
 ) -> list[dict[str, object]]:
@@ -273,12 +299,18 @@ def _lightweight_page_trace_events(
         "postprocess": ("final_result_sha256",),
     }
     page_postprocess = observation(normalize_scorer_markdown(markdown))
+    if not events:
+        return [official_page_trace(page, None, markdown)]
     canonical: list[dict[str, object]] = []
     for block_index, event in enumerate(events):
         boundaries: dict[str, dict[str, str]] = {}
         for boundary, names in fields.items():
             found, value = _direct_field(event, *names)
-            boundaries[boundary] = _canonical_boundary(value, available=found)
+            boundaries[boundary] = (
+                _prehashed_observation(value)
+                if boundary == "crop_pixels" and found
+                else _canonical_boundary(value, available=found)
+            )
         canonical.append(
             {
                 "page": page,
@@ -296,7 +328,18 @@ def _write_trace_jsonl(path: Path, events: list[dict[str, object]]) -> None:
         json.dumps(event, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
         for event in events
     )
-    path.write_text(rendered, encoding="utf-8")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(rendered)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _official_result_to_markdown(result: object) -> str:
@@ -353,7 +396,7 @@ def _official_result_to_markdown(result: object) -> str:
 
 def _direct_field(value: Mapping[str, object], *names: str) -> tuple[bool, object]:
     for name in names:
-        if name in value:
+        if name in value and value[name] is not None:
             return True, value[name]
     return False, None
 
@@ -405,7 +448,7 @@ def _official_page_trace_events(
     page: str, result: object, markdown: str
 ) -> list[dict[str, object]]:
     blocks = _extract_authenticated_official_blocks(result)
-    if blocks is None:
+    if not blocks:
         return [official_page_trace(page, result, markdown)]
     page_postprocess = observation(normalize_scorer_markdown(markdown))
     events: list[dict[str, object]] = []
@@ -415,12 +458,11 @@ def _official_page_trace_events(
 
         label_found, label = _direct_field(block, "block_label", "label")
         bbox_found, bbox = _direct_field(block, "block_bbox", "bbox", "coordinate")
-        crop_found, crop = _direct_field(block, "crop_pixels", "image_sha256", "crop_sha256")
+        crop_sha_found, crop_sha = _direct_field(block, "image_sha256", "crop_sha256")
+        crop_pixels_found, crop_pixels = _direct_field(block, "crop_pixels")
         prompt_found, prompt = _direct_field(block, "prompt")
         if not prompt_found and request_mapping is not None:
             prompt_found, prompt = _direct_field(request_mapping, "prompt")
-        if not prompt_found and request_found:
-            prompt_found, prompt = True, request
         payload_found, payload = _direct_field(block, "payload")
         if not payload_found and request_mapping is not None:
             payload_found, payload = _direct_field(request_mapping, "payload")
@@ -430,11 +472,16 @@ def _official_page_trace_events(
             raw = hashlib.sha256(raw.encode("utf-8")).hexdigest()
         if post_found and isinstance(post, str):
             post = hashlib.sha256(post.encode("utf-8")).hexdigest()
+        if crop_pixels_found and isinstance(crop_pixels, bytes):
+            crop_boundary = _prehashed_observation(hashlib.sha256(crop_pixels).hexdigest())
+        elif crop_sha_found:
+            crop_boundary = _prehashed_observation(crop_sha)
+        else:
+            crop_boundary = unobservable()
         values = {
-            "request_order": (True, block_index),
+            "request_order": _direct_field(block, "request_order"),
             "label": (label_found, label),
             "bbox": (bbox_found, bbox),
-            "crop_pixels": (crop_found, crop),
             "prompt": (prompt_found, prompt),
             "payload": (payload_found, payload),
             "raw_result": (raw_found, raw),
@@ -447,7 +494,8 @@ def _official_page_trace_events(
                 "boundaries": {
                     name: _canonical_boundary(value, available=available)
                     for name, (available, value) in values.items()
-                },
+                }
+                | {"crop_pixels": crop_boundary},
                 "page_postprocess": page_postprocess,
             }
         )
@@ -492,6 +540,7 @@ def run_official_folder(
 ) -> dict:
     if not img_dir.is_dir():
         raise SystemExit(f"Image directory not found: {img_dir}")
+    images = _validated_images(img_dir, limit_pages)
     try:
         from paddleocr import PaddleOCRVL
     except ImportError as exc:
@@ -512,12 +561,14 @@ def run_official_folder(
     stats_path.unlink(missing_ok=True)
 
     stats: list[dict] = []
-    images = iter_images(img_dir, limit_pages=limit_pages)
     page_retries = max(0, int(page_retries))
 
     for img in images:
         start = time.time()
         destination = out_dir / expected_md_name(img.name)
+        trace_path = trace_dir / f"{img.stem}.jsonl" if trace_dir is not None else None
+        if trace_path is not None:
+            trace_path.unlink(missing_ok=True)
         fallback_path = (
             fallback_pred_dir / expected_md_name(img.name)
             if fallback_pred_dir is not None
@@ -546,12 +597,11 @@ def run_official_folder(
                 else:
                     markdown = _official_result_to_markdown(result)
                 markdown = _normalize_official_markdown_for_omnidocbench(markdown)
-                destination.write_text(markdown, encoding="utf-8")
                 if trace_dir is not None:
                     _write_trace_jsonl(
-                        trace_dir / f"{img.stem}.jsonl",
-                        _official_page_trace_events(img.stem, result, markdown),
+                        trace_path, _official_page_trace_events(img.stem, result, markdown)
                     )
+                destination.write_text(markdown, encoding="utf-8")
                 stats.append(
                     {
                         "image": img.name,
@@ -564,10 +614,14 @@ def run_official_folder(
             except Exception as exc:
                 last_exc = exc
                 last_tb = traceback.format_exc()
+                if trace_path is not None:
+                    trace_path.unlink(missing_ok=True)
                 if attempt < page_retries:
                     time.sleep(min(2.0, 0.25 * attempts))
                     continue
         else:
+            if trace_path is not None:
+                trace_path.unlink(missing_ok=True)
             if fallback_path is not None and fallback_path.is_file():
                 if not fallback_is_destination:
                     shutil.copyfile(fallback_path, destination)

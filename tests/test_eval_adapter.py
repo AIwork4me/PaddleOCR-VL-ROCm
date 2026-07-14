@@ -7,6 +7,8 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
+
 from eval.task5_comparison import BOUNDARIES
 from paddleocr_vl_rocm.pipeline import PaddleOCRVLROCm
 
@@ -332,6 +334,37 @@ def test_lightweight_trace_capture_is_opt_in_and_fingerprint_only(tmp_path, monk
         assert secret not in raw
 
 
+def test_lightweight_zero_vlm_events_write_explicit_page_record(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    img_dir.mkdir()
+    (img_dir / "page.png").write_bytes(b"image")
+
+    class FakeResult:
+        markdown_text = "markdown"
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            self.layout_provider_requested = "auto"
+            self.layout_providers_active = []
+            self.last_timing = None
+
+        def _layout(self):
+            pass
+
+        def predict(self, image_path, *, vlm_trace_events=None):
+            return FakeResult()
+
+    monkeypatch.setattr(mod, "PaddleOCRVLROCm", FakePipeline, raising=False)
+    traces = tmp_path / "traces"
+
+    mod.run_lightweight_folder(img_dir=img_dir, out_dir=tmp_path / "out", trace_dir=traces)
+
+    event = json.loads((traces / "page.jsonl").read_text(encoding="utf-8"))
+    assert event["block_index"] is None
+    assert event["block_structure"] == {"status": "unobservable"}
+
+
 def test_predict_optionally_forwards_vlm_trace_events(monkeypatch, tmp_path):
     captured = {}
     image = tmp_path / "input.png"
@@ -391,6 +424,44 @@ def test_official_page_trace_observes_only_direct_block_fields():
     assert event["boundaries"]["crop_pixels"] == {"status": "unobservable"}
 
 
+def test_official_does_not_infer_request_order_prompt_or_none_fields():
+    mod = _load_adapter()
+    events = mod._official_page_trace_events(
+        "page",
+        {
+            "res": {
+                "parsing_res_list": [
+                    {
+                        "block_label": None,
+                        "request": {"payload": {"model": "model"}},
+                        "raw_result": None,
+                    }
+                ]
+            }
+        },
+        "markdown",
+    )
+
+    boundaries = events[0]["boundaries"]
+    assert boundaries["request_order"] == {"status": "unobservable"}
+    assert boundaries["label"] == {"status": "unobservable"}
+    assert boundaries["prompt"] == {"status": "unobservable"}
+    assert boundaries["raw_result"] == {"status": "unobservable"}
+    assert boundaries["payload"]["status"] == "observable"
+
+
+def test_official_empty_authenticated_block_list_is_not_zero_evidence():
+    mod = _load_adapter()
+
+    events = mod._official_page_trace_events(
+        "page", {"res": {"parsing_res_list": []}}, "markdown"
+    )
+
+    assert len(events) == 1
+    assert events[0]["block_index"] is None
+    assert events[0]["block_structure"] == {"status": "unobservable"}
+
+
 def test_official_and_lightweight_content_hash_boundaries_are_comparable():
     mod = _load_adapter()
     raw = "same raw result"
@@ -431,6 +502,141 @@ def test_official_and_lightweight_content_hash_boundaries_are_comparable():
 
     assert official["boundaries"]["raw_result"] == lightweight["boundaries"]["raw_result"]
     assert official["boundaries"]["postprocess"] == lightweight["boundaries"]["postprocess"]
+
+
+def test_crop_pixels_and_prehashed_image_sha256_use_one_representation():
+    mod = _load_adapter()
+    pixels = b"same crop pixels"
+    digest = hashlib.sha256(pixels).hexdigest()
+    lightweight = mod._lightweight_page_trace_events(
+        "page", [{"image_sha256": digest}], "markdown"
+    )[0]
+    same_official = mod._official_page_trace_events(
+        "page", {"res": {"parsing_res_list": [{"crop_pixels": pixels}]}}, "markdown"
+    )[0]
+    different_official = mod._official_page_trace_events(
+        "page",
+        {"res": {"parsing_res_list": [{"crop_pixels": b"different pixels"}]}},
+        "markdown",
+    )[0]
+
+    assert same_official["boundaries"]["crop_pixels"] == lightweight["boundaries"]["crop_pixels"]
+    assert (
+        different_official["boundaries"]["crop_pixels"]
+        != lightweight["boundaries"]["crop_pixels"]
+    )
+
+
+def test_trace_write_failure_removes_stale_and_partial_trace(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    out_dir = tmp_path / "out"
+    trace_dir = tmp_path / "traces"
+    img_dir.mkdir()
+    trace_dir.mkdir()
+    (img_dir / "page.png").write_bytes(b"image")
+    target = trace_dir / "page.jsonl"
+    target.write_text("stale", encoding="utf-8")
+
+    class FakeResult:
+        markdown_text = "markdown"
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            self.layout_provider_requested = "auto"
+            self.layout_providers_active = []
+            self.last_timing = None
+
+        def _layout(self):
+            pass
+
+        def predict(self, image_path, *, vlm_trace_events=None):
+            vlm_trace_events.append({"request_order": 0})
+            return FakeResult()
+
+    monkeypatch.setattr(mod, "PaddleOCRVLROCm", FakePipeline, raising=False)
+    monkeypatch.setattr(mod.os, "replace", lambda source, destination: (_ for _ in ()).throw(OSError("replace failed")))
+
+    with pytest.raises(SystemExit):
+        mod.run_lightweight_folder(img_dir=img_dir, out_dir=out_dir, trace_dir=trace_dir)
+
+    assert not target.exists()
+    assert list(trace_dir.iterdir()) == []
+
+
+def test_official_fallback_removes_stale_trace(tmp_path, monkeypatch):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    out_dir = tmp_path / "out"
+    fallback_dir = tmp_path / "fallback"
+    trace_dir = tmp_path / "traces"
+    img_dir.mkdir()
+    fallback_dir.mkdir()
+    trace_dir.mkdir()
+    (img_dir / "page.png").write_bytes(b"image")
+    (fallback_dir / "page.md").write_text("fallback", encoding="utf-8")
+    stale = trace_dir / "page.jsonl"
+    stale.write_text("stale", encoding="utf-8")
+
+    class FailingOfficial:
+        def __init__(self, **kwargs):
+            pass
+
+        def predict(self, image_path):
+            raise RuntimeError("controlled")
+
+    monkeypatch.setitem(
+        sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=FailingOfficial)
+    )
+
+    summary = mod.run_official_folder(
+        img_dir=img_dir,
+        out_dir=out_dir,
+        server_url="http://server/v1",
+        api_model_name="model",
+        page_retries=0,
+        fallback_pred_dir=fallback_dir,
+        trace_dir=trace_dir,
+    )
+
+    assert summary["fallback"] == 1
+    assert not stale.exists()
+
+
+@pytest.mark.parametrize("engine", ["lightweight", "official"])
+def test_duplicate_image_stems_fail_before_inference(tmp_path, monkeypatch, engine):
+    mod = _load_adapter()
+    img_dir = tmp_path / "images"
+    img_dir.mkdir()
+    (img_dir / "page.png").write_bytes(b"image")
+    (img_dir / "page.jpg").write_bytes(b"image")
+
+    if engine == "lightweight":
+        class ForbiddenPipeline:
+            def __init__(self, **kwargs):
+                raise AssertionError("inference initialized before stem validation")
+
+        monkeypatch.setattr(mod, "PaddleOCRVLROCm", ForbiddenPipeline, raising=False)
+
+        def call():
+            return mod.run_lightweight_folder(img_dir=img_dir, out_dir=tmp_path / "out")
+    else:
+        class ForbiddenOfficial:
+            def __init__(self, **kwargs):
+                raise AssertionError("inference initialized before stem validation")
+
+        monkeypatch.setitem(sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=ForbiddenOfficial))
+
+        def call():
+            return mod.run_official_folder(
+                img_dir=img_dir,
+                out_dir=tmp_path / "out",
+                server_url="http://server/v1",
+                api_model_name="model",
+            )
+
+    with pytest.raises(ValueError, match="Duplicate output stem"):
+        call()
 
 
 def test_official_page_trace_without_authenticated_blocks_is_page_level_unknown():

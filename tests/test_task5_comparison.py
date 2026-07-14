@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from eval.task5_comparison import (
+    APPROVED_EXCLUDED_STEM,
     BOUNDARIES,
     compare_boundary_documents,
     compare_canonical_traces,
@@ -15,7 +16,7 @@ from eval.task5_comparison import (
     unobservable,
 )
 
-APPROVED_STEM = "approved-failed-page"
+APPROVED_STEM = "newspaper_The Times UK_0801@magazinesclubnew_page_031"
 
 
 def _write_prediction_pairs(tmp_path: Path, count: int) -> tuple[Path, Path]:
@@ -71,6 +72,27 @@ def test_output_comparison_fails_a_non_1650_denominator(tmp_path: Path) -> None:
     assert report["paired_pages"] == 2
 
 
+def test_output_comparison_rejects_an_arbitrary_excluded_stem(tmp_path: Path) -> None:
+    official, lightweight = _write_prediction_pairs(tmp_path, count=1650)
+    (official / "page-0000.md").write_text("different", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=APPROVED_EXCLUDED_STEM):
+        compare_prediction_dirs(official, lightweight, "page-0000")
+
+
+def test_output_report_records_fixed_exclusion_presence_on_each_side(tmp_path: Path) -> None:
+    official, lightweight = _write_prediction_pairs(tmp_path, count=1650)
+    (lightweight / f"{APPROVED_STEM}.md").write_text("extra", encoding="utf-8")
+
+    report = compare_prediction_dirs(official, lightweight, APPROVED_STEM)
+
+    assert report["approved_exclusion"] == {
+        "stem": APPROVED_STEM,
+        "official_present": False,
+        "lightweight_present": True,
+    }
+
+
 def test_observation_records_only_status_and_redacted_fingerprint() -> None:
     record = observation({"prompt": "private", "token": "secret"})
 
@@ -120,6 +142,13 @@ def test_missing_event_is_a_proven_structural_difference() -> None:
     assert report["first_divergence_counts"]["event_structure"] == 1
 
 
+def test_zero_evidence_never_passes() -> None:
+    report = compare_boundary_documents(official=[], lightweight=[])
+
+    assert report["verdict"] == "FAIL"
+    assert report["first_divergence_counts"]["event_structure"] == 1
+
+
 def test_page_level_unobservable_official_trace_yields_unknown() -> None:
     page_record = {
         "page": "a",
@@ -134,6 +163,35 @@ def test_page_level_unobservable_official_trace_yields_unknown() -> None:
     )
 
     assert report["verdict"] == "UNKNOWN"
+
+
+def test_page_level_record_missing_from_other_side_is_structural_fail() -> None:
+    page_record = {
+        "page": "a",
+        "block_index": None,
+        "block_structure": unobservable(),
+        "boundaries": {name: unobservable() for name in BOUNDARIES},
+        "page_postprocess": observation("markdown"),
+    }
+
+    report = compare_boundary_documents(official=[page_record], lightweight=[])
+
+    assert report["verdict"] == "FAIL"
+    assert report["first_divergence_counts"]["event_structure"] == 1
+
+
+def test_page_level_and_block_records_cannot_mix_for_one_page() -> None:
+    page_record = {
+        "page": "a",
+        "block_index": None,
+        "block_structure": unobservable(),
+        "boundaries": {name: unobservable() for name in BOUNDARIES},
+    }
+
+    with pytest.raises(ValueError, match="mix"):
+        compare_boundary_documents(
+            official=[page_record, _event(page="a")], lightweight=[_event(page="a")]
+        )
 
 
 def test_trace_schema_rejects_null_block_index_without_unobservable_structure() -> None:
@@ -175,3 +233,63 @@ def test_canonical_trace_directory_comparison_counts_all_but_bounds_details(
     rendered = json.dumps(report)
     assert "same markdown" not in rendered
     assert '"a"' not in rendered
+
+
+def test_canonical_trace_directories_require_exactly_1650_nonempty_paired_pages(
+    tmp_path: Path,
+) -> None:
+    official = tmp_path / "official"
+    lightweight = tmp_path / "lightweight"
+    official.mkdir()
+    lightweight.mkdir()
+    for index in range(1649):
+        page = f"page-{index:04d}"
+        rendered = json.dumps(_event(page=page), sort_keys=True) + "\n"
+        (official / f"{page}.jsonl").write_text(rendered, encoding="utf-8")
+        (lightweight / f"{page}.jsonl").write_text(rendered, encoding="utf-8")
+
+    report = compare_canonical_traces(official, lightweight)
+
+    assert report["verdict"] == "FAIL"
+    assert report["paired_pages"] == 1649
+    assert report["expected_paired_pages"] == 1650
+
+    final_page = "page-1649"
+    rendered = json.dumps(_event(page=final_page), sort_keys=True) + "\n"
+    (official / f"{final_page}.jsonl").write_text(rendered, encoding="utf-8")
+    (lightweight / f"{final_page}.jsonl").write_text(rendered, encoding="utf-8")
+
+    complete_report = compare_canonical_traces(official, lightweight)
+
+    assert complete_report["verdict"] == "PASS"
+    assert complete_report["paired_pages"] == 1650
+
+
+def test_empty_trace_files_are_zero_evidence_failures(tmp_path: Path) -> None:
+    official = tmp_path / "official"
+    lightweight = tmp_path / "lightweight"
+    official.mkdir()
+    lightweight.mkdir()
+    for directory in (official, lightweight):
+        (directory / "page.jsonl").write_text("", encoding="utf-8")
+
+    report = compare_canonical_traces(official, lightweight)
+
+    assert report["verdict"] == "FAIL"
+    assert report["empty_page_traces"] == 2
+
+
+def test_evidence_hash_covers_later_boundaries_not_only_first_divergence() -> None:
+    reference = _event(postprocess=observation("reference-post"))
+    first_candidate = _event(
+        raw_result=observation("different-raw"), postprocess=observation("candidate-one")
+    )
+    second_candidate = _event(
+        raw_result=observation("different-raw"), postprocess=observation("candidate-two")
+    )
+
+    first = compare_boundary_documents([reference], [first_candidate])
+    second = compare_boundary_documents([reference], [second_candidate])
+
+    assert first["first_divergence_counts"] == second["first_divergence_counts"]
+    assert first["evidence_fingerprint"] != second["evidence_fingerprint"]

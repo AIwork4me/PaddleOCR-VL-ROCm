@@ -21,6 +21,7 @@ BOUNDARIES = (
 )
 EXPECTED_PAIRED_PAGES = 1650
 DETAIL_LIMIT = 100
+APPROVED_EXCLUDED_STEM = "newspaper_The Times UK_0801@magazinesclubnew_page_031"
 
 
 def observation(value: object) -> dict[str, str]:
@@ -50,6 +51,12 @@ def compare_prediction_dirs(
     official_dir: Path, lightweight_dir: Path, approved_excluded_stem: str
 ) -> dict[str, object]:
     """Compare the exact 1,650 scorer-facing Markdown pairs by filename stem."""
+    if approved_excluded_stem != APPROVED_EXCLUDED_STEM:
+        raise ValueError(f"approved_excluded_stem must be {APPROVED_EXCLUDED_STEM!r}")
+    official_exclusion_present = (official_dir / f"{APPROVED_EXCLUDED_STEM}.md").is_file()
+    lightweight_exclusion_present = (
+        lightweight_dir / f"{APPROVED_EXCLUDED_STEM}.md"
+    ).is_file()
     official = _markdown_files(official_dir, approved_excluded_stem)
     lightweight = _markdown_files(lightweight_dir, approved_excluded_stem)
     common = sorted(official.keys() & lightweight.keys())
@@ -101,7 +108,11 @@ def compare_prediction_dirs(
         "different_pages": different,
         "official_only_pages": len(official_only),
         "lightweight_only_pages": len(lightweight_only),
-        "approved_excluded_stem": approved_excluded_stem,
+        "approved_exclusion": {
+            "stem": APPROVED_EXCLUDED_STEM,
+            "official_present": official_exclusion_present,
+            "lightweight_present": lightweight_exclusion_present,
+        },
         "evidence_fingerprint": fingerprint(evidence),
         "details": details,
         "details_truncated": total_details > len(details),
@@ -112,21 +123,35 @@ def compare_boundary_documents(
     official: list[dict[str, object]], lightweight: list[dict[str, object]]
 ) -> dict[str, object]:
     """Compare validated canonical events with FAIL > UNKNOWN > PASS precedence."""
-    official_events, official_unknown_pages = _index_events(official, "official")
-    lightweight_events, lightweight_unknown_pages = _index_events(lightweight, "lightweight")
-    unknown_pages = official_unknown_pages | lightweight_unknown_pages
+    official_events, official_page_records = _index_events(official, "official")
+    lightweight_events, lightweight_page_records = _index_events(lightweight, "lightweight")
+    official_pages = {key[0] for key in official_events} | set(official_page_records)
+    lightweight_pages = {key[0] for key in lightweight_events} | set(lightweight_page_records)
+    missing_pages = official_pages ^ lightweight_pages
+    shared_pages = official_pages & lightweight_pages
+    unknown_pages = {
+        page
+        for page in shared_pages
+        if page in official_page_records or page in lightweight_page_records
+    }
+    all_official_events = official_events
+    all_lightweight_events = lightweight_events
     official_events = {
-        key: value for key, value in official_events.items() if key[0] not in unknown_pages
+        key: value
+        for key, value in official_events.items()
+        if key[0] not in unknown_pages and key[0] not in missing_pages
     }
     lightweight_events = {
-        key: value for key, value in lightweight_events.items() if key[0] not in unknown_pages
+        key: value
+        for key, value in lightweight_events.items()
+        if key[0] not in unknown_pages and key[0] not in missing_pages
     }
 
     counts: Counter[str] = Counter()
     unobservable_counts: Counter[str] = Counter()
     details: list[dict[str, object]] = []
     all_evidence: list[dict[str, object]] = []
-    different_records = 0
+    different_records = len(missing_pages)
     unobservable_records = len(unknown_pages)
 
     def record(row: dict[str, object], *, detail: bool = True) -> None:
@@ -134,9 +159,43 @@ def compare_boundary_documents(
         if detail and len(details) < DETAIL_LIMIT:
             details.append(row)
 
+    if not official_pages and not lightweight_pages:
+        different_records = 1
+        counts["event_structure"] += 1
+        record({"relation": "different", "boundary": "event_structure", "reason": "zero_evidence"})
+
+    for page in sorted(missing_pages):
+        counts["event_structure"] += 1
+        source_events = _page_evidence(
+            page,
+            all_official_events if page in official_pages else all_lightweight_events,
+            official_page_records if page in official_pages else lightweight_page_records,
+        )
+        record(
+            {
+                "page": page,
+                "relation": "different",
+                "boundary": "event_structure",
+                "missing_from": "lightweight" if page in official_pages else "official",
+                "available_evidence": source_events,
+            }
+        )
+
     for page in sorted(unknown_pages):
         unobservable_counts["block_structure"] += 1
-        record({"page": page, "relation": "unobservable", "boundary": "block_structure"})
+        record(
+            {
+                "page": page,
+                "relation": "unobservable",
+                "boundary": "block_structure",
+                "official_evidence": _page_evidence(
+                    page, all_official_events, official_page_records
+                ),
+                "lightweight_evidence": _page_evidence(
+                    page, all_lightweight_events, lightweight_page_records
+                ),
+            }
+        )
 
     all_keys = sorted(set(official_events) | set(lightweight_events))
     for key in all_keys:
@@ -153,6 +212,7 @@ def compare_boundary_documents(
                     "relation": "different",
                     "boundary": "event_structure",
                     "missing_from": "official" if reference is None else "lightweight",
+                    "available_evidence": _safe_event(candidate or reference),
                 }
             )
             continue
@@ -174,20 +234,43 @@ def compare_boundary_documents(
             elif relation == "unobservable":
                 unobservable_counts[boundary] += 1
                 event_unobservable = True
+        record(
+            {
+                "page": page,
+                "block_index": block_index,
+                "relation": (
+                    "different"
+                    if first_difference is not None
+                    else "unobservable"
+                    if event_unobservable
+                    else "equal"
+                ),
+                "boundaries": {
+                    item["boundary"]: {
+                        "relation": item["relation"],
+                        "official": dict(reference_boundaries[item["boundary"]]),
+                        "lightweight": dict(candidate_boundaries[item["boundary"]]),
+                    }
+                    for item in relations
+                },
+            },
+            detail=False,
+        )
         if first_difference is not None:
             different_records += 1
             counts[first_difference] += 1
-            record(
+            if len(details) < DETAIL_LIMIT:
+                details.append(
                 {
                     "page": page,
                     "block_index": block_index,
                     "relation": "different",
                     "boundary": first_difference,
-                }
-            )
+                })
         elif event_unobservable:
             unobservable_records += 1
-            record(
+            if len(details) < DETAIL_LIMIT:
+                details.append(
                 {
                     "page": page,
                     "block_index": block_index,
@@ -195,13 +278,7 @@ def compare_boundary_documents(
                     "boundaries": [
                         item["boundary"] for item in relations if item["relation"] == "unobservable"
                     ],
-                }
-            )
-        else:
-            record(
-                {"page": page, "block_index": block_index, "relation": "equal"},
-                detail=False,
-            )
+                })
 
     verdict = "FAIL" if different_records else "UNKNOWN" if unobservable_records else "PASS"
     ordered_counts = {"event_structure": counts["event_structure"]}
@@ -224,9 +301,56 @@ def compare_boundary_documents(
 
 
 def compare_canonical_traces(official_dir: Path, lightweight_dir: Path) -> dict[str, object]:
-    official = _read_trace_dir(official_dir)
-    lightweight = _read_trace_dir(lightweight_dir)
-    return compare_boundary_documents(official, lightweight)
+    official_files = _trace_files(official_dir)
+    lightweight_files = _trace_files(lightweight_dir)
+    official_pages = set(official_files)
+    lightweight_pages = set(lightweight_files)
+    common_pages = official_pages & lightweight_pages
+    official: list[dict[str, object]] = []
+    lightweight: list[dict[str, object]] = []
+    official_empty_pages: list[str] = []
+    lightweight_empty_pages: list[str] = []
+    for page, path in official_files.items():
+        events = _read_trace_file(path)
+        if not events:
+            official_empty_pages.append(page)
+        _validate_trace_page(events, page, path)
+        official.extend(events)
+    for page, path in lightweight_files.items():
+        events = _read_trace_file(path)
+        if not events:
+            lightweight_empty_pages.append(page)
+        _validate_trace_page(events, page, path)
+        lightweight.extend(events)
+    report = compare_boundary_documents(official, lightweight)
+    empty_page_traces = len(official_empty_pages) + len(lightweight_empty_pages)
+    coverage = {
+        "expected_paired_pages": EXPECTED_PAIRED_PAGES,
+        "paired_pages": len(common_pages),
+        "official_only_pages": len(official_pages - lightweight_pages),
+        "lightweight_only_pages": len(lightweight_pages - official_pages),
+        "empty_page_traces": empty_page_traces,
+    }
+    coverage_fail = (
+        len(common_pages) != EXPECTED_PAIRED_PAGES
+        or official_pages != lightweight_pages
+        or empty_page_traces > 0
+    )
+    if coverage_fail:
+        report["verdict"] = "FAIL"
+    report["evidence_fingerprint"] = fingerprint(
+        {
+            "coverage": {
+                "official_pages": sorted(official_pages),
+                "lightweight_pages": sorted(lightweight_pages),
+                "official_empty_pages": official_empty_pages,
+                "lightweight_empty_pages": lightweight_empty_pages,
+            },
+            "boundary_evidence": report["evidence_fingerprint"],
+        }
+    )
+    report.update(coverage)
+    return report
 
 
 def _markdown_files(directory: Path, excluded_stem: str) -> dict[str, Path]:
@@ -281,36 +405,88 @@ def _validate_event(event: dict[str, object]) -> tuple[str, int | None]:
 
 def _index_events(
     events: list[dict[str, object]], side: str
-) -> tuple[dict[tuple[str, int], dict[str, object]], set[str]]:
+) -> tuple[dict[tuple[str, int], dict[str, object]], dict[str, dict[str, object]]]:
     indexed: dict[tuple[str, int], dict[str, object]] = {}
-    unknown_pages: set[str] = set()
+    page_records: dict[str, dict[str, object]] = {}
     for event in events:
         if not isinstance(event, dict):
             raise ValueError(f"{side} trace event must be an object")
         page, block_index = _validate_event(event)
         if block_index is None:
-            if page in unknown_pages:
+            if page in page_records:
                 raise ValueError(f"Duplicate {side} page-level trace: {page}")
-            unknown_pages.add(page)
+            if any(key[0] == page for key in indexed):
+                raise ValueError(f"Cannot mix {side} page-level and block records: {page}")
+            page_records[page] = event
             continue
+        if page in page_records:
+            raise ValueError(f"Cannot mix {side} page-level and block records: {page}")
         key = (page, block_index)
         if key in indexed:
             raise ValueError(f"Duplicate {side} trace key: {key}")
         indexed[key] = event
-    return indexed, unknown_pages
+    return indexed, page_records
 
 
 def _read_trace_dir(directory: Path) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    for path in _trace_files(directory).values():
+        events.extend(_read_trace_file(path))
+    return events
+
+
+def _trace_files(directory: Path) -> dict[str, Path]:
     if not directory.is_dir():
         raise ValueError(f"Trace directory not found: {directory}")
+    return {path.stem: path for path in sorted(directory.glob("*.jsonl"))}
+
+
+def _read_trace_file(path: Path) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
-    for path in sorted(directory.glob("*.jsonl")):
-        with path.open("r", encoding="utf-8") as stream:
-            for line_number, line in enumerate(stream, start=1):
-                if not line.strip():
-                    continue
-                value = json.loads(line)
-                if not isinstance(value, dict):
-                    raise ValueError(f"{path}:{line_number}: trace event must be an object")
-                events.append(value)
+    with path.open("r", encoding="utf-8") as stream:
+        for line_number, line in enumerate(stream, start=1):
+            if not line.strip():
+                continue
+            value = json.loads(line)
+            if not isinstance(value, dict):
+                raise ValueError(f"{path}:{line_number}: trace event must be an object")
+            events.append(value)
     return events
+
+
+def _validate_trace_page(events: list[dict[str, object]], page: str, path: Path) -> None:
+    for event in events:
+        if event.get("page") != page:
+            raise ValueError(f"{path}: trace page must match filename stem {page!r}")
+
+
+def _safe_event(event: dict[str, object] | None) -> dict[str, object] | None:
+    if event is None:
+        return None
+    safe = {
+        "page": event["page"],
+        "block_index": event["block_index"],
+        "boundaries": {
+            name: dict(value)
+            for name, value in event["boundaries"].items()
+        },
+    }
+    for name in ("block_structure", "page_postprocess"):
+        if name in event:
+            safe[name] = dict(event[name])
+    return safe
+
+
+def _page_evidence(
+    page: str,
+    events: dict[tuple[str, int], dict[str, object]],
+    page_records: dict[str, dict[str, object]],
+) -> list[dict[str, object]]:
+    if page in page_records:
+        safe = _safe_event(page_records[page])
+        return [safe] if safe is not None else []
+    return [
+        _safe_event(event)
+        for key, event in sorted(events.items())
+        if key[0] == page
+    ]

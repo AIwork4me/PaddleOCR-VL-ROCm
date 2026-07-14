@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import sys
 from types import SimpleNamespace
 
-from paddleocr_vl_rocm.contracts import fingerprint
-from scripts import record_trace
+import pytest
+
 from eval.task5_comparison import observation, unobservable
+from paddleocr_vl_rocm.contracts import fingerprint
+from scripts import compare_inference_traces as compare_script
+from scripts import record_trace
 from scripts.compare_inference_traces import compare_boundary_documents, compare_traces
 from scripts.record_trace import build_parser as build_record_parser
 from scripts.record_trace import write_trace_jsonl
@@ -132,6 +136,84 @@ def test_canonical_comparison_prioritizes_fail_over_unknown():
 
     assert report["verdict"] == "FAIL"
     assert report["first_divergence_counts"]["postprocess"] == 1
+
+
+def test_cli_detects_nested_canonical_boundaries(tmp_path, monkeypatch, capsys):
+    reference = tmp_path / "reference.jsonl"
+    candidate = tmp_path / "candidate.jsonl"
+    boundaries = {
+        name: observation(name)
+        for name in (
+            "request_order",
+            "label",
+            "bbox",
+            "crop_pixels",
+            "prompt",
+            "payload",
+            "raw_result",
+            "postprocess",
+        )
+    }
+    changed = dict(boundaries)
+    changed["postprocess"] = observation("different")
+    reference.write_text(
+        json.dumps({"page": "page", "block_index": 0, "boundaries": boundaries}) + "\n",
+        encoding="utf-8",
+    )
+    candidate.write_text(
+        json.dumps({"page": "page", "block_index": 0, "boundaries": changed}) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys, "argv", ["compare", str(reference), str(candidate)])
+
+    compare_script.main()
+
+    report = json.loads(capsys.readouterr().out)
+    assert report["verdict"] == "FAIL"
+    assert report["first_divergence_counts"]["postprocess"] == 1
+
+
+def test_cli_retains_legacy_flat_trace_compatibility(tmp_path, monkeypatch, capsys):
+    reference = tmp_path / "reference.jsonl"
+    candidate = tmp_path / "candidate.jsonl"
+    reference.write_text(json.dumps(_event()) + "\n", encoding="utf-8")
+    candidate.write_text(json.dumps(_event(final_result_sha256="different")) + "\n", encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["compare", str(reference), str(candidate)])
+
+    compare_script.main()
+
+    report = json.loads(capsys.readouterr().out)
+    assert report["difference_count"] == 1
+    assert report["summary"]["postprocess"] == 1
+
+
+def test_cli_rejects_mixed_flat_and_canonical_events(tmp_path, monkeypatch):
+    reference = tmp_path / "reference.jsonl"
+    candidate = tmp_path / "candidate.jsonl"
+    canonical = {
+        "page": "page",
+        "block_index": 0,
+        "boundaries": {
+            name: observation(name)
+            for name in (
+                "request_order",
+                "label",
+                "bbox",
+                "crop_pixels",
+                "prompt",
+                "payload",
+                "raw_result",
+                "postprocess",
+            )
+        },
+    }
+    rendered = json.dumps(canonical) + "\n" + json.dumps(_event()) + "\n"
+    reference.write_text(rendered, encoding="utf-8")
+    candidate.write_text(rendered, encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["compare", str(reference), str(candidate)])
+
+    with pytest.raises(SystemExit, match="mixed"):
+        compare_script.main()
 
 
 def test_record_trace_defaults_to_v16_llama_cpp():

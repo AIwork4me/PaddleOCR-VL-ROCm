@@ -134,12 +134,29 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _trace_schema(events: list[TraceEvent]) -> str:
+    kinds = {"canonical" if "boundaries" in event else "legacy" for event in events}
+    if len(kinds) > 1:
+        raise SystemExit("mixed canonical and legacy events are not allowed")
+    return next(iter(kinds), "empty")
+
+
 def main() -> None:
     args = build_parser().parse_args()
     if args.reference.is_dir() and args.candidate.is_dir():
         report = compare_canonical_traces(args.reference, args.candidate)
     elif args.reference.is_file() and args.candidate.is_file():
-        report = compare_traces(_read_jsonl(args.reference), _read_jsonl(args.candidate))
+        reference = _read_jsonl(args.reference)
+        candidate = _read_jsonl(args.candidate)
+        reference_schema = _trace_schema(reference)
+        candidate_schema = _trace_schema(candidate)
+        if reference_schema != candidate_schema:
+            raise SystemExit("reference and candidate trace schemas do not match")
+        report = (
+            compare_boundary_documents(reference, candidate)
+            if reference_schema in {"canonical", "empty"}
+            else compare_traces(reference, candidate)
+        )
     else:
         raise SystemExit("reference and candidate must both be files or both be directories")
     rendered = json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
