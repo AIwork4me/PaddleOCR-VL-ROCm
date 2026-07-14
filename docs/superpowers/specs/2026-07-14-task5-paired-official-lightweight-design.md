@@ -183,8 +183,9 @@ scalar summaries, and both SHA-256 values. Full raw content remains external.
 ### 4.6 Decision engine and receipt generator
 
 The decision engine emits two independent verdicts: `strict_equivalence` and
-`amd_adaptation`. The receipt then hashes the selected attempt manifest, score
-summaries, comparison reports, decision, and small environment attestations.
+`amd_adaptation`. The receipt then hashes the shared Task 5 manifest, the
+selected attempt's final state and candidate, score summaries, comparison
+reports, decision, and small environment attestations.
 All authoritative identities use complete lowercase SHA-256 values.
 
 ### 4.7 Attempt-local receipt and atomic selection
