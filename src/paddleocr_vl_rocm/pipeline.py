@@ -23,7 +23,7 @@ class PaddleOCRVLROCm:
         timeout: float = 300.0,
         seed: int = 1,
         threshold: float = 0.3,
-        vlm_max_workers: int = 1,
+        vlm_max_workers: int = 8,
         layout_provider: str = "auto",
         skip_server_check: bool = False,
         layout_profile_prefix: Path | None = None,
