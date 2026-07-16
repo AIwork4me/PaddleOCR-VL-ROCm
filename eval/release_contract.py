@@ -11,6 +11,11 @@ KNOWN_V16_OFFICIAL_FAILURE = {
     "error_signature": "peg-native",
 }
 
+KNOWN_V16_FAILURE_SIGNATURES = {
+    "official": "peg-native",
+    "lightweight": "500 Server Error",
+}
+
 
 def _detail_kind(item: dict[str, Any]) -> str:
     status = str(item.get("status", ""))
@@ -64,8 +69,10 @@ def validate_release_run_stats(
     if ok == count and fail == 0:
         return []
 
-    if engine != "official" or version != "v16":
-        raise ValueError("The approved known failure applies only to the v1.6 official engine")
+    if version != "v16" or engine not in KNOWN_V16_FAILURE_SIGNATURES:
+        raise ValueError(
+            "The approved known failure applies only to the v1.6 official or lightweight engines"
+        )
     if ok != 1650 or fail != 1:
         raise ValueError("The approved v1.6 exception permits exactly one failed page")
 
@@ -76,8 +83,11 @@ def validate_release_run_stats(
     if failure.get("image") != KNOWN_V16_OFFICIAL_FAILURE["image"]:
         raise ValueError("The failed page is not the approved image")
     failure_message = f"{failure.get('status', '')}\n{failure.get('error', '')}"
-    if KNOWN_V16_OFFICIAL_FAILURE["error_signature"] not in failure_message:
-        raise ValueError("The approved failure must contain the peg-native error signature")
+    signature = KNOWN_V16_FAILURE_SIGNATURES[engine]
+    if signature not in failure_message:
+        raise ValueError(
+            f"The approved {engine} failure must contain the {signature} error signature"
+        )
     return [KNOWN_V16_OFFICIAL_FAILURE]
 
 

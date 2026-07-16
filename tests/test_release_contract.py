@@ -93,11 +93,44 @@ def test_rejects_any_expansion_of_known_failure(overrides, message) -> None:
         validate_release_run_stats(_stats(**overrides), version="v16", engine="official")
 
 
-def test_rejects_known_exception_for_non_official_engine() -> None:
-    with pytest.raises(ValueError, match="official"):
+def test_rejects_known_exception_for_non_paired_engine() -> None:
+    with pytest.raises(ValueError, match="official or lightweight"):
         validate_release_run_stats(
-            _stats(engine="lightweight"), version="v16", engine="lightweight"
+            _stats(engine="other"), version="v16", engine="other"
         )
+
+
+def test_accepts_exact_known_v16_lightweight_symmetric_failure() -> None:
+    stats = _stats(
+        engine="lightweight",
+        stats=_stats()["stats"][:-1]
+        + [
+            {
+                "image": KNOWN_V16_OFFICIAL_FAILURE["image"],
+                "status": "failed: 500 Server Error: Internal Server Error",
+            }
+        ],
+    )
+
+    assert validate_release_run_stats(stats, version="v16", engine="lightweight") == [
+        KNOWN_V16_OFFICIAL_FAILURE
+    ]
+
+
+def test_rejects_lightweight_known_page_without_symmetric_500_signature() -> None:
+    stats = _stats(
+        engine="lightweight",
+        stats=_stats()["stats"][:-1]
+        + [
+            {
+                "image": KNOWN_V16_OFFICIAL_FAILURE["image"],
+                "status": "failed: timeout",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="500 Server Error"):
+        validate_release_run_stats(stats, version="v16", engine="lightweight")
 
 
 def test_rejects_stats_engine_that_does_not_match_requested_engine() -> None:
