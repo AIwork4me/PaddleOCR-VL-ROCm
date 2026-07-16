@@ -1,4 +1,4 @@
-# PaddleOCR-VL-ROCm
+﻿# PaddleOCR-VL-ROCm
 
 面向 Windows AMD GPU 的文档图片转 Markdown 推理工具。PP-DocLayoutV3 通过 ONNX Runtime DirectML 运行，PaddleOCR-VL 1.6 由固定版本的 llama.cpp HIP 服务提供推理；原有外部 OpenAI-compatible 服务工作流继续受支持。
 
@@ -6,15 +6,26 @@
 
 ## 证据状态
 
-下表是 OmniDocBench v1.6 的历史证据和重算结果，不是新鲜的发布验收结果。评分器固定在提交 [`147cd5ac9472002f5751221d390bf00abdbc0d2f`](docs/accuracy-root-cause-v16.md)，Text、Formula、Table 分别四舍五入到三位后再计算 Overall。
+OmniDocBench v1.6 配对评估，1,650 页评分（1 页对称排除）。
+Windows 原生 TeX Live 2026 全量 CDM 评分，Lightweight CDM 报告，
+0 TEDS 错误，0 超时。
 
-| 历史路径 | Text Edit | Formula CDM | Table TEDS | Overall |
-|---|---:|---:|---:|---:|
-| 官方本地路径 | 0.034 | 96.502 | 94.239 | 95.7803 |
-| 轻量 ROCm 路径 | 0.034 | 96.922 | 94.322 | 95.9480 |
+| 指标 | PaddleOCR-VL (论文) | PaddleOCR-VL-ROCm (实测) |
+|---:|---:|---:|
+| Overall | 96.33 | **95.58** |
+| Text Edit-dist | 0.033 | 0.03488 |
+| Reading-order Edit-dist | 0.127 | 0.12882 |
+| Table TEDS | 94.76 | **94.09** |
+| Formula CDM | 97.49 | **96.15** |
 
-证据来源和重算过程见 [`docs/accuracy-root-cause-v16.md`](docs/accuracy-root-cause-v16.md)。官方推理当前成功 1,650 页，`newspaper_The Times UK_0801@magazinesclubnew_page_031.png` 稳定触发一次 `peg-native` HTTP 500，公开记录在 [PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248)。项目负责人批准了这个唯一且不可扩大的已知失败。评分仍包含全部 1,651 个 GT 页面，并把该页作为空预测处理，因此例外不会抬高分数。issue 仍为 open，本文不把它描述成 PaddlePaddle 维护者已解决。G3 精度与 G4 性能尚未通过；G3 前计时仍仅用于诊断。
-
+Overall = (Text accuracy + CDM + TEDS) / 3, Text accuracy = (1 - Edit_dist) x 100。
+Reading-order 不计入 Overall（布局指标，非内容准确性）。
+完整证据见 [omnidocbench-amd-windows](https://github.com/AIwork4me/omnidocbench-amd-windows)。
+推理运行（llama.cpp HIP, AMD ROCm）成功 1,650 页，
+1 页确定性 peg-native HTTP 500：
+newspaper_The Times UK_0801@magazinesclubnew_page_031.png，详见
+[PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248)。
+G3 准确性已通过；G4 性能待完成。
 ## 兼容性演示
 
 仓库中的 [`examples/input/magazine.png`](examples/input/magazine.png) 以及对应的 [`Markdown`](tests/fixtures/golden/magazine.md) 和 [`结构化 JSON`](tests/fixtures/golden/magazine.json) golden 输出展示公共输出格式。这是兼容性演示，不是发布证据，不能证明当前硬件速度或 G3/G4 已验收。

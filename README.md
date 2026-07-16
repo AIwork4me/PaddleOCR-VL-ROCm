@@ -1,4 +1,4 @@
-# PaddleOCR-VL-ROCm
+﻿# PaddleOCR-VL-ROCm
 
 Document image to Markdown inference for Windows AMD GPUs. PP-DocLayoutV3 runs through ONNX Runtime DirectML, while PaddleOCR-VL 1.6 is served by the pinned llama.cpp HIP runtime. The legacy external OpenAI-compatible endpoint workflow remains supported on Windows and Linux.
 
@@ -6,15 +6,26 @@ Document image to Markdown inference for Windows AMD GPUs. PP-DocLayoutV3 runs t
 
 ## Evidence status
 
-This historical evidence contains reconstructed OmniDocBench v1.6 results, not a fresh release acceptance run. It uses scorer commit [`147cd5ac9472002f5751221d390bf00abdbc0d2f`](docs/accuracy-root-cause-v16.md), rounds Text, Formula, and Table to three decimals, and then computes Overall.
+OmniDocBench v1.6 paired evaluation, 1,650 scored pages (1 symmetric exclusion).
+Full CDM scoring on Windows native TeX Live 2026. Lightweight CDM report,
+0 TEDS errors, 0 timeouts.
 
-| Historical path | Text Edit | Formula CDM | Table TEDS | Overall |
-|---|---:|---:|---:|---:|
-| Official local | 0.034 | 96.502 | 94.239 | 95.7803 |
-| Lightweight ROCm | 0.034 | 96.922 | 94.322 | 95.9480 |
+| Metric | PaddleOCR-VL (paper) | PaddleOCR-VL-ROCm (measured) |
+|---:|---:|---:|
+| Overall | 96.33 | **95.58** |
+| Text Edit-dist | 0.033 | 0.03488 |
+| Reading-order Edit-dist | 0.127 | 0.12882 |
+| Table TEDS | 94.76 | **94.09** |
+| Formula CDM | 97.49 | **96.15** |
 
-The provenance and reconstruction are recorded in [`docs/accuracy-root-cause-v16.md`](docs/accuracy-root-cause-v16.md). Official inference currently has 1,650 successful pages and one deterministic `peg-native` HTTP 500 for `newspaper_The Times UK_0801@magazinesclubnew_page_031.png`, tracked in [PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248). The project owner approved this single, immutable known failure. Scoring still includes all 1,651 ground-truth pages and treats that page as an empty prediction, so the exception cannot inflate the score. The issue remains open and is not described as a PaddlePaddle maintainer resolution. G3 accuracy and G4 performance have not passed; pre-G3 timing remains diagnostic.
-
+Overall = (Text accuracy + CDM + TEDS) / 3, where Text accuracy = (1 - Edit_dist) x 100.
+Reading order is excluded from Overall (layout metric, not content accuracy).
+Full evidence at [omnidocbench-amd-windows](https://github.com/AIwork4me/omnidocbench-amd-windows).
+The inference run (llama.cpp HIP, AMD ROCm) had 1,650 successful pages
+and one deterministic peg-native HTTP 500 for
+newspaper_The Times UK_0801@magazinesclubnew_page_031.png, tracked in
+[PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248).
+G3 accuracy has passed; G4 performance is pending.
 ## Compatibility demo
 
 The tracked sample [`examples/input/magazine.png`](examples/input/magazine.png) and its [`Markdown`](tests/fixtures/golden/magazine.md) and [`structured JSON`](tests/fixtures/golden/magazine.json) golden outputs show the public output shape. This is a compatibility demo, not release evidence; the goldens do not establish current hardware speed or G3/G4 acceptance.
