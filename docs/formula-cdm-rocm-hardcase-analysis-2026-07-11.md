@@ -1,4 +1,4 @@
-# Formula CDM ROCm Hard-Case Analysis - 2026-07-11
+﻿# Formula CDM ROCm Hard-Case Analysis - 2026-07-11
 
 ## Status
 
