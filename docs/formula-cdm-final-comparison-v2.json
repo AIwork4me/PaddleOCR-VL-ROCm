@@ -1,0 +1,1307 @@
+{
+  "overall": {
+    "gguf_cdm_mean": 0.973295,
+    "roc_nonzero_cdm_mean": 0.973568,
+    "roc_zero_cdm_count": 70,
+    "cdm_gap": 0.973295,
+    "total_common_pairs": 2352,
+    "total_cdm_loss_sum": 40.255
+  },
+  "by_category": {
+    "CONTENT_DIFF": {
+      "count": 552,
+      "description": "Actual math content differs",
+      "cdm_loss_sum": 0.943,
+      "cdm_loss_pct": 2.34,
+      "avg_cdm_loss": 0.0017,
+      "examples": [
+        {
+          "img_id": "page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png",
+          "gt_position": [
+            22
+          ],
+          "roc_cdm": 0.274,
+          "gguf_cdm": 0.968,
+          "roc_edit": 0.5965217391304348,
+          "gt_preview": "$$+ \\frac{1}{{\\bar{C}}_{x}}\\frac{\\left| \\beta \\right|  + 2}{\\left| \\beta \\right|  + 1}\\left\\lbrack  {{24\\alpha }{B}_{z}\\varepsilon \\mathop{\\sum }\\limi",
+          "roc_pred_preview": "\\[ \\left[\\begin{aligned}\\alpha\\frac{(|\\beta|+e_{x}|+1)^{2}\\|\\partial^{\\beta}\\tilde{K}\\|_{L_{x}^{\\infty}}}{|\\beta+e_{x}|!\\overline{C}_{x}^{\\beta_{x}+1}"
+        },
+        {
+          "img_id": "page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png",
+          "gt_position": [
+            21
+          ],
+          "roc_cdm": 0.471,
+          "gguf_cdm": 0.969,
+          "roc_edit": 0.6114649681528662,
+          "gt_preview": "$$\\alpha\\frac{(|\\beta|+e_{x}|+1)^{2}\\|\\partial^{\\beta}\\mathring{K}\\|_{L_{x}^{\\infty}}}{|\\beta+e_{x}|!\\overline{C}_{x}^{\\beta_{x}+1}\\overline{C}_{t}^{\\",
+          "roc_pred_preview": "\\[ \\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}\\mathring{K}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{{C}}_{x}^{\\beta_{x}}\\overline{{C}}_{t}^{\\beta_{t}}}\\leq B"
+        },
+        {
+          "img_id": "page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png",
+          "gt_position": [
+            8
+          ],
+          "roc_cdm": 0.667,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.4634146341463415,
+          "gt_preview": "$$\\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}\\eta_{x}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq3,\\quad\\fra",
+          "roc_pred_preview": "\\[ \\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}(\\eta_{x}\\mathring{W})\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}"
+        },
+        {
+          "img_id": "page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png",
+          "gt_position": [
+            7
+          ],
+          "roc_cdm": 0.672,
+          "gguf_cdm": 0.988,
+          "roc_edit": 0.49097472924187724,
+          "gt_preview": "$$\\frac{(|\\beta|+1)^2\\|\\partial^{\\beta}\\Sigma_{t}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq4\\alpha B_{",
+          "roc_pred_preview": "\\[ \\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}(\\Sigma^{-1})_{t}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq4"
+        },
+        {
+          "img_id": "notes_9e951846094758afac08c620144e3a76_14.jpg",
+          "gt_position": [
+            14
+          ],
+          "roc_cdm": 0.78,
+          "gguf_cdm": 0.927,
+          "roc_edit": 0.5384615384615384,
+          "gt_preview": "$$\\therefore BQ=AD=8  \\therefore CQ=2. DQ=BA=4.$$",
+          "roc_pred_preview": "\\[ ∴ BQ = AD = 8 ∴ CQ = 2，DQ = BA = 4. \\]"
+        }
+      ]
+    },
+    "EMPTY_PRED": {
+      "count": 4,
+      "description": "Empty/missing prediction from model",
+      "cdm_loss_sum": 0.0,
+      "cdm_loss_pct": 0.0,
+      "avg_cdm_loss": 0.0,
+      "examples": [
+        {
+          "img_id": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+          "gt_position": [
+            11
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 1,
+          "gt_preview": "$$\\mathop{\\lim }\\limits_{{\\varepsilon  \\rightarrow  0}}{\\int }_{\\left\\{  \\parallel \\pmb x{\\parallel }_{\\mathbb{V}} \\geq  {\\varepsilon }^{-1}\\right\\}  ",
+          "roc_pred_preview": ""
+        },
+        {
+          "img_id": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+          "gt_position": [
+            16
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 1,
+          "gt_preview": "$$\\leq C \\int_{\\{\\|\\pmb x\\|_\\mathbb{V} \\geq \\varepsilon^{-1}\\}} e^{\\kappa \\|\\pmb x\\|_\\mathbb{H}^2} \\|\\pmb x\\|_\\mathbb{V}^4 \\|\\pmb x\\|_\\mathbb{H}^2 \\et",
+          "roc_pred_preview": ""
+        },
+        {
+          "img_id": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+          "gt_position": [
+            18
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 1,
+          "gt_preview": "$$\\leq \\frac{C}{\\lambda_1^{2\\delta}} \\int_{\\{\\|\\pmb x\\|_\\mathbb{V} \\geq \\varepsilon^{-1}\\}} e^{\\kappa \\|\\pmb x\\|_\\mathbb{H}^2} \\|A^{\\delta} \\pmb x\\|_{",
+          "roc_pred_preview": ""
+        },
+        {
+          "img_id": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+          "gt_position": [
+            19
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 1,
+          "gt_preview": "$$\\le C \\lambda _ { 1 } ^ { \\delta ( 2 - 8 \\delta ) }  \\int _ { \\{ \\| { \\pmb x } \\| _ { \\mathbb { V } } \\geq \\varepsilon ^ { - 1 } \\} } e ^ { \\kappa \\",
+          "roc_pred_preview": ""
+        }
+      ]
+    },
+    "EXTRA_TEXT": {
+      "count": 1,
+      "description": "Prediction includes non-formula text artifacts",
+      "cdm_loss_sum": 0.0,
+      "cdm_loss_pct": 0.0,
+      "avg_cdm_loss": 0.0,
+      "examples": [
+        {
+          "img_id": "page-74c7629d-b064-4b8f-8667-bf943f5ba367.png",
+          "gt_position": [
+            13
+          ],
+          "roc_cdm": 0.941,
+          "gguf_cdm": 0.941,
+          "roc_edit": 0.5260115606936416,
+          "gt_preview": "$${P}_{i} - \\mathrm{j}{Q}_{i} = {U}_{i}{e}^{-\\mathrm{j}{\\delta }_{i}}\\mathop{\\sum }\\limits_{{j = 1}}^{n}\\left( {{G}_{ij} + \\mathrm{j}{B}_{ij}}\\right) ",
+          "roc_pred_preview": "\\[ P_{i}-\\mathrm{j}Q_{i}=U_{i}e^{-\\mathrm{j}\\delta_{i}}\\sum_{j=1}^{n}(\\mathbf{\\Theta}G_{i j}+\\mathrm{j}B_{i j})\\mathbf{\\Theta}U_{j}e^{j\\widehat{\\delta"
+        }
+      ]
+    },
+    "FULL_STRUCTURE_MISMATCH": {
+      "count": 21,
+      "description": "Matrix/array structure differs",
+      "cdm_loss_sum": 0.0,
+      "cdm_loss_pct": 0.0,
+      "avg_cdm_loss": 0.0,
+      "examples": [
+        {
+          "img_id": "PPT_lay_linalg5_01_05_page_004.png",
+          "gt_position": [
+            5
+          ],
+          "roc_cdm": 1.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.12962962962962962,
+          "gt_preview": "$$\n\\begin{bmatrix}1&0&-\\frac{4}{3}&0\\\\\n0 &1&0 &0\\\\0 &0&0&0\\end{bmatrix} \\qquad \\begin{array}{}x_1-\\frac{4}{3}x_3=0\\\\\nx_2=0\\\\\n0=0\\end{array}\n$$",
+          "roc_pred_preview": "\\[ \\begin{aligned}&\\begin{bmatrix} \\\\{{{1}}}&{{{0}}}&{{{-\\frac{4}{3}}}}&{{{0}}} \\\\{{{0}}}&{{{1}}}&{{{0}}}&{{{0}}} \\\\{{{0}}}&{{{0}}}&{{{0}}}&{{{0}}} \\\\"
+        },
+        {
+          "img_id": "book_en_国外数学教材-An Excursion through Elementary Mathematics（初等数学漫游）-An excursion through elementary mathematics, Vol.3 (Caminha Muniz Neto A)_0100.png",
+          "gt_position": [
+            14
+          ],
+          "roc_cdm": 0.948,
+          "gguf_cdm": 0.948,
+          "roc_edit": 0.15609756097560976,
+          "gt_preview": "$$\na_{n}=\\left\\{\\begin{array}{ll}\n\\frac{1}{6}\\left(\\begin{array}{c}\nn+2 \\\\\n2\n\\end{array}\\right)+\\frac{1}{4}(n+1)+\\frac{7}{12}, & \\text { if } 6 \\mid n",
+          "roc_pred_preview": "\\[ a_{n}=\\left\\{\\begin{aligned}&\\frac{1}{6}\\binom{n+2}{2}+\\frac{1}{4}(n+1)+\\frac{7}{12},if6\\mid n\\\\ &\\frac{1}{6}\\binom{n+2}{2}+\\frac{1}{4}(n+1)+\\frac{"
+        },
+        {
+          "img_id": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0242.png",
+          "gt_position": [
+            1.003
+          ],
+          "roc_cdm": 0.333,
+          "gguf_cdm": 0.333,
+          "roc_edit": 0.7416107382550335,
+          "gt_preview": "\\[= & 2x \\sum_{1 \\leq u \\leq \\sqrt{x}} \\frac{1}{u} - 2 \\sum_{1 \\leq u \\leq \\sqrt{x}} \\left\\{\\frac{x}{u}\\right\\} - x + O(\\sqrt{x})\\]",
+          "roc_pred_preview": "\\[ \\begin{aligned}&\\begin{aligned}\\\\ &=&\\frac{2}{1\\leq u\\leq\\sqrt{x}}\\left[\\frac{x}{u}\\right]-\\left[\\sqrt{x}\\right]^{2}\\\\&=&\\frac{2}{2\\sum_{1\\leq u\\le"
+        },
+        {
+          "img_id": "docstructbench_llm-raw-scihub-o.O-j.jcp.2010.12.006.pdf_5.jpg",
+          "gt_position": [
+            1
+          ],
+          "roc_cdm": 1.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.010948905109489052,
+          "gt_preview": "$$\n\\partial_{t} z_{i, j, k}^{l}=\\frac{z_{i, j, k}^{l+1}-z_{i, j, k}^{l}} {\\Delta t},\\overline{{{{\\partial}}}}_{t} z_{i, j, k}^{l}=\\frac{z_{i, j, k}^{l",
+          "roc_pred_preview": "\\begin{array}{l} {\\partial_{t}z_{i,j,k}^{l}=\\frac{z_{i,j,k}^{l+1}-z_{i,j,k}^{l}}{\\Delta t},} \\\\ {\\overline{\\partial}_{t}z_{i,j,k}^{l}=\\frac{z_{i,j,k}^"
+        },
+        {
+          "img_id": "exam_paper_en-file-putnam-archive_2002_Solutions_2002s_page_001.png",
+          "gt_position": [
+            22
+          ],
+          "roc_cdm": 0.261,
+          "gguf_cdm": 0.261,
+          "roc_edit": 0.5576923076923077,
+          "gt_preview": "$$\\begin{array}{c|c|c}A_{11}& A_{22}& A_{33}\\\\ \\hline A_{23}& A_{31}&A_{12}\\\\ \\hline A_{32}&A_{13}&A_{21}\\end{array}$$",
+          "roc_pred_preview": "\\begin{array}{l} {A_{11}} \\\\ {A_{22}} \\\\ {A_{23}} \\\\ {A_{32}} \\\\ {A_{23}} \\\\ {A_{21}} \\\\ {A_{11}} \\\\ {A_{21}} \\end{array}"
+        }
+      ]
+    },
+    "MISSING_CONTENT": {
+      "count": 12,
+      "description": "Prediction missing significant content",
+      "cdm_loss_sum": 0.0,
+      "cdm_loss_pct": 0.0,
+      "avg_cdm_loss": 0.0,
+      "examples": [
+        {
+          "img_id": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0242.png",
+          "gt_position": [
+            1.001
+          ],
+          "roc_cdm": 0.138,
+          "gguf_cdm": 0.138,
+          "roc_edit": 0.8888888888888888,
+          "gt_preview": "\\[= & 2 \\sum_{1 \\leq u \\leq \\sqrt{x}} \\left[\\frac{x}{u}\\right] - \\left[\\sqrt{x}\\right]^2\\]",
+          "roc_pred_preview": "\\[n = d_1 \\cdots d_\\ell\\]"
+        },
+        {
+          "img_id": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0242.png",
+          "gt_position": [
+            1.002
+          ],
+          "roc_cdm": 0.095,
+          "gguf_cdm": 0.095,
+          "roc_edit": 0.8666666666666667,
+          "gt_preview": "\\[= & 2 \\sum_{1 \\leq u \\leq \\sqrt{x}} \\left(\\frac{x}{u} - \\left\\{\\frac{x}{u}\\right\\}\\right) - \\left(\\sqrt{x} - \\left\\{\\sqrt{x}\\right\\}\\right)^2\\]",
+          "roc_pred_preview": "\\[(d_1, \\ldots, d_\\ell)\\]"
+        },
+        {
+          "img_id": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0242.png",
+          "gt_position": [
+            1.004
+          ],
+          "roc_cdm": 0.065,
+          "gguf_cdm": 0.065,
+          "roc_edit": 0.9038461538461539,
+          "gt_preview": "\\[= & 2x \\left(\\log \\sqrt{x} + \\gamma + O\\left(\\frac{1}{\\sqrt{x}}\\right)\\right) - x + O(\\sqrt{x})\\]",
+          "roc_pred_preview": "\\[ x \\geq 1 \\]"
+        },
+        {
+          "img_id": "book_zh_CNASGL0072018_extracted_page_48.png",
+          "gt_position": [
+            10
+          ],
+          "roc_cdm": 0.615,
+          "gguf_cdm": 0.615,
+          "roc_edit": 0.5208333333333334,
+          "gt_preview": "$$\n\\begin{array} { l c r } { { u _ {2 } = 0 . 5\\% /\\sqrt { 3 } = 0 . 2 9 \\% } } \\\\ { { \\nu = ( 1 / 2 ) ( 1 0 / 1 0 0 ) ^ { - 2 } = 5 0 } } \\end{array}",
+          "roc_pred_preview": "\\[ u_{2}=0.5\\%/\\sqrt{3}=0.29\\% \\]"
+        },
+        {
+          "img_id": "jiaocaineedrop_jiaocai_needrop_en_1198.jpg",
+          "gt_position": [
+            8.001
+          ],
+          "roc_cdm": 0.357,
+          "gguf_cdm": 0.357,
+          "roc_edit": 0.7222222222222222,
+          "gt_preview": "\\[=-{\\left(x_{1}-1\\right)\\left(x_{2}-1\\right)-k^{2}\\left(x_{1}-1\\right)\\left(x_{2}-1\\right)=-\\left(1+k^{2}\\right)\\left[\\,x_{1}x_{2}-\\left(x_{1}+x_{2}\\",
+          "roc_pred_preview": "\\[ y_0=\\frac{1}{2}x_1x_0-y_1=kx_1-y_1=-1 \\]"
+        }
+      ]
+    },
+    "NOTATION_STYLE": {
+      "count": 1719,
+      "description": "Equivalent math, different notation",
+      "cdm_loss_sum": -0.149,
+      "cdm_loss_pct": -0.37,
+      "avg_cdm_loss": -0.0001,
+      "examples": [
+        {
+          "img_id": "page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png",
+          "gt_position": [
+            6
+          ],
+          "roc_cdm": 0.933,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.0708955223880597,
+          "gt_preview": "$$\\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}\\mathring{K}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq B_{k}\\",
+          "roc_pred_preview": "\\begin{array}{l} {\\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}\\mathring{Z}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{{C}}_{x}^{\\beta_{x}}\\overline{{C}}_{t}^{\\b"
+        },
+        {
+          "img_id": "page-b21c7247-a843-4316-a44d-c3365077f077.png",
+          "gt_position": [
+            12
+          ],
+          "roc_cdm": 0.976,
+          "gguf_cdm": 0.993,
+          "roc_edit": 0.019230769230769232,
+          "gt_preview": "$$\\left\\{\n\\begin{array}{l}\nf(x) = \\sqrt{a(x-b)} + \\sqrt{c(d-x)} \\Rightarrow h(x) = -\\sqrt{a(d-x)} + \\sqrt{c(x-b)} \\\\\n{(x-b)和(d-x)\\text交换位置,} \\sqrt{a(d",
+          "roc_pred_preview": "\\[ \\left\\{\\begin{aligned}&f(x)=\\sqrt{a(x-b)}+\\sqrt{c(d-x)}\\Rightarrow h(x)=-\\sqrt{a(d-x)}+\\sqrt{c(x-b)}\\\\ &(x-b) 和 (d-x) 交换位置 ,\\sqrt{a(d-x)} 前再添负号 \\en"
+        },
+        {
+          "img_id": "book_zh_GB12082006_extracted_page_8.png",
+          "gt_position": [
+            36
+          ],
+          "roc_cdm": 0.95,
+          "gguf_cdm": 0.958,
+          "roc_edit": 0.02631578947368421,
+          "gt_preview": "$$\n电流误差 (\\%) = \\frac { ( K _ { n} I _ { s } - I _ { p } ) \\times{100 } } { I_ { p } }\n$$",
+          "roc_pred_preview": "\\[  电流误差 (\\%)=\\frac{(K_{n} I_{s}-I_{p})\\times100}{I_{s}} \\]"
+        },
+        {
+          "img_id": "book_zh_SYT57941993_extracted_page_3.png",
+          "gt_position": [
+            17
+          ],
+          "roc_cdm": 0.929,
+          "gguf_cdm": 0.933,
+          "roc_edit": 0.037037037037037035,
+          "gt_preview": "$$\n沥青= \\frac { m _2- m _ 1 } { m } \\times 100\\%\n$$",
+          "roc_pred_preview": "\\[ 沥青=\\frac{m_{1}-m_{1}}{m}\\times100\\% \\]"
+        },
+        {
+          "img_id": "book_zh_CNASGL0092018_extracted_page_69.png",
+          "gt_position": [
+            3
+          ],
+          "roc_cdm": 0.975,
+          "gguf_cdm": 0.977,
+          "roc_edit": 0.015384615384615385,
+          "gt_preview": "$$u _ { r } ( m _ { 基} ) = u ( m _ { 基}) / m _ { 基}= ( 1 . 0 \\times 1 0 ^ { - 4 } ) / 2 . 4 5 2 0 = 4 . 0 8 \\times 1 0 ^ { - 5 }$$",
+          "roc_pred_preview": "\\[ u_{t}(m_{ 基 })=u(m_{ 基 })/m_{ 基 }=(1.0\\times10^{-4})/2.4520=4.08\\times10^{-5} \\]"
+        }
+      ]
+    },
+    "ZERO_TOKENS": {
+      "count": 43,
+      "description": "Prediction produces zero renderable tokens",
+      "cdm_loss_sum": 39.461,
+      "cdm_loss_pct": 98.03,
+      "avg_cdm_loss": 0.9177,
+      "examples": [
+        {
+          "img_id": "book_zh_DLT10562007_extracted_page_17.png",
+          "gt_position": [
+            15
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.0,
+          "gt_preview": "$$\n数据采集系统(DAS)完好率=\\frac{DAS测点完好总数}{DAS测点设计总数}\\times100\\%\n$$",
+          "roc_pred_preview": "\\[  数据采集系统 (DAS) 完好率 =\\frac{DAS 测点完好总数 }{DAS 测点设计总数 }\\times100\\% \\]"
+        },
+        {
+          "img_id": "book_zh_DLT10562007_extracted_page_17.png",
+          "gt_position": [
+            18
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.0,
+          "gt_preview": "$$\nDCS模拟量测点校验合格率=\\frac{DCS模拟量测点校验总合格数}{DCS模拟量测点校验总数}\\times100\\%\n$$",
+          "roc_pred_preview": "\\[ DCS模拟量测点校验合格率=\\frac{DCS模拟量测点校验总合格数}{DCS模拟量测点校验总数}\\times100\\% \\]"
+        },
+        {
+          "img_id": "book_zh_DLT10562007_extracted_page_17.png",
+          "gt_position": [
+            22
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.0,
+          "gt_preview": "$$\n顺序控制系统投入率=\\frac{投入顺序控制系统总数}{设计顺序控制系统总数}\\times100\\%\n$$",
+          "roc_pred_preview": "\\[  顺序控制系统投入率 =\\frac{ 投入顺序控制系统总数 }{ 设计顺序控制系统总数 }\\times100\\% \\]"
+        },
+        {
+          "img_id": "book_zh_DLT10562007_extracted_page_17.png",
+          "gt_position": [
+            28
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.0,
+          "gt_preview": "$$\n标准仪器全年累计送检率=\\frac{标准仪器全年累计送检数}{标准仪器全年应送检数}\\times100\\%\n$$",
+          "roc_pred_preview": "\\[  标准仪器全年累计送检率 =\\frac{ 标准仪器全年累计送检数 }{ 标准仪器全年应送检数 }\\times100\\% \\]"
+        },
+        {
+          "img_id": "book_zh_DLT10902008_extracted_page_8.png",
+          "gt_position": [
+            9
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.03773584905660377,
+          "gt_preview": "$$\n\\mathrm {MTBF=  \\frac { 串联补偿装置的可用小时数 } { 串联补偿装置的强迫停运的次数 }= \\frac { AH}{FOT} }\n$$",
+          "roc_pred_preview": "\\[ MTBF=\\frac{ 串联补偿装置的可用小时数 }{ 串联补偿装置的强迫停运的次数 }=\\frac{AH}{FOT} \\]"
+        }
+      ]
+    }
+  },
+  "worst_cases": [
+    {
+      "img_id": "book_zh_DLT10562007_extracted_page_17.png",
+      "gt_position": [
+        15
+      ],
+      "gt": "$$\n数据采集系统(DAS)完好率=\\frac{DAS测点完好总数}{DAS测点设计总数}\\times100\\%\n$$",
+      "roc_pred": "\\[  数据采集系统 (DAS) 完好率 =\\frac{DAS 测点完好总数 }{DAS 测点设计总数 }\\times100\\% \\]",
+      "gguf_pred": "\\[  数据采集系统 (DAS) 完好率 =\\frac{DAS 测点完好总数 }{DAS 测点设计总数 }\\times100\\% \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_DLT10562007_extracted_page_17.png",
+      "gt_position": [
+        18
+      ],
+      "gt": "$$\nDCS模拟量测点校验合格率=\\frac{DCS模拟量测点校验总合格数}{DCS模拟量测点校验总数}\\times100\\%\n$$",
+      "roc_pred": "\\[ DCS模拟量测点校验合格率=\\frac{DCS模拟量测点校验总合格数}{DCS模拟量测点校验总数}\\times100\\% \\]",
+      "gguf_pred": "\\[ DCS模拟量测点校验合格率=\\frac{DCS模拟量测点校验总合格数}{DCS模拟量测点校验总数}\\times100\\% \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_DLT10562007_extracted_page_17.png",
+      "gt_position": [
+        22
+      ],
+      "gt": "$$\n顺序控制系统投入率=\\frac{投入顺序控制系统总数}{设计顺序控制系统总数}\\times100\\%\n$$",
+      "roc_pred": "\\[  顺序控制系统投入率 =\\frac{ 投入顺序控制系统总数 }{ 设计顺序控制系统总数 }\\times100\\% \\]",
+      "gguf_pred": "\\[  顺序控制系统投入率 =\\frac{ 投入顺序控制系统总数 }{ 设计顺序控制系统总数 }\\times100\\% \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_DLT10562007_extracted_page_17.png",
+      "gt_position": [
+        28
+      ],
+      "gt": "$$\n标准仪器全年累计送检率=\\frac{标准仪器全年累计送检数}{标准仪器全年应送检数}\\times100\\%\n$$",
+      "roc_pred": "\\[  标准仪器全年累计送检率 =\\frac{ 标准仪器全年累计送检数 }{ 标准仪器全年应送检数 }\\times100\\% \\]",
+      "gguf_pred": "\\[  标准仪器全年累计送检率 =\\frac{ 标准仪器全年累计送检数 }{ 标准仪器全年应送检数 }\\times100\\% \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_DLT10902008_extracted_page_8.png",
+      "gt_position": [
+        9
+      ],
+      "gt": "$$\n\\mathrm {MTBF=  \\frac { 串联补偿装置的可用小时数 } { 串联补偿装置的强迫停运的次数 }= \\frac { AH}{FOT} }\n$$",
+      "roc_pred": "\\[ MTBF=\\frac{ 串联补偿装置的可用小时数 }{ 串联补偿装置的强迫停运的次数 }=\\frac{AH}{FOT} \\]",
+      "gguf_pred": "\\[ MTBF=\\frac{ 串联补偿装置的可用小时数 }{ 串联补偿装置的强迫停运的次数 }=\\frac{AH}{FOT} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.03773584905660377,
+      "gguf_edit": 0.03773584905660377,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_GBT 50744-2011_extracted_page_67.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\n操作侧机列中心线偏移= \\frac { \\frac { C+D } { 2 } - \\frac { c + d } { 2 } } { 2 }\n$$",
+      "roc_pred": "\\[ 操作侧机列中心线偏移=\\frac{\\frac{C+D}{2}-\\frac{c+d}{2}}{2} \\]",
+      "gguf_pred": "\\[ 操作侧机列中心线偏移=\\frac{\\frac{C+D}{2}-\\frac{c+d}{2}}{2} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_TB100782001_extracted_page_21.png",
+      "gt_position": [
+        15
+      ],
+      "gt": "$$\nN_{编发}=\\frac{( 1440 M - \\sum t _ 固  ) ( 1 - \\gamma _空) }{t_{编发}}\n$$",
+      "roc_pred": "\\[ N_{ 编发 }=\\frac{\\left(1440M-\\sum t_{ 固 }\\right)(1-\\gamma_{ 空 })}{t_{ 编发 }} \\]",
+      "gguf_pred": "\\[ N_{ 编发 }=\\frac{\\left(1440M-\\sum t_{ 固 }\\right)(1-\\gamma_{ 空 })}{t_{ 编发 }} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.11538461538461539,
+      "gguf_edit": 0.11538461538461539,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_TB100782001_extracted_page_21.png",
+      "gt_position": [
+        17.001
+      ],
+      "gt": "\\[t_{编发}=&t_{预占}+t_{分解}+t_{集占}+t_{待编}+t_{编}+\\]",
+      "roc_pred": "\\[t_{ 编发 }=&t_{ 预占 }+t_{ 分解 }+t_{ 集占 }+t_{ 待编 }+t_{ 编 }+\\]",
+      "gguf_pred": "\\[t_{ 编发 }=&t_{ 预占 }+t_{ 分解 }+t_{ 集占 }+t_{ 待编 }+t_{ 编 }+\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_TB100782001_extracted_page_21.png",
+      "gt_position": [
+        23
+      ],
+      "gt": "$$\nN _ { 交接} = \\frac { (1 4 4 0 M - \\sum t _ 固) ( 1 - \\gamma _ 空 ) } { t _ {占交接}}\n$$",
+      "roc_pred": "\\[ N_{ 交接 }=\\frac{\\left(1\\ 440M-\\sum t_{ 固 }\\right)\\left(1-\\gamma_{ 空 }\\right)}{t_{ 占交接 }} \\]",
+      "gguf_pred": "\\[ N_{ 交接 }=\\frac{\\left(1\\ 440M-\\sum t_{ 固 }\\right)\\left(1-\\gamma_{ 空 }\\right)}{t_{ 占交接 }} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.12962962962962962,
+      "gguf_edit": 0.12962962962962962,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_TB100782001_extracted_page_21.png",
+      "gt_position": [
+        7
+      ],
+      "gt": "$$\nK_{到(发)}= \\frac { T - \\sum t _固 } { ( 1440 M - \\sum t _ 固  ) ( 1 - \\gamma _空) }\n$$",
+      "roc_pred": "\\[ K_{到(发)}=\\frac{T-\\sum t_{固}}{\\left(1440M-\\sum t_{固}\\right)\\left(1-\\gamma_{空}\\right)} \\]",
+      "gguf_pred": "\\[ K_{到(发)}=\\frac{T-\\sum t_{固}}{\\left(1440M-\\sum t_{固}\\right)\\left(1-\\gamma_{空}\\right)} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.15789473684210525,
+      "gguf_edit": 0.15789473684210525,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_YDT10512018_extracted_page_30.png",
+      "gt_position": [
+        10
+      ],
+      "gt": "$$\n平均年停电次数= 市电在一年统计期内平均停电次数\n$$",
+      "roc_pred": "\\[  平均年停电次数 = 市电在一年统计期内平均停电次数 \\]",
+      "gguf_pred": "\\[  平均年停电次数 = 市电在一年统计期内平均停电次数 \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_YDT10512018_extracted_page_30.png",
+      "gt_position": [
+        4
+      ],
+      "gt": "$$\n市电不可用度= \\frac { 市电停电时间 } { 统计期时间 }  =1-市电供电可靠率\n$$",
+      "roc_pred": "\\[  市电不可用度 =\\frac{ 市电停电时间 }{ 统计期时间 }=1- 市电供电可靠率 \\]",
+      "gguf_pred": "\\[  市电不可用度 =\\frac{ 市电停电时间 }{ 统计期时间 }=1- 市电供电可靠率 \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_YDT10512018_extracted_page_30.png",
+      "gt_position": [
+        7
+      ],
+      "gt": "$$\n平均年停电时间= 市电不可用度\\times365\\times24\n$$",
+      "roc_pred": "\\[  平均年停电时间 = 市电不可用度 \\times365\\times24 \\]",
+      "gguf_pred": "\\[  平均年停电时间 = 市电不可用度 \\times365\\times24 \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "docstructbench_dianzishu_zhongwenzaixian-o.O-61520788.pdf_391.jpg",
+      "gt_position": [
+        15
+      ],
+      "gt": "$$\n运输保险费=材料原价\\times材料运输保险费率\n $$",
+      "roc_pred": "\\[  运输保险费 = 材料原价 \\times 材料运输保险费率 \\]",
+      "gguf_pred": "\\[  运输保险费 = 材料原价 \\times 材料运输保险费率 \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "jiaocaineedrop_jiaocai_needrop_en_250.jpg",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\n化学能{\\underset{氧化还原反应} {\\xrightarrow{\\text{化学电池}}}}电能  \n$$",
+      "roc_pred": "\\[ 化学能{\\underset{氧化还原反应} {\\xrightarrow{化学电池}}}电能 \\]",
+      "gguf_pred": "\\[ 化学能{\\underset{氧化还原反应} {\\xrightarrow{化学电池}}}电能 \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "notes_1ba14cb325bc448f7201b20502ecf2b5_16.jpg",
+      "gt_position": [
+        4
+      ],
+      "gt": "$$日平均气温=一日内气温观测值之和{\\div} 观测次数$$",
+      "roc_pred": "\\[ 日平均气温 = 一日内气温观测值之和 \\div 观测次数 \\]",
+      "gguf_pred": "\\[ 日平均气温 = 一日内气温观测值之和 \\div 观测次数 \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.07692307692307693,
+      "gguf_edit": 0.07692307692307693,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-28657a85-95cc-4bfa-8156-cc98518a0b4c.png",
+      "gt_position": [
+        8
+      ],
+      "gt": "$$\\frac{\\text{阿里巴巴服务新消费交易额}}{\\text{国家相关行业交易额}} = \\frac{\\text{ 阿里巴巴直接带动就业人数}}{\\text{国家相关行业就业人数}}  \\tag{2.4}$$",
+      "roc_pred": "\\[ \\frac{ 阿里巴巴服务新消费交易额 }{ 国家相关行业交易额 }=\\frac{ 阿里巴巴直接带动就业人数 }{ 国家相关行业就业人数 } \\]",
+      "gguf_pred": "\\[ \\frac{ 阿里巴巴服务新消费交易额 }{ 国家相关行业交易额 }=\\frac{ 阿里巴巴直接带动就业人数 }{ 国家相关行业就业人数 } \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png",
+      "gt_position": [
+        5
+      ],
+      "gt": "$$x_{\\text{final}}=\n\\left\\{\\begin{array}{l}\n0,  \\text{对成品跳过检测} \\\\\n1, \\text{决定检测}\n\\end{array}\\right.$$",
+      "roc_pred": "\\[ x_{final}=\\left\\{\\begin{aligned}0,&\\quad 对成品跳过检测 \\\\ 1,&\\quad 决定检测 \\end{aligned}\\right. \\]",
+      "gguf_pred": "\\[ x_{final}=\\left\\{\\begin{aligned}0,&\\quad 对成品跳过检测 \\\\ 1,&\\quad 决定检测 \\end{aligned}\\right. \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.13793103448275862,
+      "gguf_edit": 0.13793103448275862,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-7a7566fd-43d8-46e4-8a4f-0330e1f27a88.png",
+      "gt_position": [
+        17
+      ],
+      "gt": "$$\\lesssim \\int_{\\Omega} \\int_{\\Omega} \\frac{|v(x + y) - v(y)|^{4\\sigma}}{|x|^{1+\\alpha}} dx dy \\quad (F \\text{ is } 2\\sigma-\\text{Hölder continuous})$$",
+      "roc_pred": "\\[&\\lesssim\\int_{\\Omega}\\int_{\\Omega}\\frac{|v(x+y)-v(y)|^{4\\sigma}}{|x|^{1+\\alpha}}\\mathrm{d}x\\mathrm{d}y\\quad(F\\text{is}2\\sigma\\text{-Hölder continuous})\\]",
+      "gguf_pred": "\\[&\\lesssim\\int_{\\Omega}\\int_{\\Omega}\\frac{|v(x+y)-v(y)|^{4\\sigma}}{|x|^{1+\\alpha}}\\mathrm{d}x\\mathrm{d}y\\quad(F\\text{is}2\\sigma\\text{-Hölder continuous})\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.018018018018018018,
+      "gguf_edit": 0.018018018018018018,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-99c0fd2f-608e-479c-9af5-5b012de4f6af.png",
+      "gt_position": [
+        11
+      ],
+      "gt": "$${q}_{i} = \\left\\{  \\begin{array}{ll} 0, & \\text{ 合格 } \\\\  1, & \\text{ 次品 } \\end{array}\\right.$$",
+      "roc_pred": "\\[ q_{i}=\\left\\{\\begin{aligned}&0,& 合格 \\\\ &1,& 次品 \\end{aligned}\\right. \\]",
+      "gguf_pred": "\\[ q_{i}=\\left\\{\\begin{aligned}&0,& 合格 \\\\ &1,& 次品 \\end{aligned}\\right. \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.2222222222222222,
+      "gguf_edit": 0.2222222222222222,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-99c0fd2f-608e-479c-9af5-5b012de4f6af.png",
+      "gt_position": [
+        9
+      ],
+      "gt": "$${d}_{i} = \\left\\{ \\begin{array}{l}0,\\text{ 未检测 } \\\\  1,\\text{ 检测 } \\end{array}\\right.$$",
+      "roc_pred": "\\[ d_{i}=\\left\\{\\begin{aligned}&0,&& 未检测 \\\\ &1,&& 检测 \\end{aligned}\\right. \\]",
+      "gguf_pred": "\\[ d_{i}=\\left\\{\\begin{aligned}&0,&& 未检测 \\\\ &1,&& 检测 \\end{aligned}\\right. \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.21052631578947367,
+      "gguf_edit": 0.21052631578947367,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "yanbaopptmerge_yanbaoPPT_1465.jpg",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\\mathbf{F e}_{3} \\mathbf{O}_{4} \\text{的相对分子质量}  = 5 6 \\times3+1 6 \\times4=2 3 2$$",
+      "roc_pred": "\\[ Fe_{3}O_{4} 的相对分子质量 = 56 \\times 3 + 16 \\times 4 = 232 \\]",
+      "gguf_pred": "\\[ Fe_{3}O_{4} 的相对分子质量 = 56 \\times 3 + 16 \\times 4 = 232 \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.05,
+      "gguf_edit": 0.05,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_DLT10902008_extracted_page_8.png",
+      "gt_position": [
+        12
+      ],
+      "gt": "$$\n\\mathrm {UF= 1-AF= \\frac { 串联补偿装置的不可用小时数 } { 串联补偿装置的统计期间小时数 }\\times100\\%= \\frac { UH}{PH}\\times100\\% }\n$$",
+      "roc_pred": "\\[ \\mathrm{UF}=1-\\mathrm{AF}=\\frac{ 串联补偿装置的不可用小时数 }{ 串联补偿装置的统计期间小时数 }\\times100\\%=\\frac{\\mathrm{UH}}{\\mathrm{PH}}\\times100\\% \\]",
+      "gguf_pred": "\\[ \\mathrm{UF}=1-\\mathrm{AF}=\\frac{ 串联补偿装置的不可用小时数 }{ 串联补偿装置的统计期间小时数 }\\times100\\%=\\frac{\\mathrm{UH}}{\\mathrm{PH}}\\times100\\% \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.99,
+      "cdm_diff": 0.99,
+      "roc_edit": 0.02564102564102564,
+      "gguf_edit": 0.02564102564102564,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_DLT10902008_extracted_page_8.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\n\\mathrm {AF= { \\frac { 串联补偿装置的可用小时数 } { 串联补偿装置的统计期间小时数 }\\times100\\%= \\frac { AH}{PH}\\times100\\% }}\n$$",
+      "roc_pred": "\\[  AF=\\frac{ 串联补偿装置的可用小时数 }{ 串联补偿装置的统计期间小时数 }\\times100\\%=\\frac{AH}{PH}\\times100\\% \\]",
+      "gguf_pred": "\\[  AF=\\frac{ 串联补偿装置的可用小时数 }{ 串联补偿装置的统计期间小时数 }\\times100\\%=\\frac{AH}{PH}\\times100\\% \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.989,
+      "cdm_diff": 0.989,
+      "roc_edit": 0.0410958904109589,
+      "gguf_edit": 0.0410958904109589,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_DLT10902008_extracted_page_8.png",
+      "gt_position": [
+        6
+      ],
+      "gt": "$$\n\\mathrm {SF= { \\frac { 串联补偿装置的运行小时数 } { 串联补偿装置的统计期间小时数 }\\times100\\%= \\frac { SH}{PH}\\times100\\% }}\n$$",
+      "roc_pred": "\\[ SF=\\frac{ 串联补偿装置的运行小时数 }{ 串联补偿装置的统计期间小时数 }\\times100\\%=\\frac{SH}{PH}\\times100\\% \\]",
+      "gguf_pred": "\\[ SF=\\frac{ 串联补偿装置的运行小时数 }{ 串联补偿装置的统计期间小时数 }\\times100\\%=\\frac{SH}{PH}\\times100\\% \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.989,
+      "cdm_diff": 0.989,
+      "roc_edit": 0.0410958904109589,
+      "gguf_edit": 0.0410958904109589,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-44a14308-9d3e-4044-9508-5c3e30141a19.png",
+      "gt_position": [
+        9
+      ],
+      "gt": "$$\\left\\{  \\begin{array}{l} \\exists x \\in  R,a{x}^{2} + {3x} + 1 < 0\\text{成立} \\\\   \\Rightarrow  \\text{否定: }\\forall x \\in  R,a{x}^{2} + {3x} + 1 \\geq  0\\text{成立} \\Rightarrow  \\left\\{  \\begin{array}{l} a = 0,{3x} + 1 \\geq  0\\text{不恒成立, 舍} \\\\  a > 0,\\Delta  \\leq  0 \\Rightarrow  a \\geq  \\frac{9}{4} \\end{array} \\right.\\end{array}\\right\\} \\Rightarrow a < \\frac{9}{4}$$",
+      "roc_pred": "\\[ \\left\\{\\begin{aligned}&\\exists x\\in R,ax^{2}+3x+1<0 成立 \\\\ &\\Rightarrow 否定：\\forall x\\in R,ax^{2}+3x+1\\geq0 成立 \\Rightarrow\\left\\{\\begin{aligned}&a=0,3x+1\\geq0 不恒成立 , 舍 \\\\ &a>0,\\Delta\\leq0\\Rightarrow a\\geq\\frac{9}{4}\\end{aligned}\\right.\\end{aligned}\\right\\}\\Longrightarrow a<\\frac{9}{4} \\]",
+      "gguf_pred": "\\[ \\left\\{\\begin{aligned}&\\exists x\\in R,ax^{2}+3x+1<0 成立 \\\\ &\\Rightarrow 否定：\\forall x\\in R,ax^{2}+3x+1\\geq0 成立 \\Rightarrow\\left\\{\\begin{aligned}&a=0,3x+1\\geq0 不恒成立 , 舍 \\\\ &a>0,\\Delta\\leq0\\Rightarrow a\\geq\\frac{9}{4}\\end{aligned}\\right.\\end{aligned}\\right\\}\\Longrightarrow a<\\frac{9}{4} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.987,
+      "cdm_diff": 0.987,
+      "roc_edit": 0.07647058823529412,
+      "gguf_edit": 0.07647058823529412,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_DLT10902008_extracted_page_8.png",
+      "gt_position": [
+        15
+      ],
+      "gt": "$$\n\\begin{matrix}\\mathrm{SEAF}&=&\\frac{\\sum(各串联补偿装置的额定补偿容量\\times该串联补偿装置的可用时间)} { 该串联补偿系统的额定补偿容量\\times统计期间}\\\\&=&\\mathrm {\\frac {\\sum(Q_N\\times AH)}{Q_N\\times PH}\\times100\\%} \\end{matrix}\n$$",
+      "roc_pred": "\\[ \\begin{aligned}SEAF=&\\frac{\\sum( 各串联补偿装置的额定补偿容量 \\times 该串联补偿装置的可用时间 )}{ 该串联补偿系统的额定补偿容量 \\times 统计期间 }\\\\=&\\frac{\\sum(Q_{n}\\times AH)}{Q_{n}\\times PH}\\times100\\%\\end{aligned} \\]",
+      "gguf_pred": "\\[ \\begin{aligned}SEAF=&\\frac{\\sum( 各串联补偿装置的额定补偿容量 \\times 该串联补偿装置的可用时间 )}{ 该串联补偿系统的额定补偿容量 \\times 统计期间 }\\\\=&\\frac{\\sum(Q_{n}\\times AH)}{Q_{n}\\times PH}\\times100\\%\\end{aligned} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.966,
+      "cdm_diff": 0.966,
+      "roc_edit": 0.00819672131147541,
+      "gguf_edit": 0.00819672131147541,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-cdd33cf6-76ce-42bb-a99c-342c861afed0.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\\left\\{\\begin{array}{l}\\left(1\\right)\\text{ 令 }\\tan\\frac{x}{2}=t\\Rightarrow\\left\\{{\\begin{array}{l}\\sin x=\\frac{2t}{1 + {t}^{2}}\\\\ \\cos x=\\frac{1 - {t}^{2}}{1 + {t}^{2}}\\neq\\frac{2}{3}\\end{array}\\Rightarrow\\frac{1 - \\sin x}{2 - 3\\cos x}=\\frac{1-\\frac{2t}{1 + {t}^{2}}}{2-3 \\cdot \\frac{1 - {t}^{2}}{1 + {t}^{2}}}=\\frac{1 + t^2 - {2t}}{5{t}^{2} - 1}\\left({5{t}^{2} \\neq1}\\right)}\\right.\\\\ \\left(2\\right)\\text{ 令 }\\frac{1+{t}^{2} - {2t}}{5{t}^{2} - 1}=y\\Rightarrow\\left\\{\\begin{array}{l}\\left({{5y} - 1}\\right){t}^2+{2t}-y-1=0\\\\ \\text{ 判别式法 }\\end{array}\\right.\\\\ \\Rightarrow\\left\\{{\\begin{array}{l} {5y} - 1 - 0\\text{ 时,}t = \\frac{3}{5}\\text{ 符合题意 } \\\\ 5y - 1 \\neq0\\text{ 时,}\\Delta= 4 + 4\\left( {{5y} - 1}\\right) \\left( {y + 1}\\right) \\geq0 \\end{array} \\Rightarrow y \\geq0\\text{ 或 }y \\leq\\frac{4}{5}}\\right.\\end{array}\\right.$$",
+      "roc_pred": "\\begin{array}{l} {\\tan\\frac{x}{2}=t\\Rightarrow\\begin{cases}\\sin x=\\dfrac{2t}{1+t^2}\\\\ \\cos x=\\dfrac{1-t^2}{1+t^2}\\neq\\dfrac{2}{3}\\end{cases}\\Rightarrow\\dfrac{1-\\sin x}{2-3\\cos x}=\\dfrac{1-\\dfrac{2t}{1+t^2}}{2-3\\cdot\\dfrac{1-t^2}{1+t^2}}=\\dfrac{1+t^2-2}{5^2-1}t,} \\\\ {\\vec{5}t\\neq0} \\\\ {\\dfrac{1+t^2-2t}{5t^2-1}=y\\Rightarrow\\begin{cases}(5y-1)t^2+2t-y-1=0\\\\ \\text{判别式法}\\end{cases}} \\\\ {\\Rightarrow\\begin{cases}5y-1=0\\text{时},&t=\\dfrac{3}{5}\\text{符合题意}\\\\5y-1\\neq0\\text{时},&\\Delta=4+4(5y-1)(y+1)\\geq0\\end{cases}\\Rightarrow y\\geq0\\text{或}y\\leq\\dfrac{4}{5}} \\end{array}",
+      "gguf_pred": "\\begin{array}{l} {\\tan\\frac{x}{2}=t\\Rightarrow\\begin{cases}\\sin x=\\dfrac{2t}{1+t^2}\\\\ \\cos x=\\dfrac{1-t^2}{1+t^2}\\neq\\dfrac{2}{3}\\end{cases}\\Rightarrow\\dfrac{1-\\sin x}{2-3\\cos x}=\\dfrac{1-\\dfrac{2t}{1+t^2}}{2-3\\cdot\\dfrac{1-t^2}{1+t^2}}=\\dfrac{1+t^2-2}{5^2-1}t,} \\\\ {\\vec{5}t\\neq0} \\\\ {\\dfrac{1+t^2-2t}{5t^2-1}=y\\Rightarrow\\begin{cases}(5y-1)t^2+2t-y-1=0\\\\ \\text{判别式法}\\end{cases}} \\\\ {\\Rightarrow\\begin{cases}5y-1=0\\text{时},&t=\\dfrac{3}{5}\\text{符合题意}\\\\5y-1\\neq0\\text{时},&\\Delta=4+4(5y-1)(y+1)\\geq0\\end{cases}\\Rightarrow y\\geq0\\text{或}y\\leq\\dfrac{4}{5}} \\end{array}",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.941,
+      "cdm_diff": 0.941,
+      "roc_edit": 0.1293800539083558,
+      "gguf_edit": 0.1293800539083558,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "docstructbench_dianzishu_zhongwenzaixian-o.O-61569751.pdf_155.jpg",
+      "gt_position": [
+        14.001
+      ],
+      "gt": "\\[\\text{ 血中原卟啉含量 }(\\mathrm{g/L}\\text{ 全血 })=\\frac{\\text{ 样品荧光强度空白荧光强度 }}{\\text{ 标准管荧光强度空白荧光强度 }}\\times\\text{ 标准管原卟啉含量 }(\\mathrm{g})\\times\\]",
+      "roc_pred": "\\[  血中原卟啉含量（g/L 全血）=\\frac{ 样品荧光强度空白荧光强度 }{ 标准管荧光强度空白荧光强度 }\\times 标准管原卟啉含量（g）\\times \\]",
+      "gguf_pred": "\\[  血中原卟啉含量（g/L 全血）=\\frac{ 样品荧光强度空白荧光强度 }{ 标准管荧光强度空白荧光强度 }\\times 标准管原卟啉含量（g）\\times \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.926,
+      "cdm_diff": 0.926,
+      "roc_edit": 0.15,
+      "gguf_edit": 0.15,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$x_{\\text{semi}_j}=\n\\left\\{\\begin{array}{l}\n0,  \\text{对半成品}j\\text{跳过检测} \\\\\n1, \\text{决定检测}\n\\end{array}\\right.$$",
+      "roc_pred": "\\[ x_{s e m i_{j}}=\\left\\{\\begin{aligned}0,&\\quad 对半成品 j 跳过检测 \\\\ &1,&\\quad 决定检测 \\end{aligned}\\right. \\]",
+      "gguf_pred": "\\[ x_{s e m i_{j}}=\\left\\{\\begin{aligned}0,&\\quad 对半成品 j 跳过检测 \\\\ &1,&\\quad 决定检测 \\end{aligned}\\right. \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.92,
+      "cdm_diff": 0.92,
+      "roc_edit": 0.17647058823529413,
+      "gguf_edit": 0.17647058823529413,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png",
+      "gt_position": [
+        9
+      ],
+      "gt": "$${y}_{\\text{semi}_j} = \\left\\{\\begin{array}{l} 0 \\text{ ,不拆解次品半成品}j \\\\  1\\text{,拆解} \\end{array}\\right.$$",
+      "roc_pred": "\\[ \\begin{aligned}y_{semi_{j}}=\\left\\{\\begin{aligned}0,&\\quad 不拆解次品半成品 j\\\\&1,&\\quad 拆解 \\end{aligned}\\right.\\end{aligned} \\]",
+      "gguf_pred": "\\[ \\begin{aligned}y_{semi_{j}}=\\left\\{\\begin{aligned}0,&\\quad 不拆解次品半成品 j\\\\&1,&\\quad 拆解 \\end{aligned}\\right.\\end{aligned} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.913,
+      "cdm_diff": 0.913,
+      "roc_edit": 0.16666666666666666,
+      "gguf_edit": 0.16666666666666666,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "gt_position": [
+        76
+      ],
+      "gt": "$$\n\\textcircled{d}\\frac{16}{y^{6} } \n$$",
+      "roc_pred": "\\[ ☑ \\frac{16}{y^{6}} \\]",
+      "gguf_pred": "\\[ ☑ \\frac{16}{y^{6}} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.909,
+      "cdm_diff": 0.909,
+      "roc_edit": 0.09090909090909091,
+      "gguf_edit": 0.09090909090909091,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png",
+      "gt_position": [
+        11
+      ],
+      "gt": "$$y_{\\text{final}} = \\left\\{\\begin{array}{l} 0,  \\text{不拆解次品成品} \\\\  1,  \\text{ 拆解 } \\end{array}\\right.$$",
+      "roc_pred": "\\[ \\begin{aligned}y_{final}=\\left\\{\\begin{aligned}0,&\\quad 不拆解次品成品 \\\\&1,&\\quad 拆解 \\end{aligned}\\right.\\end{aligned} \\]",
+      "gguf_pred": "\\[ \\begin{aligned}y_{final}=\\left\\{\\begin{aligned}0,&\\quad 不拆解次品成品 \\\\&1,&\\quad 拆解 \\end{aligned}\\right.\\end{aligned} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.905,
+      "cdm_diff": 0.905,
+      "roc_edit": 0.18518518518518517,
+      "gguf_edit": 0.18518518518518517,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png",
+      "gt_position": [
+        ""
+      ],
+      "gt": "$$x_i=\n\\left\\{\\begin{array}{l}\n0,  \\text{对零件}i\\text{跳过检测} \\\\\n1, \\text{进行检测}\n\\end{array}\\right.$$",
+      "roc_pred": "\\[ x_{i}=\\left\\{\\begin{aligned}0,&\\quad 对零件 i 跳过检测 \\\\ &1,&\\quad 进行检测 \\end{aligned}\\right. \\]",
+      "gguf_pred": "\\[ x_{i}=\\left\\{\\begin{aligned}0,&\\quad 对零件 i 跳过检测 \\\\ &1,&\\quad 进行检测 \\end{aligned}\\right. \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.9,
+      "cdm_diff": 0.9,
+      "roc_edit": 0.21428571428571427,
+      "gguf_edit": 0.21428571428571427,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_JJD10031991_extracted_page_6.png",
+      "gt_position": [
+        20
+      ],
+      "gt": "$$\nRE ^ { * } \\%= \\frac {C_{单道}  - C _ {双道 } } { ( C _ 单道 + C _ {双道 } ) \\div 2 } \\times 100 \\\n$$",
+      "roc_pred": "\\[ RE^{*}\\%=\\frac{C_{单重}-C_{双重}}{(C_{单重}+C_{双重})\\div2}\\times100 \\]",
+      "gguf_pred": "\\[ RE^{*}\\%=\\frac{C_{单重}-C_{双重}}{(C_{单重}+C_{双重})\\div2}\\times100 \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.857,
+      "cdm_diff": 0.857,
+      "roc_edit": 0.11864406779661017,
+      "gguf_edit": 0.11864406779661017,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_GB14536.11998_extracted_page_145.png",
+      "gt_position": [
+        15
+      ],
+      "gt": "$$\nT _ 1 = \\frac { U_ i  } {U _A } =\\frac {负序电压}{正序电压}\n$$",
+      "roc_pred": "\\[ T_{*}=\\frac{U_{*}}{U_{a}}=\\frac{ 负序电压 }{ 正序电压 } \\]",
+      "gguf_pred": "\\[ T_{*}=\\frac{U_{*}}{U_{a}}=\\frac{ 负序电压 }{ 正序电压 } \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.833,
+      "cdm_diff": 0.833,
+      "roc_edit": 0.18421052631578946,
+      "gguf_edit": 0.18421052631578946,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "gt_position": [
+        46
+      ],
+      "gt": "$$\n\\textcircled{a}p^{1 4}\\textcircled{b}4^{1 2}\\textcircled{c}\\frac{1}{b^{8}}\\textcircled{d}\\frac{1}{4^{5}}\n$$",
+      "roc_pred": "\\[ 91. ^{a}p^{14} ⓐ 4^{12} ⓒ \\frac{1}{b^{8}} ⓒ \\frac{1}{4^{5}} \\]",
+      "gguf_pred": "\\[ 91. ^{a}p^{14} ⓐ 4^{12} ⓒ \\frac{1}{b^{8}} ⓒ \\frac{1}{4^{5}} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.833,
+      "cdm_diff": 0.833,
+      "roc_edit": 0.17647058823529413,
+      "gguf_edit": 0.17647058823529413,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "gt_position": [
+        75
+      ],
+      "gt": "$$\n\\textcircled{a}9 x^{2} y^{2}\\textcircled{b}1\\textcircled{c}\\frac{1} {2 5 x^{4}}\n$$",
+      "roc_pred": "\\[ 119. 9x^{2}y^{2} ☑ 1 ☐ \\frac{1}{25x^{4}} \\]",
+      "gguf_pred": "\\[ 119. 9x^{2}y^{2} ☑ 1 ☐ \\frac{1}{25x^{4}} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.774,
+      "cdm_diff": 0.774,
+      "roc_edit": 0.24,
+      "gguf_edit": 0.24,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "gt_position": [
+        71
+      ],
+      "gt": "$$\n\\textcircled{a}m^{8}\\textcircled{b}1 0^{1 8}\\textcircled{c}\\frac{1} {x^{1 2}}\n$$",
+      "roc_pred": "\\[ 115. m^{8} ☑ 10^{18} ☑ \\frac{1}{x^{12}} \\]",
+      "gguf_pred": "\\[ 115. m^{8} ☑ 10^{18} ☑ \\frac{1}{x^{12}} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.759,
+      "cdm_diff": 0.759,
+      "roc_edit": 0.25,
+      "gguf_edit": 0.25,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "book_zh_GB115041989_extracted_page_9.png",
+      "gt_position": [
+        17.002
+      ],
+      "gt": "\\[&= \\frac{\\text{样品中}\\delta\\text{-ALA 的含量}[\\mu\\text{mol(\\mu{g})}]}{\\text{分析样品的体积}[10^{-3}\\mathrm{L(mL)}]}\\]",
+      "roc_pred": "\\[  尿中 \\ \\delta-ALA\\  的含量 [(\\mu mol/L(mg/L)]=\\frac{ 样品中 \\ \\delta-ALA\\  的含量 [(\\mu mol(\\mu g)]}{ 分析样品的体积 [10^{-3}L(mL)]} \\]",
+      "gguf_pred": "\\[  尿中 \\ \\delta-ALA\\  的含量 [(\\mu mol/L(mg/L)]=\\frac{ 样品中 \\ \\delta-ALA\\  的含量 [(\\mu mol(\\mu g)]}{ 分析样品的体积 [10^{-3}L(mL)]} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.722,
+      "cdm_diff": 0.722,
+      "roc_edit": 0.45652173913043476,
+      "gguf_edit": 0.45652173913043476,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png",
+      "gt_position": [
+        22
+      ],
+      "gt": "$$+ \\frac{1}{{\\bar{C}}_{x}}\\frac{\\left| \\beta \\right|  + 2}{\\left| \\beta \\right|  + 1}\\left\\lbrack  {{24\\alpha }{B}_{z}\\varepsilon \\mathop{\\sum }\\limits_{\\substack{{{j}_{1} + {j}_{2} + {j}_{3} = \\left| \\beta \\right| } \\\\  {{j}_{1} \\geq  1} }}\\frac{\\left| \\beta \\right|  + 2}{{j}_{1}^{3}{\\left( {j}_{2} + 1\\right) }^{2}\\left( {{j}_{3} + 2}\\right) } + 2\\mathop{\\sum }\\limits_{{j = 0}}^{\\left| \\beta \\right| }\\frac{\\left| \\beta \\right|  + 2}{{\\left( j + 1\\right) }^{2}{\\left( \\left| \\beta \\right|  + 1 - j\\right) }^{2}} + \\frac{9}{2}{B}_{z}\\varepsilon \\mathop{\\sum }\\limits_{{{j}_{1} + {j}_{2} + {j}_{3} = \\left| \\beta \\right| }}\\frac{\\left| \\beta \\right|  + 2}{{\\left( {j}_{1} + 1\\right) }^{2}{\\left( {j}_{2} + 1\\right) }^{2}{\\left( {j}_{3} + 1\\right) }^{2}}}\\right\\rbrack$$",
+      "roc_pred": "\\[ \\left[\\begin{aligned}\\alpha\\frac{(|\\beta|+e_{x}|+1)^{2}\\|\\partial^{\\beta}\\tilde{K}\\|_{L_{x}^{\\infty}}}{|\\beta+e_{x}|!\\overline{C}_{x}^{\\beta_{x}+1}\\overline{C}_{t}^{\\beta_{t}}B_{k}\\varepsilon}&\\leq9\\frac{\\overline{C}_{t}}{\\overline{C}_{x}^{2}}+30\\frac{\\overline{C}_{t}}{\\overline{C}_{x}^{2}}\\frac{|\\beta|+2}{|\\beta|+1}\\sum_{j_{1}+j_{2}+j_{3}=|\\beta|}\\frac{|\\beta|+2}{j_{1}^{3}(j_{2}+1)^{2}(j_{3}+1)^{2}}\\\\ &+\\frac{1}{\\overline{C}_{x}}\\frac{|\\beta|+2}{|\\beta|+1}\\Biggl[24\\alpha B_{z}\\varepsilon\\sum_{j_{1}+j_{2}+j_{3}=|\\beta|}\\frac{|\\beta|+2}{j_{1}^{3}(j_{2}+1)^{2}(j_{3}+2)}+2\\sum_{j=0}^{|\\beta|}\\frac{|\\beta|+2}{(j+1)^{2}(|\\beta|+1-j)^{2}}+\\frac{9}{2}B_{z}\\varepsilon\\sum_{j_{1}+j_{2}+j_{3}=|\\beta|}\\frac{|\\beta|+2}{(j+1)^{2}(j_{2}+1)^{2}(j_{3}+1)^{2}}\\Biggr]\\end{aligned}\\right] \\]",
+      "gguf_pred": "\\[&\\quad+\\frac{1}{\\overline{C}_{x}}\\frac{|\\beta|+2}{|\\beta|+1}\\Biggl[24\\alpha B_{z}\\varepsilon\\sum_{j_{1}+j_{2}+j_{3}=|\\beta|}\\frac{|\\beta|+2}{j_{1}^{3}(j_{2}+1)^{2}(j_{3}+2)}+2\\sum_{j=0}^{|\\beta|}\\frac{|\\beta|+2}{(j+1)^{2}(|\\beta|+1-j)^{2}}+\\frac{9}{2}B_{z}\\varepsilon\\sum_{j_{1}+j_{2}+j_{3}=|\\beta|}\\frac{|\\beta|+2}{(j+1)^{2}(j_{2}+1)^{2}(j_{3}+1)^{2}}\\Biggr]\\]",
+      "roc_cdm": 0.274,
+      "gguf_cdm": 0.968,
+      "cdm_diff": 0.694,
+      "roc_edit": 0.5965217391304348,
+      "gguf_edit": 0.2714285714285714,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "gt_position": [
+        48
+      ],
+      "gt": "$$\n\\textcircled{a}1\\textcircled{b}1\n$$",
+      "roc_pred": "\\[ 93. ^{a}1 ⓒ 1 \\]",
+      "gguf_pred": "\\[ 93. ^{a}1 ⓒ 1 \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.6,
+      "cdm_diff": 0.6,
+      "roc_edit": 0.625,
+      "gguf_edit": 0.625,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-67013be9-58e5-4842-809d-7a3c1fc91fc7.png",
+      "gt_position": [
+        2
+      ],
+      "gt": "$$\\left\\{  \\begin{array}{l} y = \\sin \\left( {{wx} + \\varphi }\\right) \\\\  k \\in  Z,w > 0,\\left| \\varphi \\right|  < \\frac{\\pi }{2} \\end{array}\\right. \\left\\{  \\begin{array}{l} \\left( {a,b}\\right) \\text{ 单调}\\uparrow\\longrightarrow   - \\frac{\\pi }{2} \\leq  {aw} + \\varphi  < {bw} + \\varphi  \\leq  \\frac{\\pi }{2},\\left| {b - a}\\right|  \\leq  \\frac{T}{2} \\\\  \\left( {a,b}\\right) \\text{ 不单调 } \\longrightarrow   {aw} + \\varphi  < \\frac{\\pi }{2}\\left( {\\text{ 或 } - \\frac{\\pi }{2}}\\right)  < {bw} + \\varphi \\left( \\text{ 视情况具体分析 }\\right)  \\end{array}\\right.$$",
+      "roc_pred": "\\begin{array}{l} {\\left\\{\\begin{array}{l} y = \\sin(wx + \\varphi) \\\\ k \\in \\mathbb{Z}, \\ w > 0, |\\varphi| < \\frac{\\pi}{2} \\end{array}\\right.} \\\\ {(a, b)} \\\\ {\\uparrow} \\\\ {-\\frac{\\pi}{2} \\leq aw + \\varphi < bw + \\varphi \\leq \\frac{\\pi}{2}, |b - a| \\leq \\frac{T}{2}} \\\\ {(a, b)} \\\\ {-\\frac{\\pi}{2}} \\\\ {< bw + \\varphi} \\end{array}",
+      "gguf_pred": "\\begin{array}{l} {\\left\\{\\begin{array}{l} y = \\sin(wx + \\varphi) \\\\ k \\in \\mathbb{Z}, \\quad w > 0, |\\varphi| < \\frac{\\pi}{2} \\end{array}\\right.} \\\\ {(a, b)} \\\\ {\\uparrow} \\\\ {(a, b)} \\\\ {-\\frac{\\pi}{2}} \\\\ {< bw + \\varphi} \\end{array}",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.573,
+      "cdm_diff": 0.573,
+      "roc_edit": 0.34959349593495936,
+      "gguf_edit": 0.6260162601626016,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png",
+      "gt_position": [
+        21
+      ],
+      "gt": "$$\\alpha\\frac{(|\\beta|+e_{x}|+1)^{2}\\|\\partial^{\\beta}\\mathring{K}\\|_{L_{x}^{\\infty}}}{|\\beta+e_{x}|!\\overline{C}_{x}^{\\beta_{x}+1}\\overline{C}_{t}^{\\beta_{t}}B_{k}\\varepsilon}\\leq9\\frac{\\overline{C}_{t}}{\\overline{C}_{x}}+30\\frac{\\overline{C}_{t}}{\\overline{C}_{x}^{2}}\\frac{|\\beta|+2}{|\\beta|+1}\\sum_{\n\\substack{\nj_{1}+j_{2}+j_{3}=|\\beta|\\\\j_{1}\\geq1\n}}\\frac{|\\beta|+2}{j_{1}^{3}(j_{2}+1)^{2}(j_{3}+1)^{2}}$$",
+      "roc_pred": "\\[ \\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}\\mathring{K}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{{C}}_{x}^{\\beta_{x}}\\overline{{C}}_{t}^{\\beta_{t}}}\\leq B_{k}\\varepsilon, \\]",
+      "gguf_pred": "\\[&\\alpha\\frac{(|\\beta|+e_{x}|+1)^{2}\\|\\partial^{\\beta}\\tilde{K}\\|_{L_{x}^{\\infty}}}{|\\beta+e_{x}|!\\overline{C}_{x}^{\\beta_{x}+1}\\overline{C}_{t}^{\\beta_{t}}B_{k}\\varepsilon}\\leq9\\frac{\\overline{C}_{t}}{\\overline{C}_{x}^{2}}+30\\frac{\\overline{C}_{t}}{\\overline{C}_{x}^{2}}\\frac{|\\beta|+2}{|\\beta|+1}\\sum_{j_{1}+j_{2}+j_{3}=|\\beta|}\\frac{|\\beta|+2}{j_{1}^{3}(j_{2}+1)^{2}(j_{3}+1)^{2}}\\]",
+      "roc_cdm": 0.471,
+      "gguf_cdm": 0.969,
+      "cdm_diff": 0.498,
+      "roc_edit": 0.6114649681528662,
+      "gguf_edit": 0.09235668789808917,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png",
+      "gt_position": [
+        8
+      ],
+      "gt": "$$\\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}\\eta_{x}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq3,\\quad\\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}(\\eta_{x}\\mathring{W})\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq\\frac{4}{3},\\tag{5.30c}$$",
+      "roc_pred": "\\[ \\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}(\\eta_{x}\\mathring{W})\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq\\frac{4}{3}, \\]",
+      "gguf_pred": "\\begin{array}{l} {\\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}\\eta_{x}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq3,} \\\\ {\\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}(\\eta_{x}\\mathring{W})\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq\\frac{4}{3},} \\end{array}",
+      "roc_cdm": 0.667,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 0.33299999999999996,
+      "roc_edit": 0.4634146341463415,
+      "gguf_edit": 0.004048582995951417,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png",
+      "gt_position": [
+        7
+      ],
+      "gt": "$$\\frac{(|\\beta|+1)^2\\|\\partial^{\\beta}\\Sigma_{t}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq4\\alpha B_{x}\\varepsilon,\\quad\\frac{(|\\beta|+1)^2\\|\\partial^{\\beta}(\\Sigma^{-1})_{t}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq4\\alpha B_{z}\\varepsilon,\\tag{5.30b}$$",
+      "roc_pred": "\\[ \\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}(\\Sigma^{-1})_{t}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq4\\alpha B_{z}\\varepsilon, \\]",
+      "gguf_pred": "\\begin{array}{l} {\\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}\\Sigma_{t}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq4\\alpha B_{z}\\varepsilon,} \\\\ {\\frac{(|\\beta|+1)^{2}\\|\\partial^{\\beta}(\\Sigma^{-1})_{t}\\|_{L_{x}^{\\infty}}}{|\\beta|!\\overline{C}_{x}^{\\beta_{x}}\\overline{C}_{t}^{\\beta_{t}}}\\leq4\\alpha B_{z}\\varepsilon,} \\end{array}",
+      "roc_cdm": 0.672,
+      "gguf_cdm": 0.988,
+      "cdm_diff": 0.31599999999999995,
+      "roc_edit": 0.49097472924187724,
+      "gguf_edit": 0.007194244604316547,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "jiaocaineedrop_jiaocai_needrop_en_546.jpg",
+      "gt_position": [
+        8
+      ],
+      "gt": "$$\n79\\div9=\n$$",
+      "roc_pred": "\\begin{array}{l} {79\\div9=} \\\\ {5. 典典摆了一组有规律的图形 \\triangle ○ \\square \\triangle ○ \\square \\cdots \\cdots 他摆的第15个图形是( ), 第29个图形是( )。} \\end{array}",
+      "gguf_pred": "\\begin{array}{l} {79\\div9=} \\\\ {5. 典典摆了一组有规律的图形 \\triangle ○ \\square \\triangle ○ \\square \\cdots \\cdots 他摆的第15个图形是( ), 第29个图形是( )。} \\end{array}",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 0.175,
+      "cdm_diff": 0.175,
+      "roc_edit": 0.9130434782608695,
+      "gguf_edit": 0.9130434782608695,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "notes_9e951846094758afac08c620144e3a76_14.jpg",
+      "gt_position": [
+        14
+      ],
+      "gt": "$$\\therefore BQ=AD=8  \\therefore CQ=2. DQ=BA=4.$$",
+      "roc_pred": "\\[ ∴ BQ = AD = 8 ∴ CQ = 2，DQ = BA = 4. \\]",
+      "gguf_pred": "\\[ ∴ BQ = AD = 8 ∴ CQ = 2，DQ = BA = 4. \\]",
+      "roc_cdm": 0.78,
+      "gguf_cdm": 0.927,
+      "cdm_diff": 0.14700000000000002,
+      "roc_edit": 0.5384615384615384,
+      "gguf_edit": 0.5384615384615384,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "page-39d18b46-ad1b-4c7a-b7e2-132471c27c15.png",
+      "gt_position": [
+        0
+      ],
+      "gt": "$$=\\frac{k(x_1-4)\\times(2x_2-5)+3k(x_2-4)}{2x_2-5}$$",
+      "roc_pred": "\\[ (x_1, y_1), (x_2, y_2) \\]",
+      "gguf_pred": "\\[ f(x)=(1-ax)\\ln(1+x)-x \\]",
+      "roc_cdm": 0.391,
+      "gguf_cdm": 0.51,
+      "cdm_diff": 0.119,
+      "roc_edit": 0.7272727272727273,
+      "gguf_edit": 0.7727272727272727,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "gt_position": [
+        57
+      ],
+      "gt": "$$\n\\textcircled{a}\\frac{64} {2 5}\\textcircled{b}\\frac{a^{2} }{b^{2} } \n$$",
+      "roc_pred": "\\[ 101. {}^{⑧} \\frac{64}{25} {}^{⑨} \\frac{a^{2}}{b^{2}} \\]",
+      "gguf_pred": "\\[ 101. {}^{⑧} \\frac{64}{25} {}^{⑨} \\frac{a^{2}}{b^{2}} \\]",
+      "roc_cdm": 0.692,
+      "gguf_cdm": 0.769,
+      "cdm_diff": 0.07700000000000007,
+      "roc_edit": 0.2857142857142857,
+      "gguf_edit": 0.2857142857142857,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    }
+  ]
+}
