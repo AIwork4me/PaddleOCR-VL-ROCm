@@ -36,7 +36,7 @@ def unobservable() -> dict[str, str]:
 
 def normalize_scorer_markdown(text: str) -> str:
     """Normalize transport newlines while preserving Markdown-significant bytes."""
-    return text.replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
+    return text.replace("\r\n", "\n").replace("\r", "\n").replace("\n<br>\n", "\n\n").rstrip("\n")
 
 
 def boundary_relation(reference: Mapping[str, str], candidate: Mapping[str, str]) -> str:
