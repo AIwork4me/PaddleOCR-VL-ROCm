@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "json_keys": [
+    "input_path",
+    "width",
+    "height",
+    "layout_det_res",
+    "parsing_res_list",
+    "model_settings"
+  ],
+  "json_types": {
+    "input_path": "string",
+    "width": "integer",
+    "height": "integer",
+    "layout_det_res": "object",
+    "parsing_res_list": "array",
+    "model_settings": "object"
+  },
+  "markdown_suffix": ".md",
+  "json_suffix": "_res.json",
+  "markdown_sha256": "37678009c0010f2f969b74ae26dc6e1ae1d43b39856bbea66b3702551a8b828b",
+  "defaults": {
+    "api_model_name": "PaddleOCR-VL-1.6-GGUF.gguf",
+    "vlm_backend": "llama-cpp-server",
+    "max_new_tokens": 4096,
+    "seed": 1,
+    "threshold": 0.3,
+    "vlm_max_workers": 1
+  },
+  "model_settings": {
+    "use_doc_preprocessor": false,
+    "use_layout_detection": true,
+    "use_chart_recognition": false,
+    "use_seal_recognition": false,
+    "use_ocr_for_image_block": false,
+    "format_block_content": false,
+    "merge_layout_blocks": true,
+    "markdown_ignore_labels": "array",
+    "return_layout_polygon_points": true
+  }
+}

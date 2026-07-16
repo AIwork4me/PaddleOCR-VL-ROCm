@@ -6,7 +6,8 @@ readme = "README.md"
 requires-python = ">=3.10,<3.14"
 dependencies = [
   "numpy>=1.26.0",
-  "onnxruntime>=1.18.0",
+  "onnxruntime>=1.18.0; platform_system != 'Windows'",
+  "onnxruntime-directml>=1.18.0; platform_system == 'Windows'",
   "opencv-python-headless>=4.9.0",
   "pillow>=10.0.0",
   "requests>=2.32.0",
@@ -15,9 +16,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0.0", "ruff>=0.6.0", "mypy>=1.11.0"]
+dev = ["build>=1.2.2", "pytest>=8.0.0", "ruff>=0.6.0", "mypy>=1.11.0", "PyYAML==6.0.2", "tomli==2.2.1; python_version < '3.11'"]
 download = ["huggingface_hub>=0.25.0"]
-gpu = ["onnxruntime-directml>=1.18.0"]
+gpu = ["onnxruntime-directml>=1.18.0; platform_system == 'Windows'"]
 # Note: OmniDocBench's own dependencies (including CDM's Node.js, ImageMagick 7,
 # and TeX Live toolchain) are NOT vendored here. They live in the OmniDocBench
 # checkout pinned at eval/.omnidocbench/ (gitignored) and installed via its own
@@ -29,7 +30,7 @@ gpu = ["onnxruntime-directml>=1.18.0"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-extend-exclude = ["models", "outputs"]
+extend-exclude = ["models", "outputs", "eval/.omnidocbench"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -37,9 +38,13 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501"]
 
+[tool.setuptools.package-data]
+paddleocr_vl_rocm = ["assets/*.json"]
+
 [tool.mypy]
 python_version = "3.10"
 ignore_missing_imports = true
+no_site_packages = true
 check_untyped_defs = false
 warn_unused_ignores = false
 files = ["src/paddleocr_vl_rocm"]

@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "trace_contract": {
+    "layout_providers_active_first": "DmlExecutionProvider",
+    "allow_cpu_fallback": false
+  },
+  "cases": [
+    {
+      "case_id": "b93ac0c74e1629aaaa2eb1578d09a1d77fa51ad74e7fdeab773ea71e9d781bbe",
+      "component": "formula_cdm",
+      "page": "page-7dfc88d8-6d95-446c-b910-2410e8552f76.png",
+      "source_identity": {"gt_position": [1], "gt_sha256": "472997a99cd7471e82aa3781aca9f04ba48e9ed4f1514a4742884eaa0a03cce6"},
+      "metadata": {"gt_idx": {"official": [1], "lightweight": [1]}},
+      "official_score": 0.965,
+      "lightweight_score": 0.061,
+      "page_delta": 0.904,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "e5a0e8987c11ea43ed8135491ab316d9d4c962074dc9772d7f212613353f9467",
+      "component": "formula_cdm",
+      "page": "page-dad0f4e5-290f-496f-bbdd-099ad75c6ff0.png",
+      "source_identity": {"gt_position": [15], "gt_sha256": "3127eff1948cabfc4ca288b0e2e02771987311ff57878c7f1ebc29462b578a03"},
+      "metadata": {"gt_idx": {"official": [15], "lightweight": [15]}},
+      "official_score": 1.0,
+      "lightweight_score": 0.0,
+      "page_delta": 0.2,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "13d7060250ddd10823e6891961682ce7009b9677d298d36db8588b7f7f508c8e",
+      "component": "formula_cdm",
+      "page": "page-05746fc5-2045-4dea-94e7-4bbab648d702.png",
+      "source_identity": {"gt_position": [12], "gt_sha256": "5c43e0e70103cb48cb999db06912b97b8ed3d186ae7ba4c903e620185134e983"},
+      "metadata": {"gt_idx": {"official": [12], "lightweight": [12]}},
+      "official_score": 0.981,
+      "lightweight_score": 0.0,
+      "page_delta": 0.1635,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "06f6f1ff28420b164978261ffabbc28f9c7a817e27277712570bb436161d30de",
+      "component": "formula_cdm",
+      "page": "book_en_\u56fd\u5916\u6570\u5b66\u6559\u6750-\u6570\u8bba-Melvyn B. Nathanson\u2014Elementary Methods in Number Theory_0451.png",
+      "source_identity": {"gt_position": [6], "gt_sha256": "dbe2694121056e76d1dd1d4b4dddf5348a8641dc0dbb68764558bd79ba3a9113"},
+      "metadata": {"gt_idx": {"official": [7], "lightweight": [7]}},
+      "official_score": 0.956,
+      "lightweight_score": 0.0,
+      "page_delta": 0.07966666666666655,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "8602994a7678e923e2fbbd825f90dd41130167a6758d6eab6c63cc7bd5f9a4c3",
+      "component": "formula_cdm",
+      "page": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+      "source_identity": {"gt_position": [52], "gt_sha256": "895c8f562a8cb3ced41db058e51e16b95d03d9205a8efb62b35dda635ed8c130"},
+      "metadata": {"gt_idx": {"official": [26], "lightweight": [26]}},
+      "official_score": 0.788,
+      "lightweight_score": 0.381,
+      "page_delta": 0.013930555555555557,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "d18aa15a556ca83ffc3e625d004104aa7f7be98ff82f7df8bf2044ae9659e13f",
+      "component": "table_teds",
+      "page": "yanbaor2_yanbaoPPT_2098.jpg",
+      "source_identity": {"gt_position": [1], "gt_sha256": "23ffc5b34c9ee1ff3309a40548949a11e3dbef5081e2beffef6a2cf39693ed69"},
+      "metadata": {"gt_idx": {"official": [0], "lightweight": [0]}},
+      "official_score": 0.975,
+      "lightweight_score": 0.6340579710144927,
+      "page_delta": 0.3409420289855073,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "a963d6c05bacde274abac846b484300489fb07c41663bd393e3804b4dc42073e",
+      "component": "table_teds",
+      "page": "yanbaor2_3e1be78252e2fdfe1adf12bba38ec2a7b30699e152d61269aa6e5827f5adcc35.pdf_13.jpg",
+      "source_identity": {"gt_position": [4], "gt_sha256": "8d4aa75b0bc094c65dc5b74e2e5c9d63c475778f2a4abd7fd91d819a9eb1abfd"},
+      "metadata": {"gt_idx": {"official": [0], "lightweight": [0]}},
+      "official_score": 0.7384615384615385,
+      "lightweight_score": 0.5846153846153845,
+      "page_delta": 0.15384615384615397,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "e0d93191a7c7036e4254efdfa13f9eb7fcd9779f56c02fe7f10c2b20d1c645b7",
+      "component": "table_teds",
+      "page": "docstructbench_llm-raw-the-eye-o.O-TraneGuide.pdf_7.jpg",
+      "source_identity": {"gt_position": [1], "gt_sha256": "d78b2d89582d518b731f43d3a6cde495a1cddeceda1a0139af710b01c66f4a7c"},
+      "metadata": {"gt_idx": {"official": [0], "lightweight": [0]}},
+      "official_score": 0.8547618350010044,
+      "lightweight_score": 0.7079506943569315,
+      "page_delta": 0.14681114064407297,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "5aa11596200d4643960d2ebb38a557a4415726f23ff2cdc599c6a9eeca7466d3",
+      "component": "table_teds",
+      "page": "eastmoney_ea59610b9b1a8f0df46f7a89da1116cbf256c772e1148f26017991e28c8bca21.pdf_18.jpg",
+      "source_identity": {"gt_position": [3], "gt_sha256": "88865964d0b7d99d756c5f6190121cb60fbaed70a7e69943543677c101bdc871"},
+      "metadata": {"gt_idx": {"official": [1], "lightweight": [1]}},
+      "official_score": 0.9742160278745644,
+      "lightweight_score": 0.9084854994629431,
+      "page_delta": 0.03286526420581071,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "ed2a0570f69a7dc914e7b038e8916fbc9e4f88bddc803a88418cf4a355e82f91",
+      "component": "table_teds",
+      "page": "docstructbench_enbook-zlib-o.O-17761417.pdf_894.jpg",
+      "source_identity": {"gt_position": [12], "gt_sha256": "9645f2a786a6461a1b154424ab9508b38a74ee1a627123f6f40ef103a4066f7e"},
+      "metadata": {"gt_idx": {"official": [0], "lightweight": [0]}},
+      "official_score": 0.8704020616152214,
+      "lightweight_score": 0.8397898167172622,
+      "page_delta": 0.030612244897959218,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "dba1aec09157aba6e11892b4e165065f737ccc362c89e3cf22ab0ec9006c8a2c",
+      "component": "text_edit",
+      "page": "jiaocaineedrop_jiaocai_needrop_en_349.jpg",
+      "source_identity": {"gt_position": [57], "gt_sha256": "15fb723bc8818e037bab6ec80be4c171efa39dbe1c8e0ec96300f14c293bb069"},
+      "metadata": {"gt_idx": {"official": [19], "lightweight": [19]}},
+      "official_score": 0.056962025316455694,
+      "lightweight_score": 1.0,
+      "page_delta": 0.2251210600925081,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "d34e246c22c41549168a738aabd3b404b3a5a96b82ccd0d5ee6c252c71fa16b6",
+      "component": "text_edit",
+      "page": "PPT_lecture1_page_005.png",
+      "source_identity": {"gt_position": [4], "gt_sha256": "c8c025666a0cbc5cbe62cb27b4b677841001c0d66c8fcd83dbafa6e844d19832"},
+      "metadata": {"gt_idx": {"official": [3], "lightweight": [3]}},
+      "official_score": 0.0,
+      "lightweight_score": 0.17757009345794392,
+      "page_delta": 0.12666666666666668,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "a1b6c1a7af8a198745762c5f4805e7659a9ff19f0a6934d8131c3fbf4e826962",
+      "component": "text_edit",
+      "page": "magazine_TheEconomist.2023.12.09_page_048.png",
+      "source_identity": {"gt_position": [20], "gt_sha256": "60e839d400f5cb7eca0b31920a9b0cef815e5e8f755d6e1a16a917662ec6df33"},
+      "metadata": {"gt_idx": {"official": [20], "lightweight": [20]}},
+      "official_score": 0.004796163069544364,
+      "lightweight_score": 0.9592326139088729,
+      "page_delta": 0.07355387174274626,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "fc98de317a28bd7cef09fdcab46031e6093752566f2ae2f7a1456b92b7decd88",
+      "component": "text_edit",
+      "page": "page-2329f04a-41b3-435b-993a-a0652294b07d.png",
+      "source_identity": {"gt_position": [4], "gt_sha256": "80fab0c28f3d24ed95ca3267477e215af5f5fe1ef96a23c95963b26c25fd36d5"},
+      "metadata": {"gt_idx": {"official": [4], "lightweight": [4]}},
+      "official_score": 0.7294117647058823,
+      "lightweight_score": 0.755,
+      "page_delta": 0.06564501150780636,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "9bb616a6d1c45569a1d7e4e0672b10fdbd2cd3771ed6306be17b7eea3baba83a",
+      "component": "text_edit",
+      "page": "docstructbench_llm-raw-the-eye-o.O-Player%27s%20Options%20-%20Halflings.pdf_11.jpg",
+      "source_identity": {"gt_position": [10], "gt_sha256": "f70f7923ce19f43703c1e2ace719c20c720ff7bd7a15088a4d79837b842ede80"},
+      "metadata": {"gt_idx": {"official": [8], "lightweight": [8]}},
+      "official_score": 0.0,
+      "lightweight_score": 0.2604501607717042,
+      "page_delta": 0.06352941176470588,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "4d791bbfe0ae8e15586d173cd56e780c82f2ec52d97e3f58b772c4f5cb369426",
+      "component": "reading_order",
+      "page": "page-2329f04a-41b3-435b-993a-a0652294b07d.png",
+      "source_identity": {"gt_position": [], "gt_sha256": "c7136c8c22b6359af65a758ee1690117bc8a81bbb288e26bd57969157a5c45f4"},
+      "metadata": {"gt_idx": {"official": null, "lightweight": null}},
+      "official_score": 0.0,
+      "lightweight_score": 0.2857142857142857,
+      "page_delta": 0.2857142857142857,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "2f98a52ddf0744194dca6148de179cb06a957c209104a05343976155bab75466",
+      "component": "reading_order",
+      "page": "page-21967f5d-667d-488e-a5b3-76b9d6f53656.png",
+      "source_identity": {"gt_position": [], "gt_sha256": "819a96a922c4cbdbcdb6bd97912b650c0c3512309ef476fee8ef579817a5d1a8"},
+      "metadata": {"gt_idx": {"official": null, "lightweight": null}},
+      "official_score": 0.0,
+      "lightweight_score": 0.18518518518518517,
+      "page_delta": 0.18518518518518517,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "1251d0294f22c0807d36488df916edad3bfed3d65f6f625f1c75000d07e8faec",
+      "component": "reading_order",
+      "page": "page-268266af-56c0-4b3b-9d07-73c6e50feb58.png",
+      "source_identity": {"gt_position": [], "gt_sha256": "177058ec0d2c019bac7aec5cf242db94bd714cddaef9695c871580fe35890749"},
+      "metadata": {"gt_idx": {"official": null, "lightweight": null}},
+      "official_score": 0.0,
+      "lightweight_score": 0.16666666666666666,
+      "page_delta": 0.16666666666666666,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "427790a859a75cf69a7badb860ea5499a01657ec08bdd8d48996eba741f47bed",
+      "component": "reading_order",
+      "page": "page-4319d401-c9e8-4326-9869-7572cf2e0e96.png",
+      "source_identity": {"gt_position": [], "gt_sha256": "823afc90ba02222b0999d713e476b47b96e650fc69c8e3502148dc51f7f609d7"},
+      "metadata": {"gt_idx": {"official": null, "lightweight": null}},
+      "official_score": 0.2857142857142857,
+      "lightweight_score": 0.42857142857142855,
+      "page_delta": 0.14285714285714285,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    },
+    {
+      "case_id": "c868f6459ab2b04e98b364f518de8cc7c4dea08b32cc1a550f0e17fe86b284b1",
+      "component": "reading_order",
+      "page": "color_textbook_\u6559\u6750\u5168\u89e31+1\u4e8c\u5e74\u7ea7\u4e0b\u518c\u82f1\u8bed\u4e0a\u6d77\u725b\u6d25\u7248_page_006.png",
+      "source_identity": {"gt_position": [], "gt_sha256": "27bed167feebda34670629d51900ab3d188ea591d93893360ef5203342374ef2"},
+      "metadata": {"gt_idx": {"official": null, "lightweight": null}},
+      "official_score": 0.06666666666666667,
+      "lightweight_score": 0.2,
+      "page_delta": 0.13333333333333336,
+      "required_boundaries": ["layout", "crop", "payload", "raw_vlm", "final_output"]
+    }
+  ]
+}

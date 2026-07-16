@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -721,12 +722,37 @@ def postprocess_layout(
     return results
 
 
+def resolve_layout_providers(
+    available: Sequence[str], requested: str, platform_name: str
+) -> list[str]:
+    choice = requested.strip().lower()
+    if choice == "auto":
+        choice = "directml" if platform_name == "Windows" else "cpu"
+    mapping = {
+        "directml": "DmlExecutionProvider",
+        "cpu": "CPUExecutionProvider",
+    }
+    if choice not in mapping:
+        raise ValueError(f"Unsupported layout provider: {requested}")
+    provider = mapping[choice]
+    if provider not in available:
+        if choice == "directml":
+            raise RuntimeError(
+                "DmlExecutionProvider is unavailable. Install onnxruntime-directml with "
+                "pip install -e '.[gpu]' and verify the AMD graphics driver."
+            )
+        raise RuntimeError(f"{provider} is unavailable")
+    return [provider]
+
+
 class PPDocLayoutV3Onnx:
     def __init__(
         self,
         model_dir: Path,
         providers: list[str] | None = None,
         intra_op_threads: int | None = None,
+        requested_provider: str | None = None,
+        profiling_prefix: Path | None = None,
     ) -> None:
         import onnxruntime as ort
 
@@ -739,11 +765,61 @@ class PPDocLayoutV3Onnx:
         options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         if intra_op_threads:
             options.intra_op_num_threads = intra_op_threads
+        self._profiling_enabled = profiling_prefix is not None
+        self._profiling_finalized = False
+        self._profile_path: Path | None = None
+        self._profiling_error: Exception | None = None
+        if profiling_prefix is not None:
+            profiling_prefix.parent.mkdir(parents=True, exist_ok=True)
+            options.enable_profiling = True
+            options.profile_file_prefix = str(profiling_prefix.resolve())
         self.session = ort.InferenceSession(
             str(model_path),
             sess_options=options,
             providers=providers or ["CPUExecutionProvider"],
         )
+        self.layout_fallback_disabled = False
+        disable_fallback = getattr(self.session, "disable_fallback", None)
+        if disable_fallback is not None:
+            disable_fallback()
+            self.layout_fallback_disabled = True
+        elif self._profiling_enabled:
+            raise RuntimeError(
+                "DirectML evidence mode requires the ONNX Runtime disable_fallback() API"
+            )
+        requested = providers or ["CPUExecutionProvider"]
+        self.layout_provider_requested = requested_provider or (
+            "directml" if requested[0] == "DmlExecutionProvider" else "cpu"
+        )
+        self.layout_providers_active = list(self.session.get_providers())
+        self.active_providers = self.layout_providers_active
+        if (
+            providers
+            and providers[0] == "DmlExecutionProvider"
+            and (
+                not self.layout_providers_active
+                or self.layout_providers_active[0] != "DmlExecutionProvider"
+            )
+        ):
+            raise RuntimeError(
+                "DmlExecutionProvider failed to activate; refusing CPU fallback for "
+                "layout inference"
+            )
+
+    def finish_profiling(self) -> Path | None:
+        if not self._profiling_enabled:
+            return None
+        if self._profiling_finalized:
+            if self._profiling_error is not None:
+                raise self._profiling_error
+            return self._profile_path
+        self._profiling_finalized = True
+        try:
+            self._profile_path = Path(self.session.end_profiling()).resolve(strict=True)
+        except Exception as exc:
+            self._profiling_error = exc
+            raise
+        return self._profile_path
 
     def predict(
         self,

@@ -3,15 +3,21 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import os
 import re
 import shutil
+import tempfile
 import time
 import traceback
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
+from typing import Any
+
+from eval.task5_comparison import BOUNDARIES, normalize_scorer_markdown, observation, unobservable
+from paddleocr_vl_rocm.timing import summarize_seconds
 
 ADAPTER_DIR = Path(__file__).resolve().parent
 REPO_ROOT = ADAPTER_DIR.parent
@@ -33,6 +39,31 @@ def iter_images(img_dir: Path, limit_pages: int | None = None) -> list[Path]:
         return images
     limit = max(0, int(limit_pages))
     return images[:limit]
+
+
+def _validated_images(img_dir: Path, limit_pages: int | None) -> list[Path]:
+    all_images = iter_images(img_dir)
+    by_stem: dict[str, list[str]] = {}
+    for image in all_images:
+        by_stem.setdefault(image.stem, []).append(image.name)
+    duplicates = {stem: names for stem, names in by_stem.items() if len(names) > 1}
+    if duplicates:
+        raise ValueError(f"Duplicate output stem(s): {duplicates}")
+    if limit_pages is None:
+        return all_images
+    return all_images[: max(0, int(limit_pages))]
+
+
+def _prepare_trace_dir(trace_dir: Path | None) -> None:
+    if trace_dir is None:
+        return
+    if trace_dir.exists():
+        if not trace_dir.is_dir():
+            raise ValueError(f"Trace path must be a directory: {trace_dir}")
+        if next(trace_dir.iterdir(), None) is not None:
+            raise ValueError(f"Trace directory must be empty before inference: {trace_dir}")
+        return
+    trace_dir.mkdir(parents=True)
 
 
 def _read_env_local(repo_root: Path) -> dict[str, str]:
@@ -74,6 +105,8 @@ def run_adapter(
     page_retries: int = 1,
     fallback_pred_dir: str | Path | None = None,
     limit_pages: int | None = None,
+    trace_dir: str | Path | None = None,
+    layout_profile_prefix: str | Path | None = None,
 ) -> dict:
     env = _read_adapter_env()
     default_layout = (
@@ -104,8 +137,14 @@ def run_adapter(
             api_model_name=default_api_model,
             vlm_backend=vlm_backend,
             limit_pages=limit_pages,
+            trace_dir=Path(trace_dir) if trace_dir is not None else None,
+            layout_profile_prefix=(
+                Path(layout_profile_prefix) if layout_profile_prefix is not None else None
+            ),
         )
     if selected_engine == "official":
+        if layout_profile_prefix is not None:
+            raise ValueError("--layout-profile-prefix is supported only by the lightweight engine")
         return run_official_folder(
             img_dir=Path(img_dir),
             out_dir=Path(out_dir),
@@ -114,6 +153,7 @@ def run_adapter(
             page_retries=page_retries,
             fallback_pred_dir=Path(fallback_pred_dir) if fallback_pred_dir else None,
             limit_pages=limit_pages,
+            trace_dir=Path(trace_dir) if trace_dir is not None else None,
         )
     raise ValueError(f"Unsupported engine '{engine}'. Use lightweight or official.")
 
@@ -127,10 +167,14 @@ def run_lightweight_folder(
     api_model_name: str = DEFAULT_LOCAL_API_MODEL_NAME,
     vlm_backend: str = DEFAULT_VLM_BACKEND,
     limit_pages: int | None = None,
+    trace_dir: Path | None = None,
+    layout_profile_prefix: Path | None = None,
 ) -> dict:
     """Run the local lightweight pipeline over every image in ``img_dir``."""
     if not img_dir.is_dir():
         raise SystemExit(f"Image directory not found: {img_dir}")
+    images = _validated_images(img_dir, limit_pages)
+    _prepare_trace_dir(trace_dir)
     try:
         PipelineClass = PaddleOCRVLROCm  # type: ignore[name-defined]
     except NameError:
@@ -140,45 +184,98 @@ def run_lightweight_folder(
         vlm_server_url=server_url,
         api_model_name=api_model_name,
         vlm_backend=vlm_backend,
+        layout_profile_prefix=layout_profile_prefix,
     )
+    pipeline._layout()
+    layout_provider_requested = pipeline.layout_provider_requested
+    layout_providers_active = list(pipeline.layout_providers_active)
     out_dir.mkdir(parents=True, exist_ok=True)
     errors_path = out_dir / "_errors.log"
     errors_path.unlink(missing_ok=True)
     stats: list[dict] = []
-    images = iter_images(img_dir, limit_pages=limit_pages)
-    for img in images:
-        start = time.time()
-        destination = out_dir / expected_md_name(img.name)
-        destination.unlink(missing_ok=True)
-        try:
-            result = pipeline.predict(img)
-            destination.write_text(result.markdown_text, encoding="utf-8")
-            stats.append(
-                {"image": img.name, "status": "ok", "seconds": round(time.time() - start, 2)}
-            )
-        except Exception as exc:  # noqa: BLE001 - record failure, continue
-            tb = traceback.format_exc()
-            with open(out_dir / "_errors.log", "a", encoding="utf-8") as fh:
-                fh.write(f"[{time.strftime('%Y-%m-%dT%H:%M:%S')}] {img.name}: {exc}\n{tb}\n")
-            stats.append(
-                {
+    profile_path: Path | None = None
+    try:
+        for img in images:
+            start = time.time()
+            destination = out_dir / expected_md_name(img.name)
+            trace_path = trace_dir / f"{img.stem}.jsonl" if trace_dir is not None else None
+            destination.unlink(missing_ok=True)
+            if trace_path is not None:
+                trace_path.unlink(missing_ok=True)
+            try:
+                trace_events: list[dict[str, Any]] | None = [] if trace_dir is not None else None
+                if trace_events is None:
+                    result = pipeline.predict(img)
+                else:
+                    result = pipeline.predict(img, vlm_trace_events=trace_events)
+                if trace_events is not None:
+                    canonical_events = _lightweight_page_trace_events(
+                        img.stem, trace_events, result.markdown_text
+                    )
+                    _write_trace_jsonl(trace_path, canonical_events)
+                destination.write_text(result.markdown_text, encoding="utf-8")
+                page_stats = {
                     "image": img.name,
-                    "status": f"failed: {exc}",
+                    "status": "ok",
                     "seconds": round(time.time() - start, 2),
-                    "traceback": tb,
                 }
-            )
+                if pipeline.last_timing is not None:
+                    page_stats["timing"] = dict(pipeline.last_timing)
+                stats.append(page_stats)
+            except Exception as exc:  # noqa: BLE001 - record failure, continue
+                if trace_path is not None:
+                    trace_path.unlink(missing_ok=True)
+                    destination.unlink(missing_ok=True)
+                tb = traceback.format_exc()
+                with open(out_dir / "_errors.log", "a", encoding="utf-8") as fh:
+                    fh.write(f"[{time.strftime('%Y-%m-%dT%H:%M:%S')}] {img.name}: {exc}\n{tb}\n")
+                stats.append(
+                    {
+                        "image": img.name,
+                        "status": f"failed: {exc}",
+                        "seconds": round(time.time() - start, 2),
+                        "traceback": tb,
+                    }
+                )
+    finally:
+        if layout_profile_prefix is not None:
+            profile_path = pipeline.finish_layout_profiling()
 
     ok_count = sum(1 for s in stats if s["status"] == "ok")
+    successful_stats = [item for item in stats if item["status"] == "ok"]
+    stage_names = (
+        "decode_seconds",
+        "layout_seconds",
+        "crop_encode_seconds",
+        "vlm_seconds",
+        "finalize_seconds",
+        "total_seconds",
+    )
     summary = {
         "count": len(images),
         "ok": ok_count,
         "fail": len(images) - ok_count,
         "fallback": 0,
         "engine": "lightweight",
+        "layout_provider_requested": layout_provider_requested,
+        "layout_providers_active": layout_providers_active,
         "limit_pages": limit_pages,
+        "timing": summarize_seconds([float(item["seconds"]) for item in successful_stats]),
         "stats": stats,
     }
+    if layout_profile_prefix is not None:
+        summary.update(
+            {
+                "layout_fallback_disabled": pipeline.layout_fallback_disabled,
+                "layout_profile_path": str(profile_path) if profile_path else None,
+            }
+        )
+    stage_events = [item["timing"] for item in successful_stats if "timing" in item]
+    if stage_events:
+        summary["stage_timing"] = {
+            stage: summarize_seconds([float(event[stage]) for event in stage_events])
+            for stage in stage_names
+        }
     (out_dir / "_run_stats.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -197,6 +294,8 @@ def process_folder(
     api_model_name: str = DEFAULT_LOCAL_API_MODEL_NAME,
     vlm_backend: str = DEFAULT_VLM_BACKEND,
     limit_pages: int | None = None,
+    trace_dir: Path | None = None,
+    layout_profile_prefix: Path | None = None,
 ) -> dict:
     return run_lightweight_folder(
         img_dir=img_dir,
@@ -206,7 +305,76 @@ def process_folder(
         api_model_name=api_model_name,
         vlm_backend=vlm_backend,
         limit_pages=limit_pages,
+        trace_dir=trace_dir,
+        layout_profile_prefix=layout_profile_prefix,
     )
+
+
+def _canonical_boundary(value: object, *, available: bool) -> dict[str, str]:
+    return observation(value) if available else unobservable()
+
+
+def _prehashed_observation(value: object) -> dict[str, str]:
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+        return unobservable()
+    return {"status": "observable", "fingerprint": value}
+
+
+def _lightweight_page_trace_events(
+    page: str, events: list[dict[str, Any]], markdown: str
+) -> list[dict[str, object]]:
+    fields = {
+        "request_order": ("request_order",),
+        "label": ("block_label", "label"),
+        "bbox": ("block_bbox", "bbox"),
+        "crop_pixels": ("image_sha256",),
+        "prompt": ("prompt",),
+        "payload": ("payload",),
+        "raw_result": ("raw_result_sha256",),
+        "postprocess": ("final_result_sha256",),
+    }
+    page_postprocess = observation(normalize_scorer_markdown(markdown))
+    if not events:
+        return [unobservable_page_trace(page, markdown)]
+    canonical: list[dict[str, object]] = []
+    for block_index, event in enumerate(events):
+        boundaries: dict[str, dict[str, str]] = {}
+        for boundary, names in fields.items():
+            found, value = _direct_field(event, *names)
+            boundaries[boundary] = (
+                _prehashed_observation(value)
+                if boundary == "crop_pixels" and found
+                else _canonical_boundary(value, available=found)
+            )
+        canonical.append(
+            {
+                "page": page,
+                "block_index": block_index,
+                "boundaries": boundaries,
+                "page_postprocess": page_postprocess,
+            }
+        )
+    return canonical
+
+
+def _write_trace_jsonl(path: Path, events: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rendered = "".join(
+        json.dumps(event, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
+        for event in events
+    )
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(rendered)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _official_result_to_markdown(result: object) -> str:
@@ -261,6 +429,119 @@ def _official_result_to_markdown(result: object) -> str:
     raise TypeError("Official PaddleOCRVL result did not expose Markdown text.")
 
 
+def _direct_field(value: Mapping[str, object], *names: str) -> tuple[bool, object]:
+    for name in names:
+        if name in value and value[name] is not None:
+            return True, value[name]
+    return False, None
+
+
+def _official_mapping(result: object) -> Mapping[str, object] | None:
+    if isinstance(result, Mapping):
+        value = result
+    else:
+        json_value = getattr(result, "json", None)
+        if not isinstance(json_value, Mapping):
+            return None
+        value = json_value
+    nested = value.get("res")
+    return nested if isinstance(nested, Mapping) else value
+
+
+def _extract_authenticated_official_blocks(
+    result: object,
+) -> list[Mapping[str, object]] | None:
+    if isinstance(result, list):
+        combined: list[Mapping[str, object]] = []
+        for item in result:
+            blocks = _extract_authenticated_official_blocks(item)
+            if blocks is None:
+                return None
+            combined.extend(blocks)
+        return combined
+    value = _official_mapping(result)
+    if value is None:
+        return None
+    blocks = value.get("parsing_res_list")
+    if not isinstance(blocks, list) or not all(isinstance(item, Mapping) for item in blocks):
+        return None
+    return blocks
+
+
+def unobservable_page_trace(page: str, markdown: str) -> dict[str, object]:
+    """Return a page record when no authenticated block collection is available."""
+    return {
+        "page": page,
+        "block_index": None,
+        "block_structure": unobservable(),
+        "boundaries": {name: unobservable() for name in BOUNDARIES},
+        "page_postprocess": observation(normalize_scorer_markdown(markdown)),
+    }
+
+
+def official_page_trace(page: str, result: object, markdown: str) -> dict[str, object]:
+    """Compatibility wrapper for conservative Official page traces."""
+    return unobservable_page_trace(page, markdown)
+
+
+def _official_page_trace_events(
+    page: str, result: object, markdown: str
+) -> list[dict[str, object]]:
+    blocks = _extract_authenticated_official_blocks(result)
+    if not blocks:
+        return [unobservable_page_trace(page, markdown)]
+    page_postprocess = observation(normalize_scorer_markdown(markdown))
+    events: list[dict[str, object]] = []
+    for block_index, block in enumerate(blocks):
+        request_found, request = _direct_field(block, "request")
+        request_mapping = request if request_found and isinstance(request, Mapping) else None
+
+        label_found, label = _direct_field(block, "block_label", "label")
+        bbox_found, bbox = _direct_field(block, "block_bbox", "bbox", "coordinate")
+        crop_sha_found, crop_sha = _direct_field(block, "image_sha256", "crop_sha256")
+        crop_pixels_found, crop_pixels = _direct_field(block, "crop_pixels")
+        prompt_found, prompt = _direct_field(block, "prompt")
+        if not prompt_found and request_mapping is not None:
+            prompt_found, prompt = _direct_field(request_mapping, "prompt")
+        payload_found, payload = _direct_field(block, "payload")
+        if not payload_found and request_mapping is not None:
+            payload_found, payload = _direct_field(request_mapping, "payload")
+        raw_found, raw = _direct_field(block, "raw_result", "raw_text")
+        post_found, post = _direct_field(block, "block_content", "postprocess", "content")
+        if raw_found and isinstance(raw, str):
+            raw = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        if post_found and isinstance(post, str):
+            post = hashlib.sha256(post.encode("utf-8")).hexdigest()
+        if crop_pixels_found and isinstance(crop_pixels, bytes):
+            crop_boundary = _prehashed_observation(hashlib.sha256(crop_pixels).hexdigest())
+        elif crop_sha_found:
+            crop_boundary = _prehashed_observation(crop_sha)
+        else:
+            crop_boundary = unobservable()
+        values = {
+            "request_order": _direct_field(block, "request_order"),
+            "label": (label_found, label),
+            "bbox": (bbox_found, bbox),
+            "prompt": (prompt_found, prompt),
+            "payload": (payload_found, payload),
+            "raw_result": (raw_found, raw),
+            "postprocess": (post_found, post),
+        }
+        events.append(
+            {
+                "page": page,
+                "block_index": block_index,
+                "boundaries": {
+                    name: _canonical_boundary(value, available=available)
+                    for name, (available, value) in values.items()
+                }
+                | {"crop_pixels": crop_boundary},
+                "page_postprocess": page_postprocess,
+            }
+        )
+    return events
+
+
 _CENTERED_IMAGE_DIV_RE = re.compile(
     r"<div[^>]*style=[\"'][^\"']*text-align:\s*center;?[^\"']*[\"'][^>]*>\s*"
     r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"'][^>]*>\s*</div>",
@@ -295,9 +576,12 @@ def run_official_folder(
     page_retries: int = 1,
     fallback_pred_dir: Path | None = None,
     limit_pages: int | None = None,
+    trace_dir: Path | None = None,
 ) -> dict:
     if not img_dir.is_dir():
         raise SystemExit(f"Image directory not found: {img_dir}")
+    images = _validated_images(img_dir, limit_pages)
+    _prepare_trace_dir(trace_dir)
     try:
         from paddleocr import PaddleOCRVL
     except ImportError as exc:
@@ -318,12 +602,14 @@ def run_official_folder(
     stats_path.unlink(missing_ok=True)
 
     stats: list[dict] = []
-    images = iter_images(img_dir, limit_pages=limit_pages)
     page_retries = max(0, int(page_retries))
 
     for img in images:
         start = time.time()
         destination = out_dir / expected_md_name(img.name)
+        trace_path = trace_dir / f"{img.stem}.jsonl" if trace_dir is not None else None
+        if trace_path is not None:
+            trace_path.unlink(missing_ok=True)
         fallback_path = (
             fallback_pred_dir / expected_md_name(img.name)
             if fallback_pred_dir is not None
@@ -352,6 +638,10 @@ def run_official_folder(
                 else:
                     markdown = _official_result_to_markdown(result)
                 markdown = _normalize_official_markdown_for_omnidocbench(markdown)
+                if trace_dir is not None:
+                    _write_trace_jsonl(
+                        trace_path, _official_page_trace_events(img.stem, result, markdown)
+                    )
                 destination.write_text(markdown, encoding="utf-8")
                 stats.append(
                     {
@@ -365,10 +655,14 @@ def run_official_folder(
             except Exception as exc:
                 last_exc = exc
                 last_tb = traceback.format_exc()
+                if trace_path is not None:
+                    trace_path.unlink(missing_ok=True)
                 if attempt < page_retries:
                     time.sleep(min(2.0, 0.25 * attempts))
                     continue
         else:
+            if trace_path is not None:
+                trace_path.unlink(missing_ok=True)
             if fallback_path is not None and fallback_path.is_file():
                 if not fallback_is_destination:
                     shutil.copyfile(fallback_path, destination)
@@ -437,6 +731,7 @@ def main() -> None:
         "--fallback-pred-dir", default=os.environ.get("PADDLEOCR_VL_FALLBACK_PRED_DIR")
     )
     parser.add_argument("--limit-pages", type=int, default=None)
+    parser.add_argument("--trace-dir", type=Path, default=None)
     args = parser.parse_args()
     summary = run_adapter(
         Path(args.img_dir),
@@ -449,6 +744,7 @@ def main() -> None:
         page_retries=args.page_retries,
         fallback_pred_dir=args.fallback_pred_dir,
         limit_pages=args.limit_pages,
+        trace_dir=args.trace_dir,
     )
     print(summary)
 

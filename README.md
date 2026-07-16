@@ -1,221 +1,82 @@
 # PaddleOCR-VL-ROCm
 
-Lightweight PaddleOCR-VL inference for Windows and Linux systems that use an
-ONNXRuntime layout model plus a ROCm-backed OpenAI-compatible VLM server.
+Document image to Markdown inference for Windows AMD GPUs. PP-DocLayoutV3 runs through ONNX Runtime DirectML, while PaddleOCR-VL 1.6 is served by the pinned llama.cpp HIP runtime. The legacy external OpenAI-compatible endpoint workflow remains supported on Windows and Linux.
 
-This repository keeps the inference path small:
+[Chinese documentation](README.zh-CN.md)
 
-- No PaddlePaddle runtime is required for inference.
-- PP-DocLayoutV3 runs through ONNXRuntime.
-- Visual language recognition is served by your ROCm vLLM or llama.cpp endpoint.
-- Outputs are saved as PaddleOCR-VL-style JSON and Markdown files.
+## Evidence status
 
-## Validation Result
+This historical evidence contains reconstructed OmniDocBench v1.6 results, not a fresh release acceptance run. It uses scorer commit [`147cd5ac9472002f5751221d390bf00abdbc0d2f`](docs/accuracy-root-cause-v16.md), rounds Text, Formula, and Table to three decimals, and then computes Overall.
 
-The lightweight ONNXRuntime path has been validated against the Paddle native
-pipeline on 1355 images.
+| Historical path | Text Edit | Formula CDM | Table TEDS | Overall |
+|---|---:|---:|---:|---:|
+| Official local | 0.034 | 96.502 | 94.239 | 95.7803 |
+| Lightweight ROCm | 0.034 | 96.922 | 94.322 | 95.9480 |
 
-| Item | Result |
-|---|---:|
-| Full-run success | 1355 / 1355 |
-| Payload alignment | 1355 / 1355 |
-| Layout, crop, request order, request payload | Strictly aligned |
+The provenance and reconstruction are recorded in [`docs/accuracy-root-cause-v16.md`](docs/accuracy-root-cause-v16.md). Official inference currently has 1,650 successful pages and one deterministic `peg-native` HTTP 500 for `newspaper_The Times UK_0801@magazinesclubnew_page_031.png`, tracked in [PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248). The project owner approved this single, immutable known failure. Scoring still includes all 1,651 ground-truth pages and treats that page as an empty prediction, so the exception cannot inflate the score. The issue remains open and is not described as a PaddlePaddle maintainer resolution. G3 accuracy and G4 performance have not passed; pre-G3 timing remains diagnostic.
 
-## Install
+## Compatibility demo
 
-```powershell
-git clone <your-repo-url> PaddleOCR-VL-ROCm
-cd PaddleOCR-VL-ROCm
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -e .[dev]
-```
+The tracked sample [`examples/input/magazine.png`](examples/input/magazine.png) and its [`Markdown`](tests/fixtures/golden/magazine.md) and [`structured JSON`](tests/fixtures/golden/magazine.json) golden outputs show the public output shape. This is a compatibility demo, not release evidence; the goldens do not establish current hardware speed or G3/G4 acceptance.
 
-Linux/macOS:
+## Windows AMD managed setup
 
-```bash
-git clone <your-repo-url> PaddleOCR-VL-ROCm
-cd PaddleOCR-VL-ROCm
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-```
-
-## Prepare Models
-
-Place the PP-DocLayoutV3 ONNX files here:
-
-```text
-models/PP-DocLayoutV3-onnx/
-  inference.onnx
-  inference.yml
-```
-
-Download the verified ONNX model directly from Hugging Face:
+Requirements: Windows 10/11, an AMD GPU with a working HIP runtime, Python 3.10-3.13, and enough disk space. Managed setup pins llama.cpp HIP `b9884` (`86961efd5`) and verifies every downloaded file by size and SHA-256.
 
 ```powershell
 pip install -e .[download]
-python scripts/download_ppdoclayoutv3_onnx.py
+paddleocr-vl-rocm setup --auto
+paddleocr-vl-rocm doctor
+paddleocr-vl-rocm run examples/input/magazine.png
 ```
 
-Model link:
+`setup --auto` downloads, verifies, installs, and starts the local server. Use `setup --no-start` to install without starting it, or `--root` to select a managed data directory. No telemetry is sent.
 
-```text
-https://huggingface.co/AlexTransformer/PP-DocLayoutV3-onnx
-```
+English users can download PP-DocLayoutV3 ONNX directly from [Hugging Face](https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx). Chinese users can use the [ModelScope mirror](https://modelscope.cn/models/PaddlePaddle/PP-DocLayoutV3_onnx).
 
-If you already have the verified ONNX directory locally, copy it with:
+## Existing server
+
+Keep an existing llama.cpp, vLLM, or compatible endpoint and use the same pipeline without managed runtime assets:
 
 ```powershell
-python scripts/download_ppdoclayoutv3_onnx.py `
-  --source-dir C:\path\to\PP-DocLayoutV3-onnx `
-  --target-dir models/PP-DocLayoutV3-onnx
+pip install -e .[download]
+paddleocr-vl-rocm doctor --server-url http://127.0.0.1:8111/v1
+paddleocr-vl-rocm run examples/input/magazine.png --server-url http://127.0.0.1:8111/v1
+paddleocr-vl-rocm --input examples/input/magazine.png --server-url http://127.0.0.1:8111/v1
 ```
 
-Start or provide an OpenAI-compatible VLM server. For vLLM, the server should
-expose:
-
-```text
-http://127.0.0.1:8000/v1/models
-http://127.0.0.1:8000/v1/chat/completions
-```
-
-Check the endpoint:
-
-```powershell
-paddleocr-vl-rocm-check-server --server-url http://127.0.0.1:8000/v1
-```
-
-## CLI Usage
-
-```powershell
-paddleocr-vl-rocm `
-  --input examples/input/handwrite_ch_demo.png `
-  --output outputs/smoke `
-  --layout-model models/PP-DocLayoutV3-onnx `
-  --server-url http://127.0.0.1:8000/v1 `
-  --api-model-name PaddleOCR-VL-1.5-0.9B `
-  --vlm-backend vllm-server
-```
-
-Expected outputs:
-
-```text
-outputs/smoke/handwrite_ch_demo_res.json
-outputs/smoke/handwrite_ch_demo.md
-```
+The last command is the backward-compatible legacy form. Use `--api-model-name` when the endpoint requires a specific model identifier.
 
 ## Python API
 
 ```python
 from paddleocr_vl_rocm import PaddleOCRVLROCm
 
-pipeline = PaddleOCRVLROCm(
-    layout_model_dir="models/PP-DocLayoutV3-onnx",
-    vlm_server_url="http://127.0.0.1:8000/v1",
-    api_model_name="PaddleOCR-VL-1.5-0.9B",
-)
-
-result = pipeline.predict("examples/input/handwrite_ch_demo.png")
-result.print()
-result.save_to_json("outputs")
-result.save_to_markdown("outputs", pretty=False)
+pipeline = PaddleOCRVLROCm(layout_model_dir="models/PP-DocLayoutV3-onnx", vlm_server_url="http://127.0.0.1:8111/v1")
+result = pipeline.predict("examples/input/magazine.png")
+print(result.markdown_text)
 ```
 
-## Example Images
+## Support matrix
 
-The smoke images are copied from `ppocrv6_onnx/test_images`:
+| Path | Status | Notes |
+|---|---|---|
+| Windows 10/11 + AMD + managed llama.cpp HIP | Supported | [Environment doctor evidence](docs/windows-amd-doctor-evidence-2026-07-12.md) detects Windows 11, Radeon 8060S, and HIP; full release gates remain pending |
+| Windows + existing OpenAI-compatible server | Supported | `doctor --server-url` validates the endpoint |
+| Linux + existing OpenAI-compatible server | Supported | Server ownership remains external |
+| macOS | Not supported | No managed runtime or tested layout provider |
 
-- `handwrite_ch_demo.png`
-- `handwrite_en_demo.png`
-- `ancient_demo.png`
-- `japan_demo.png`
-- `magazine.png`
-- `magazine_vetical.png`
-- `pinyin_demo.png`
+## Benchmark reproduction
 
-## Output Format
+See [`eval/README.md`](eval/README.md) for the pinned OmniDocBench v1.6 checkout, inference stages, official metric definitions, and artifact gates. Do not publish a score from an incomplete run, fallback output, mismatched scorer, or unverified artifact.
 
-JSON contains:
+## Troubleshooting
 
-- `input_path`
-- `width`, `height`
-- `layout_det_res`
-- `parsing_res_list`
-- `model_settings`
+- Run `paddleocr-vl-rocm doctor` first. Every failed check includes remediation.
+- Use `paddleocr-vl-rocm doctor --json` for a redacted hardware report.
+- DirectML must be the first active layout provider; the pipeline fails closed rather than silently using CPU fallback.
+- Downloads are resumable. A size or SHA-256 mismatch never replaces a verified installation.
 
-Markdown contains the recognized document content in reading order.
+## Contributing and security
 
-## Tests
-
-```powershell
-python -m compileall -q src/paddleocr_vl_rocm
-python -m pytest -q
-paddleocr-vl-rocm --help
-```
-
-## Evaluation (OmniDocBench v1.6, local AMD Windows)
-
-Scores in this repository are local measurements from the Windows + AMD Radeon
-+ llama.cpp/GGUF + OmniDocBench/CDM environment. They are not claimed from a
-Linux vLLM/BF16 reference path.
-
-| Engine | Overall ↑ | Text Edit-dist ↓ | Reading-order Edit-dist ↓ | Table TEDS ↑ | Formula CDM ↑ | Notes |
-|---|---:|---:|---:|---:|---:|---|
-| Lightweight local engine | 95.9475 | 0.03402 | 0.12824 | 94.3222 | 96.9219 | Latest Windows-native CDM artifact; OmniDocBench official leaderboard/notebook page-level aggregation for `predictions/paddleocrvl_rocm_cdm` |
-| Official local engine | 95.7657 | 0.034 | 0.129 | 94.24 | 96.50 | Tracked official-local artifacts after Windows CDM path/toolchain fixes |
-| [Public PaddleOCR-VL-1.6 target](https://arxiv.org/abs/2606.03264) | 96.33 | 0.033 | 0.127 | 94.76 | 97.49 | External reference, shown for context only |
-
-The project goal is to align inputs, outputs, parameters, and local evaluation
-evidence. Remaining gaps are reported by engine instead of hidden.
-The official-local row is backed by
-`results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_*`.
-Older tracked lightweight artifacts are retained under
-`results/omnidocbench/v16/` for comparison; the dated Windows-native artifact
-is the current local ROCm CDM evidence. The table uses the same page-level
-aggregation convention as OmniDocBench's official leaderboard notebook
-(`tools/generate_result_tables.ipynb`). The lower-level raw `metric_result`
-all-values remain available for audit: Table TEDS 93.1345 and Formula CDM
-96.7129. Both conventions are documented in `results/omnidocbench/v16/README.md`.
-
-### Running the eval
-
-End-to-end benchmark scoring lives under [`eval/`](eval/README.md). It runs in
-three gated stages — `download` → `infer` → `eval`:
-
-```powershell
-python eval/run_eval.py --stage all --version v16
-```
-
-See [`eval/README.md`](eval/README.md) for prerequisites, the three stages, the
-CDM/Docker note, v1.5 vs v1.6 differences, and where scores land.
-
-> **Setting up OmniDocBench on a fresh machine?** See our companion repo
-> [`omnidocbench-amd-windows`](https://github.com/AIwork4me/omnidocbench-amd-windows) —
-> a one-command automated setup guide with CLAUDE.md for AI-agent orchestration,
-> covering VLM server, CDM environment, and the full pitfalls knowledge base.
-
-## Development
-
-Install with dev tooling and run the full local check:
-
-```powershell
-pip install -e .[dev]
-./scripts/check.ps1   # Linux/macOS: bash scripts/check.sh
-```
-
-The check runs `compileall`, `ruff check`, `ruff format --check`, `mypy src`, and `pytest`.
-
-To establish the characterization fixtures (requires the VLM server once):
-
-```powershell
-python scripts/record_trace.py --server-url http://127.0.0.1:8000/v1
-```
-
-This records `tests/fixtures/compat_cache.json` and golden outputs so `tests/test_pipeline_characterization.py` can replay the pipeline byte-for-byte without a server. The test skips automatically if fixtures or the layout model are absent.
-
-## Notes
-
-ROCm acceleration is provided by the VLM server. This Python package handles
-the ONNXRuntime layout stage, document crop routing, VLM requests, and result
-serialization.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. Report security issues privately as described in [`SECURITY.md`](SECURITY.md).

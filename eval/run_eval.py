@@ -77,6 +77,10 @@ def _load_artifact_utils():
     return _load_script_module("eval_artifact_utils", Path("eval/artifact_utils.py"))
 
 
+def _load_release_contract():
+    return _load_script_module("eval_release_contract", Path("eval/release_contract.py"))
+
+
 def apply_artifact_profile_defaults(args: argparse.Namespace) -> None:
     if getattr(args, "artifact_profile", "default") != "official-local":
         return
@@ -88,6 +92,8 @@ def apply_artifact_profile_defaults(args: argparse.Namespace) -> None:
         args.copy_report = paths.metric_result.as_posix()
     if getattr(args, "run_summary", None) is None:
         args.run_summary = paths.run_summary.as_posix()
+    if getattr(args, "provenance", None) is None:
+        args.provenance = paths.provenance.as_posix()
 
 
 # --- stages --------------------------------------------------------------------
@@ -148,6 +154,8 @@ def stage_infer(args: argparse.Namespace) -> None:
         page_retries=args.page_retries,
         fallback_pred_dir=args.fallback_pred_dir,
         limit_pages=args.limit_pages,
+        trace_dir=getattr(args, "trace_dir", None),
+        layout_profile_prefix=getattr(args, "layout_profile_prefix", None),
     )
     print(f"[infer] {summary['ok']}/{summary['count']} pages succeeded -> {out_dir}")
 
@@ -201,7 +209,7 @@ def _dataset_image_count(args: argparse.Namespace) -> int | None:
     return sum(1 for path in images_dir.iterdir() if path.suffix.lower() in IMAGE_EXTENSIONS)
 
 
-def _validate_full_prediction_stats(args: argparse.Namespace, predictions_dir: Path) -> None:
+def _validate_release_prediction_stats(args: argparse.Namespace, predictions_dir: Path) -> None:
     if not _requires_full_prediction_stats(args):
         return
     stats_path = predictions_dir / "_run_stats.json"
@@ -210,7 +218,7 @@ def _validate_full_prediction_stats(args: argparse.Namespace, predictions_dir: P
             f"Prediction run stats not found: {stats_path}. Run full unbounded inference first."
         )
     run_stats = json.loads(stats_path.read_text(encoding="utf-8"))
-    if run_stats.get("limit_pages") is not None:
+    if "limit_pages" not in run_stats or run_stats["limit_pages"] is not None:
         raise SystemExit(
             "Refusing to publish/evaluate official evidence from limited predictions: "
             f"{stats_path}. "
@@ -218,15 +226,34 @@ def _validate_full_prediction_stats(args: argparse.Namespace, predictions_dir: P
         )
     expected_count = _dataset_image_count(args)
     actual_count = run_stats.get("count")
-    if expected_count is not None and actual_count != expected_count:
+    if expected_count is None:
+        raise SystemExit(
+            f"Release evidence requires an available dataset image count: {stats_path}"
+        )
+    if actual_count != expected_count:
         raise SystemExit(
             f"Prediction count {actual_count} does not match dataset image count "
             f"{expected_count}. Run full unbounded inference before scoring."
         )
+    release_contract = _load_release_contract()
+    try:
+        approved_failures = release_contract.validate_release_run_stats(
+            run_stats,
+            version=args.version,
+            engine=getattr(args, "engine", run_stats.get("engine", "")),
+        )
+        release_contract.validate_approved_failure_predictions(predictions_dir, approved_failures)
+    except ValueError as exc:
+        raise SystemExit(f"Release prediction contract failed for {stats_path}: {exc}") from exc
 
 
 def _render_eval_config(
-    base_config: Path, predictions_dir: Path, *, cdm: bool, destination_dir: Path
+    base_config: Path,
+    predictions_dir: Path,
+    *,
+    ground_truth_manifest: Path,
+    cdm: bool,
+    destination_dir: Path,
 ) -> Path:
     try:
         import yaml
@@ -235,10 +262,11 @@ def _render_eval_config(
 
     config_data = yaml.safe_load(base_config.read_text(encoding="utf-8"))
     eval_config = config_data["end2end_eval"]
-    ground_truth_path = Path(eval_config["dataset"]["ground_truth"]["data_path"])
-    if not ground_truth_path.is_absolute():
-        ground_truth_path = ground_truth_path.expanduser().resolve()
-    eval_config["dataset"]["ground_truth"]["data_path"] = str(ground_truth_path)
+    if not ground_truth_manifest.is_file():
+        raise SystemExit(f"Dataset manifest not found: {ground_truth_manifest}")
+    eval_config["dataset"]["ground_truth"]["data_path"] = str(
+        ground_truth_manifest.expanduser().resolve()
+    )
     eval_config["dataset"]["prediction"]["data_path"] = str(predictions_dir.expanduser().resolve())
 
     formula_metrics = list(eval_config["metrics"]["display_formula"].get("metric", []))
@@ -258,7 +286,12 @@ def _render_eval_config(
     return rendered
 
 
-def _resolve_eval_python(checkout: Path) -> str:
+def _resolve_eval_python(checkout: Path, explicit: str | None = None) -> str:
+    if explicit:
+        candidate = Path(explicit)
+        if not candidate.is_absolute() or not candidate.is_file():
+            raise SystemExit("--scorer-python must be an existing absolute file path.")
+        return str(candidate.resolve())
     for candidate in (
         checkout / ".venv" / "Scripts" / "python.exe",
         checkout / ".venv" / "bin" / "python",
@@ -268,8 +301,16 @@ def _resolve_eval_python(checkout: Path) -> str:
     return sys.executable
 
 
+def _validate_scorer_checkout(checkout: Path) -> dict[str, object]:
+    benchmark_contract = _load_script_module(
+        "benchmark_contract", Path("eval/benchmark_contract.py")
+    )
+    return benchmark_contract.validate_checkout(checkout)
+
+
 def stage_eval(args: argparse.Namespace) -> None:
     checkout = _ensure_omnidocbench_checkout()
+    checkout_contract = _validate_scorer_checkout(checkout)
     config = Path(args.config or VERSION_CONFIGS[args.version])
     if not config.is_file():
         raise SystemExit(f"OmniDocBench config not found: {config}")
@@ -279,7 +320,7 @@ def stage_eval(args: argparse.Namespace) -> None:
         raise SystemExit(
             f"Predictions dir not found: {predictions_dir}. Run the 'infer' stage first."
         )
-    _validate_full_prediction_stats(args, predictions_dir)
+    _validate_release_prediction_stats(args, predictions_dir)
     match_method = args.match_method
     report = _resolve_report_path(checkout, predictions_dir, match_method)
     if report.exists():
@@ -289,14 +330,18 @@ def stage_eval(args: argparse.Namespace) -> None:
     # Render a runtime config so the subprocess sees the selected prediction
     # directory and explicit CDM/non-CDM formula metrics.
     with tempfile.TemporaryDirectory(prefix="paddleocr_eval_config_") as config_dir:
+        dataset_root = Path(
+            getattr(args, "dataset_dir", None) or VERSION_DATASET_DIRS[args.version]
+        )
         rendered_config = _render_eval_config(
             config,
             predictions_dir,
+            ground_truth_manifest=dataset_root / "OmniDocBench.json",
             cdm=bool(getattr(args, "cdm", False)),
             destination_dir=Path(config_dir),
         )
         cmd = [
-            _resolve_eval_python(checkout),
+            _resolve_eval_python(checkout, getattr(args, "scorer_python", None)),
             PDF_VALIDATION,
             "--config",
             str(rendered_config.resolve()),
@@ -309,6 +354,8 @@ def stage_eval(args: argparse.Namespace) -> None:
 
     if report.exists():
         print(f"[eval] Report ready: {report}")
+        copied = None
+        summary = None
         if getattr(args, "copy_report", None):
             artifacts = _load_artifact_utils()
             copied = artifacts.copy_metric_report(report, Path(args.copy_report))
@@ -323,6 +370,42 @@ def stage_eval(args: argparse.Namespace) -> None:
                     cdm=bool(getattr(args, "cdm", False)),
                 )
                 print(f"[eval] Run summary ready: {summary}")
+        if getattr(args, "provenance", None):
+            if copied is None:
+                raise SystemExit("Writing provenance requires --copy-report.")
+            artifacts = _load_artifact_utils()
+            dataset_root = Path(
+                getattr(args, "dataset_dir", None) or VERSION_DATASET_DIRS[args.version]
+            )
+            dataset_manifest = dataset_root / "OmniDocBench.json"
+            if not dataset_manifest.is_file():
+                raise SystemExit(f"Dataset manifest not found: {dataset_manifest}")
+            git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+            provenance = artifacts.write_provenance(
+                destination=Path(args.provenance),
+                git_commit=git_commit,
+                engine=getattr(args, "engine", ""),
+                server_url=getattr(args, "server_url", DEFAULT_SERVER_URL),
+                api_model_name=getattr(args, "api_model_name", DEFAULT_API_MODEL_NAME),
+                adapter_command=(
+                    "python eval/run_eval.py --stage infer "
+                    f"--version {args.version} --engine {getattr(args, 'engine', '')} "
+                    "--artifact-profile official-local "
+                    f"--server-url {getattr(args, 'server_url', DEFAULT_SERVER_URL)} "
+                    f"--api-model-name {getattr(args, 'api_model_name', DEFAULT_API_MODEL_NAME)}"
+                ),
+                scoring_config_path=config,
+                dataset_manifest_path=dataset_manifest,
+                predictions_dir=predictions_dir,
+                metric_result_paths=[copied],
+                run_summary_paths=[] if summary is None else [summary],
+                run_stats_path=predictions_dir / "_run_stats.json",
+                omnidocbench=checkout_contract,
+                dataset_sha256=artifacts.sha256_file(dataset_manifest),
+                config_sha256=artifacts.sha256_file(config),
+                prediction_manifest_sha256=artifacts.prediction_manifest_sha256(predictions_dir),
+            )
+            print(f"[eval] Provenance ready: {provenance}")
     else:
         raise SystemExit(
             f"pdf_validation completed but expected report not found at {report}; "
@@ -392,8 +475,16 @@ def main() -> None:
         "--artifact-profile", choices=["default", "official-local"], default="default"
     )
     parser.add_argument("--limit-pages", type=int, default=None)
+    parser.add_argument("--trace-dir", default=None)
+    parser.add_argument("--layout-profile-prefix", default=None)
     parser.add_argument("--copy-report", default=None)
     parser.add_argument("--run-summary", default=None)
+    parser.add_argument("--provenance", default=None)
+    parser.add_argument(
+        "--scorer-python",
+        default=None,
+        help="Existing absolute interpreter path for the authenticated scorer environment.",
+    )
     parser.add_argument("--cdm", action="store_true")
     args = parser.parse_args()
     apply_artifact_profile_defaults(args)

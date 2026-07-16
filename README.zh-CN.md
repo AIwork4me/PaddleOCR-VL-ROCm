@@ -1,225 +1,82 @@
 # PaddleOCR-VL-ROCm
 
-这是一个轻量版 PaddleOCR-VL 推理仓库，使用 ONNXRuntime 执行
-PP-DocLayoutV3 layout 检测，并通过 ROCm 加速的 OpenAI-compatible VLM 服务
-完成视觉语言识别。
+面向 Windows AMD GPU 的文档图片转 Markdown 推理工具。PP-DocLayoutV3 通过 ONNX Runtime DirectML 运行，PaddleOCR-VL 1.6 由固定版本的 llama.cpp HIP 服务提供推理；原有外部 OpenAI-compatible 服务工作流继续受支持。
 
-这个仓库的目标是把推理链路做干净：
+[English documentation](README.md)
 
-- 推理时不需要 PaddlePaddle runtime。
-- PP-DocLayoutV3 通过 ONNXRuntime 执行。
-- VLM 识别由你的 ROCm vLLM 或 llama.cpp 服务承载。
-- 输出为 PaddleOCR-VL 风格的 JSON 和 Markdown。
+## 证据状态
 
-## 验证结果
+下表是 OmniDocBench v1.6 的历史证据和重算结果，不是新鲜的发布验收结果。评分器固定在提交 [`147cd5ac9472002f5751221d390bf00abdbc0d2f`](docs/accuracy-root-cause-v16.md)，Text、Formula、Table 分别四舍五入到三位后再计算 Overall。
 
-本仓库的 ONNXRuntime 轻量链路已在 1355 张图片上与 Paddle 原生链路完成验证。
+| 历史路径 | Text Edit | Formula CDM | Table TEDS | Overall |
+|---|---:|---:|---:|---:|
+| 官方本地路径 | 0.034 | 96.502 | 94.239 | 95.7803 |
+| 轻量 ROCm 路径 | 0.034 | 96.922 | 94.322 | 95.9480 |
 
-| 项目 | 结果 |
-|---|---:|
-| 全量成功 | 1355 / 1355 |
-| Payload 对齐 | 1355 / 1355 |
-| Layout、crop、请求顺序、请求 payload | 严格对齐 |
+证据来源和重算过程见 [`docs/accuracy-root-cause-v16.md`](docs/accuracy-root-cause-v16.md)。官方推理当前成功 1,650 页，`newspaper_The Times UK_0801@magazinesclubnew_page_031.png` 稳定触发一次 `peg-native` HTTP 500，公开记录在 [PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248)。项目负责人批准了这个唯一且不可扩大的已知失败。评分仍包含全部 1,651 个 GT 页面，并把该页作为空预测处理，因此例外不会抬高分数。issue 仍为 open，本文不把它描述成 PaddlePaddle 维护者已解决。G3 精度与 G4 性能尚未通过；G3 前计时仍仅用于诊断。
 
-## 安装
+## 兼容性演示
 
-```powershell
-git clone <your-repo-url> PaddleOCR-VL-ROCm
-cd PaddleOCR-VL-ROCm
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -e .[dev]
-```
+仓库中的 [`examples/input/magazine.png`](examples/input/magazine.png) 以及对应的 [`Markdown`](tests/fixtures/golden/magazine.md) 和 [`结构化 JSON`](tests/fixtures/golden/magazine.json) golden 输出展示公共输出格式。这是兼容性演示，不是发布证据，不能证明当前硬件速度或 G3/G4 已验收。
 
-## 准备模型
+## Windows AMD 托管安装
 
-把 PP-DocLayoutV3 ONNX 文件放到：
-
-```text
-models/PP-DocLayoutV3-onnx/
-  inference.onnx
-  inference.yml
-```
-
-直接从 Hugging Face 下载已验证的 ONNX 模型：
+需要 Windows 10/11、可用 HIP 运行时的 AMD GPU、Python 3.10-3.13，以及足够的磁盘空间。托管安装固定 llama.cpp HIP `b9884`（`86961efd5`），并按文件大小和 SHA-256 校验全部资源。
 
 ```powershell
 pip install -e .[download]
-python scripts/download_ppdoclayoutv3_onnx.py
+paddleocr-vl-rocm setup --auto
+paddleocr-vl-rocm doctor
+paddleocr-vl-rocm run examples/input/magazine.png
 ```
 
-模型链接：
+`setup --auto` 会下载、校验、安装并启动本地服务。只安装不启动可使用 `setup --no-start`，自定义目录可使用 `--root`。项目不包含遥测。
 
-```text
-https://huggingface.co/AlexTransformer/PP-DocLayoutV3-onnx
-```
+中文用户可从 [ModelScope](https://modelscope.cn/models/PaddlePaddle/PP-DocLayoutV3_onnx) 直接下载 PP-DocLayoutV3 ONNX；英文用户可使用 [Hugging Face](https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx)。
 
-如果你本地已经有已验证的 ONNX 目录，也可以复制：
+## 使用现有服务
+
+已有 llama.cpp、vLLM 或其他兼容端点时，可以不安装托管运行时：
 
 ```powershell
-python scripts/download_ppdoclayoutv3_onnx.py `
-  --source-dir C:\path\to\PP-DocLayoutV3-onnx `
-  --target-dir models/PP-DocLayoutV3-onnx
+pip install -e .[download]
+paddleocr-vl-rocm doctor --server-url http://127.0.0.1:8111/v1
+paddleocr-vl-rocm run examples/input/magazine.png --server-url http://127.0.0.1:8111/v1
+paddleocr-vl-rocm --input examples/input/magazine.png --server-url http://127.0.0.1:8111/v1
 ```
 
-然后准备一个 OpenAI-compatible VLM 服务，例如 vLLM：
-
-```text
-http://127.0.0.1:8000/v1/models
-http://127.0.0.1:8000/v1/chat/completions
-```
-
-检查服务：
-
-```powershell
-paddleocr-vl-rocm-check-server --server-url http://127.0.0.1:8000/v1
-```
-
-## 命令行使用
-
-```powershell
-paddleocr-vl-rocm `
-  --input examples/input/handwrite_ch_demo.png `
-  --output outputs/smoke `
-  --layout-model models/PP-DocLayoutV3-onnx `
-  --server-url http://127.0.0.1:8000/v1 `
-  --api-model-name PaddleOCR-VL-1.5-0.9B `
-  --vlm-backend vllm-server
-```
-
-输出文件：
-
-```text
-outputs/smoke/handwrite_ch_demo_res.json
-outputs/smoke/handwrite_ch_demo.md
-```
+最后一条是保持兼容的旧命令。若服务要求明确模型名，请传入 `--api-model-name`。
 
 ## Python API
 
 ```python
 from paddleocr_vl_rocm import PaddleOCRVLROCm
 
-pipeline = PaddleOCRVLROCm(
-    layout_model_dir="models/PP-DocLayoutV3-onnx",
-    vlm_server_url="http://127.0.0.1:8000/v1",
-    api_model_name="PaddleOCR-VL-1.5-0.9B",
-)
-
-result = pipeline.predict("examples/input/handwrite_ch_demo.png")
-result.print()
-result.save_to_json("outputs")
-result.save_to_markdown("outputs", pretty=False)
+pipeline = PaddleOCRVLROCm(layout_model_dir="models/PP-DocLayoutV3-onnx", vlm_server_url="http://127.0.0.1:8111/v1")
+result = pipeline.predict("examples/input/magazine.png")
+print(result.markdown_text)
 ```
 
-## 示例图片
+## 支持矩阵
 
-示例图片来自 `ppocrv6_onnx/test_images`：
+| 路径 | 状态 | 说明 |
+|---|---|---|
+| Windows 10/11 + AMD + 托管 llama.cpp HIP | 支持 | [环境 doctor 证据](docs/windows-amd-doctor-evidence-2026-07-12.md)检测到 Windows 11、Radeon 8060S 和 HIP；完整发布门禁仍待通过 |
+| Windows + 现有 OpenAI-compatible 服务 | 支持 | `doctor --server-url` 校验端点 |
+| Linux + 现有 OpenAI-compatible 服务 | 支持 | 服务由用户自行维护 |
+| macOS | 不支持 | 没有托管运行时或已测试 layout provider |
 
-- `handwrite_ch_demo.png`
-- `handwrite_en_demo.png`
-- `ancient_demo.png`
-- `japan_demo.png`
-- `magazine.png`
-- `magazine_vetical.png`
-- `pinyin_demo.png`
+## 复现评测
 
-## 输出格式
+固定 OmniDocBench v1.6 checkout、推理阶段、官方指标定义和产物门禁见 [`eval/README.md`](eval/README.md)。不得发布来自不完整运行、fallback 输出、错误评分器或未校验产物的分数。
 
-JSON 包含：
+## 故障排查
 
-- `input_path`
-- `width`、`height`
-- `layout_det_res`
-- `parsing_res_list`
-- `model_settings`
+- 首先运行 `paddleocr-vl-rocm doctor`，每个失败项都带有修复建议。
+- 使用 `paddleocr-vl-rocm doctor --json` 生成已脱敏的硬件报告。
+- DirectML 必须是首个活动 layout provider；程序会失败关闭，不会静默 CPU fallback。
+- 下载支持断点续传；大小或 SHA-256 不符时不会替换已验证安装。
 
-Markdown 保存按阅读顺序组织后的识别结果。
+## 贡献与安全
 
-## 测试
-
-```powershell
-python -m compileall -q src/paddleocr_vl_rocm
-python -m pytest -q
-paddleocr-vl-rocm --help
-```
-
-## 评测（OmniDocBench v1.6，本地 AMD Windows）
-
-本仓库的分数均为 Windows + AMD Radeon + llama.cpp/GGUF + OmniDocBench/CDM
-环境中的本地测量结果，不声称来自 Linux vLLM/BF16 参考路径。
-
-| 引擎 | Overall ↑ | 文本 Edit-dist ↓ | 阅读顺序 Edit-dist ↓ | 表格 TEDS ↑ | 公式 CDM ↑ | 说明 |
-|---|---:|---:|---:|---:|---:|---|
-| 轻量本地引擎 | 95.9475 | 0.03402 | 0.12824 | 94.3222 | 96.9219 | 最新 Windows-native CDM 证据；使用 OmniDocBench 官方 leaderboard/notebook page-level 聚合，针对 `predictions/paddleocrvl_rocm_cdm` |
-| 官方本地引擎 | 95.7657 | 0.034 | 0.129 | 94.24 | 96.50 | 修复 Windows CDM 路径/toolchain 后生成的本仓库 official-local 产物 |
-| [公开 PaddleOCR-VL-1.6 目标](https://arxiv.org/abs/2606.03264) | 96.33 | 0.033 | 0.127 | 94.76 | 97.49 | 仅作外部参考 |
-
-较早的轻量本地产物保留在 `results/omnidocbench/v16/` 中用于比较；带日期
-的 Windows-native 产物是当前本地 ROCm CDM 证据。表格默认使用与
-OmniDocBench 官方 leaderboard notebook（`tools/generate_result_tables.ipynb`）
-一致的 page-level 聚合口径。底层 `metric_result` 原始 all-values 仍保留用于
-审计：表格 TEDS 93.1345、公式 CDM 96.7129。两组数值的口径说明见
-`results/omnidocbench/v16/README.md`。
-
-项目目标是对齐输入、输出、参数和本地评测证据。仍存在的差距按引擎分别报告，不再隐藏。
-官方本地行由 `results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_*`
-支撑。
-
-### 运行评测
-
-针对 OmniDocBench（v1.5 与 v1.6）的端到端基准打分位于
-[`eval/`](eval/README.md) 目录。它分三个带前置检查的阶段运行 ——
-`download` → `infer` → `eval`：
-
-```powershell
-python eval/run_eval.py --stage all --version v16
-```
-
-轻量本地引擎：
-
-```powershell
-python eval/run_eval.py --stage infer --version v16 `
-  --engine lightweight `
-  --vlm-backend llama-cpp-server `
-  --server-url http://127.0.0.1:8111/v1 `
-  --api-model-name PaddleOCR-VL-1.6-GGUF.gguf
-```
-
-官方本地引擎：
-
-```powershell
-python eval/run_eval.py --stage infer --version v16 `
-  --engine official `
-  --server-url http://127.0.0.1:8111/v1 `
-  --api-model-name PaddleOCR-VL-1.6-GGUF.gguf `
-  --page-retries 1
-```
-
-官方引擎需要先在当前环境安装本地 `paddleocr` 依赖。
-
-前置条件、三个阶段、CDM/Docker 说明、v1.5 与 v1.6 的差异，以及分数落地位置，
-请参见 [`eval/README.md`](eval/README.md)。
-
-## 开发
-
-安装开发工具并运行完整的本地检查：
-
-```powershell
-pip install -e .[dev]
-./scripts/check.ps1   # Linux/macOS: bash scripts/check.sh
-```
-
-该检查会运行 `compileall`、`ruff check`、`ruff format --check`、`mypy src` 和 `pytest`。
-
-要建立 characterization 固定数据（需要一次 VLM 服务）：
-
-```powershell
-python scripts/record_trace.py --server-url http://127.0.0.1:8000/v1
-```
-
-这会记录 `tests/fixtures/compat_cache.json` 和 golden 输出，使 `tests/test_pipeline_characterization.py` 可以在没有服务的情况下逐字节重放推理链路。如果固定数据或 layout 模型缺失，该测试会自动跳过。
-
-## 说明
-
-ROCm 加速发生在 VLM 服务端。本仓库负责 ONNXRuntime layout、文档区域裁剪、
-VLM 请求和结果序列化。
+提交 PR 前请阅读 [`CONTRIBUTING.md`](CONTRIBUTING.md)。安全问题请按照 [`SECURITY.md`](SECURITY.md) 私下报告。
