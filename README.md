@@ -25,7 +25,7 @@ The inference run (llama.cpp HIP, AMD ROCm) had 1,650 successful pages
 and one deterministic peg-native HTTP 500 for
 newspaper_The Times UK_0801@magazinesclubnew_page_031.png, tracked in
 [PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248).
-G3 accuracy has passed; G4 performance: **1.7x** speedup (27-page stratified benchmark, 9 categories, 602.0s → 357.2s, 0 structural mismatches).
+G3 accuracy has passed; G4 performance: **1.7x** speedup (27-page stratified benchmark, 9 categories, 602.0s → 357.2s, 0 structural mismatches). The default lm_max_workers=8 enables this automatically—ThreadPoolExecutor is wired in pipeline_core.py, no extra config needed.
 ## Compatibility demo
 
 The tracked sample [`examples/input/magazine.png`](examples/input/magazine.png) and its [`Markdown`](tests/fixtures/golden/magazine.md) and [`structured JSON`](tests/fixtures/golden/magazine.json) golden outputs show the public output shape. This is a compatibility demo, not release evidence; the goldens do not establish current hardware speed or G3/G4 acceptance.

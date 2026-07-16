@@ -25,7 +25,7 @@ Reading-order 不计入 Overall（布局指标，非内容准确性）。
 1 页确定性 peg-native HTTP 500：
 newspaper_The Times UK_0801@magazinesclubnew_page_031.png，详见
 [PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248)。
-G3 准确性已通过；G4 性能：**1.7x** 加速（27 页分层抽样基准，9 类别，602.0s → 357.2s，0 结构错配）。
+G3 准确性已通过；G4 性能：**1.7x** 加速（27 页分层抽样基准，9 类别，602.0s → 357.2s，0 结构错配）。默认 lm_max_workers=8 即可获得此加速——ThreadPoolExecutor 已在 pipeline_core.py 中预置，无需额外配置。
 ## 兼容性演示
 
 仓库中的 [`examples/input/magazine.png`](examples/input/magazine.png) 以及对应的 [`Markdown`](tests/fixtures/golden/magazine.md) 和 [`结构化 JSON`](tests/fixtures/golden/magazine.json) golden 输出展示公共输出格式。这是兼容性演示，不是发布证据，不能证明当前硬件速度或 G3/G4 已验收。
