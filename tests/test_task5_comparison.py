@@ -400,3 +400,14 @@ def test_evidence_hash_covers_page_postprocess_fingerprint() -> None:
 
     assert first["first_divergence_counts"] == second["first_divergence_counts"]
     assert first["evidence_fingerprint"] != second["evidence_fingerprint"]
+
+
+def test_normalize_strips_br_separators():
+    from eval.task5_comparison import normalize_scorer_markdown
+    text = "block1\n<br>\nblock2"
+    assert normalize_scorer_markdown(text) == "block1\n\nblock2"
+
+
+def test_normalize_does_not_touch_inline_br():
+    from eval.task5_comparison import normalize_scorer_markdown
+    assert normalize_scorer_markdown("line1<br>line2") == "line1<br>line2"
