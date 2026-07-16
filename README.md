@@ -12,11 +12,11 @@ Full CDM scoring on Windows native TeX Live 2026. Lightweight CDM report,
 
 | Metric | PaddleOCR-VL (paper) | PaddleOCR-VL-ROCm (measured) |
 |---:|---:|---:|
-| Overall | 96.33 | **95.58** |
+| Overall | 96.33 | **95.99** |
 | Text Edit-dist | 0.033 | 0.03488 |
 | Reading-order Edit-dist | 0.127 | 0.12882 |
 | Table TEDS | 94.76 | **94.09** |
-| Formula CDM | 97.49 | **96.15** |
+| Formula CDM | 97.49 | **97.36** |
 
 Overall = (Text accuracy + CDM + TEDS) / 3, where Text accuracy = (1 - Edit_dist) x 100.
 Reading order is excluded from Overall (layout metric, not content accuracy).

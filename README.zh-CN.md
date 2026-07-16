@@ -12,11 +12,11 @@ Windows 原生 TeX Live 2026 全量 CDM 评分，Lightweight CDM 报告，
 
 | 指标 | PaddleOCR-VL (论文) | PaddleOCR-VL-ROCm (实测) |
 |---:|---:|---:|
-| Overall | 96.33 | **95.58** |
+| Overall | 96.33 | **95.99** |
 | Text Edit-dist | 0.033 | 0.03488 |
 | Reading-order Edit-dist | 0.127 | 0.12882 |
 | Table TEDS | 94.76 | **94.09** |
-| Formula CDM | 97.49 | **96.15** |
+| Formula CDM | 97.49 | **97.36** |
 
 Overall = (Text accuracy + CDM + TEDS) / 3, Text accuracy = (1 - Edit_dist) x 100。
 Reading-order 不计入 Overall（布局指标，非内容准确性）。
