@@ -1,0 +1,125 @@
+img_id,gt_position,roc_cdm,gguf_cdm,cdm_diff,roc_edit,gguf_edit,gt,roc_pred
+PPT_CalculusReview_page_014.png,[3],0.0,1.0,1.0,0.0,0.0,$$\nabla C = \mathbf{i}\frac{\partial C}{\partial x} + \mathbf{j}\frac{\partial C}{\partial y}$$,\[ \nabla C=\mathbf{i}\frac{\partial C}{\partial x}+\mathbf{j}\frac{\partial C}{\partial y} \]
+PPT_CalculusReview_page_014.png,[5],0.0,1.0,1.0,0.3125,0.3125,$$ \mathbf{J} = -D \nabla C $$,\[ {\bf J}=-D\nabla C \]
+PPT_CalculusReview_page_033.png,[2.001],0.0,1.0,1.0,0.0,0.0,\[\int ax^n \partial x = a \frac{x^{(n+1)}}{n+1} + C\],\[\int ax^{n}\partial x&=a\frac{x^{(n+1)}}{n+1}+C\]
+PPT_CalculusReview_page_033.png,[2.002],0.0,1.0,1.0,0.0,0.0,\[\int ax \partial x = a \frac{x^2}{2} + C\],\[\int ax\partial x&=a\frac{x^{2}}{2}+C\]
+PPT_CalculusReview_page_033.png,[2.003],0.0,1.0,1.0,0.0,0.0,\[\int ax^2 \partial x = a \frac{x^3}{3} + C\],\[\int ax^{2}\partial x&=a\frac{x^{3}}{3}+C\]
+PPT_MMAT5390Lecture1_page_023.png,[4],0.0,1.0,1.0,0.0,0.0,"$$
+f : \Omega \to \mathbb { R }
+$$",\[ f:\Omega \to \mathbb{R} \]
+PPT_MMAT5390Lecture1_page_023.png,[8],0.0,1.0,1.0,0.047619047619047616,0.047619047619047616,"$$
+f(x, y)=\left[\begin{array}{cccc}f(1,1) & f(1,2) & \ldots & f(1, N) \\ f(2,1) & f(2,2) & \ldots & f(2, N) \\ \vdots & \vdots & & \vdots \\ f(N, 1) & f(N, 2) & \ldots & f(N, N)\end{array}\right] 
+$$","\[ f(x,y)=\begin{bmatrix}f(1,1)&f(1,2)&\cdots&f(1,N)\\ f(2,1)&f(2,2)&\cdots&f(2,N)\\ \vdots&\vdots&&\vdots\\ f(N,1)&f(N,2)&\cdots&f(N,N)\end{bmatrix} \]"
+PPT_MMAT5390Lecture1_page_024.png,[3],0.0,1.0,1.0,0.0,0.0,"$$
+f : = ( f _ { R } , f _ { G } , f _ { B } ) : \Omega \to \mathbb { R } ^ { 3 }
+$$","\[ f:=(f_{R},f_{G},f_{B}):\Omega\to\mathbb{R}^{3} \]"
+PPT_StewartCalcET7e_03_02_page_007.png,[3],0.0,1.0,1.0,0.0,0.0,"$$
+\frac { \Delta ( u v ) } { \Delta x } = u \frac { \Delta v } { \Delta x } + v \frac { \Delta u } { \Delta x } + \Delta u \frac { \Delta v } { \Delta x }
+$$",\[ \frac{\Delta(uv)}{\Delta x}=u\frac{\Delta v}{\Delta x}+v\frac{\Delta u}{\Delta x}+\Delta u\frac{\Delta v}{\Delta x} \]
+PPT_StewartCalcET7e_03_02_page_007.png,[5.001],0.0,1.0,1.0,0.0,0.0,\[\frac{d}{dx}(uv) &= \lim_{\Delta x \to 0} \frac{\Delta(uv)}{\Delta x} = \lim_{\Delta x \to 0} \left( u \frac{\Delta v}{\Delta x} + v \frac{\Delta u}{\Delta x} + \Delta u \frac{\Delta v}{\Delta x} \right)\],\[\frac{d}{dx}\left(uv\right)&=\lim_{\Delta x\to0}\frac{\Delta(uv)}{\Delta x}=\lim_{\Delta x\to0}\left(u\frac{\Delta v}{\Delta x}+v\frac{\Delta u}{\Delta x}+\Delta u\frac{\Delta v}{\Delta x}\right)\]
+PPT_StewartCalcET7e_03_02_page_007.png,[5.002],0.0,1.0,1.0,0.0,0.0,\[&= u \lim_{\Delta x \to 0} \frac{\Delta v}{\Delta x} + v \lim_{\Delta x \to 0} \frac{\Delta u}{\Delta x} + \left( \lim_{\Delta x \to 0} \Delta u \right) \left( \lim_{\Delta x \to 0} \frac{\Delta v}{\Delta x} \right)\],\[&=u\lim_{\Delta x\to0}\frac{\Delta v}{\Delta x}+v\lim_{\Delta x\to0}\frac{\Delta u}{\Delta x}+\left(\lim_{\Delta x\to0}\Delta u\right)\left(\lim_{\Delta x\to0}\frac{\Delta v}{\Delta x}\right)\]
+PPT_StewartCalcET7e_03_02_page_007.png,[5.003],0.0,1.0,1.0,0.0,0.0,\[&= u \frac{dv}{dx} + v \frac{du}{dx} + 0 \cdot \frac{dv}{dx}\],\[&=u\frac{dv}{dx}+v\frac{du}{dx}+0\cdot\frac{dv}{dx}\]
+PPT_StewartCalcET7e_03_02_page_010.png,[5],0.0,1.0,1.0,0.0,0.0,"$$
+f ^ { \prime } ( x ) = \frac { d } { d x } \left( x e ^ { x } \right)
+$$",\[f^{\prime}(x)&=\frac{d}{dx}\left(xe^{x}\right)\]
+PPT_StewartCalcET7e_03_02_page_010.png,[6],0.0,1.0,1.0,0.0,0.0,"$$
+= x \frac{d}{dx}(e^x) + e^x \frac{d}{dx}(x)
+$$",\[&=x\frac{d}{dx}\left(e^{x}\right)+e^{x}\frac{d}{dx}\left(x\right)\]
+PPT_StewartCalcET7e_03_02_page_010.png,[7],0.0,1.0,1.0,0.0,0.0,"$$
+= x e ^ { x } + e ^ { x } \cdot 1 = ( x + 1 ) e ^ { x }
+$$",\[&=xe^{x}+e^{x}\cdot1=(x+1)e^{x}\]
+PPT_StewartCalcET7e_03_02_page_012.png,[5],0.0,1.0,1.0,0.0,0.0,"$$
+f ^ { ( n ) } ( x ) = ( x + n ) e ^ { x }
+$$",\[ f^{(n)}(x)=(x+n)e^{x} \]
+PPT_StewartCalcET7e_03_02_page_014.png,[4],0.0,1.0,1.0,0.0,0.0,"$$
+\Delta\left(\frac{u}{v}\right) = \frac{u + \Delta u}{v + \Delta v} - \frac{u}{v} = \frac{(u + \Delta u)v - u(v + \Delta v)}{v(v + \Delta v)}
+$$",\[\Delta\left(\frac{u}{v}\right)=\frac{u+\Delta u}{v+\Delta v}-\frac{u}{v}=\frac{(u+\Delta u)v-u(v+\Delta v)}{v(v+\Delta v)}\]
+PPT_StewartCalcET7e_03_02_page_014.png,[5],0.0,1.0,1.0,0.0,0.0,"$$
+= \frac { v \Delta u - u \Delta v } { v ( v + \Delta v ) }
+$$",\[=\frac{v\Delta u-u\Delta v}{v(v+\Delta v)}\]
+PPT_StewartCalcET7e_03_02_page_015.png,[3],0.0,1.0,1.0,0.12121212121212122,0.12121212121212122,"$$
+{ \frac { d } { d x } } { \bigg ( } { \frac { u } { v } } { \bigg ) } = \operatorname* { l i m } _ { \Delta x \to 0 } { \frac { \Delta ( u / v ) } { \Delta x } } = \operatorname* { l i m } _ { \Delta x \to 0 } { \frac { v { \frac { \Delta u } { \Delta x } } - u { \frac { \Delta v } { \Delta x } } } { v ( v + \Delta v ) } }
+$$",\[ \frac{d}{dx}\left(\frac{u}{v}\right)=\lim_{\Delta x\to0}\frac{\Delta(u/v)}{\Delta x}=\lim_{\Delta x\to0}\frac{v\frac{\Delta u}{\Delta x}-u\frac{\Delta v}{\Delta x}}{v(v+\Delta v)} \]
+PPT_StewartCalcET7e_03_02_page_015.png,[6],0.0,1.0,1.0,0.16666666666666666,0.16666666666666666,"$$
+\frac { d } { dx }(  \frac { u } { v  } ) = { \frac { v ~\operatorname* { l i m } _ { \Delta x \to 0 } { \frac { \Delta u } { \Delta x } } - u \operatorname* { l i m } _ { \Delta x \to 0 } { \frac { \Delta v } { \Delta x } } } { v~ \operatorname* { l i m } _ { \Delta x \to 0 } ( v + \Delta v ) } } = { \frac { v { \frac { du } { dx } }-u\frac { dv } { dx } } { v^2} }
+$$",\[ \frac{d}{dx}\left(\frac{u}{v}\right)=\frac{v\lim\limits_{\Delta x\to0}\frac{\Delta u}{\Delta x}-u\lim\limits_{\Delta x\to0}\frac{\Delta v}{\Delta x}}{v\lim\limits_{\Delta x\to0}(v+\Delta v)}=\frac{v\frac{du}{dx}-u\frac{dv}{dx}}{v^2} \]
+PPT_StewartCalcET7e_04_09_page_018.png,[3],0.0,1.0,1.0,0.0,0.0,"$$
+v ( t ) = 3 t ^ { 2 } + 4 t - 6
+$$",\[ v(t)=3t^{2}+4t-6 \]
+PPT_StewartCalcET7e_04_09_page_018.png,[7],0.0,1.0,1.0,0.0,0.0,"$$
+s ( t ) = t ^ { 3 } + 2 t ^ { 2 } - 6 t + 9
+$$",\[ s(t)=t^{3}+2t^{2}-6t+9 \]
+PPT_ch7_page_020.png,[11],0.0,1.0,1.0,0.0,0.0,"$$
+\mathbf {(A+B)C=AC+BC}
+$$",\[ (\mathbf{A}+\mathbf{B})\mathbf{C}=\mathbf{A}\mathbf{C}+\mathbf{B}\mathbf{C} \]
+PPT_ch7_page_020.png,[13],0.0,1.0,1.0,0.0,0.0,"$$
+\mathbf {C(A+B)=CA+CB}
+$$",\[ \mathbf{C}(\mathbf{A}+\mathbf{B})=\mathbf{C}\mathbf{A}+\mathbf{C}\mathbf{B} \]
+PPT_ch7_page_020.png,[5],0.0,1.0,1.0,0.0,0.0,"$$
+(k \mathbf { A ) } \mathbf { B } = k \mathbf { ( AB )}=\mathbf A(k\mathbf B)
+$$",\[ (k\mathbf{A})\mathbf{B}=k(\mathbf{A}\mathbf{B})=\mathbf{A}(k\mathbf{B}) \]
+PPT_ch7_page_020.png,[8],0.0,1.0,1.0,0.0,0.0,"$$
+\mathbf {A(BC)=(AB)C}
+$$",\[ \mathbf{A}(\mathbf{B}\mathbf{C})=(\mathbf{A}\mathbf{B})\mathbf{C} \]
+PPT_ch7_page_021.png,[3],0.0,1.0,1.0,0.13636363636363635,0.11363636363636363,"$$
+\mathbf { A B } = \mathbf { A } [ \mathbf { b } _ { 1 } \ \mathbf { b } _ { 2 } \ \dots \ \mathbf { b } _ { p } ] = [ \mathbf { A b } _ { 1 } \ \mathbf { A b } _ { 2 } \dots \mathbf {  A b } _ { p }] .
+$$",\[ \mathbf{|\mathbf{A}\mathbf{B}=\mathbf{A}[\mathbf{b}_{1}~\mathbf{b}_{2}~\ldots~\mathbf{b}_{p}]=[\mathbf{A}\mathbf{b}_{1}~\mathbf{A}\mathbf{b}_{2}~\ldots~\mathbf{A}\mathbf{b}_{p}]}. \]
+PPT_ch7_page_030.png,[3],0.0,1.0,1.0,0.0,0.0,"$$
+\mathbf{A}\mathbf{S} = \mathbf{S}\mathbf{A} = c\mathbf{A}.
+$$",\[ \mathbf{A}\mathbf{S}=\mathbf{S}\mathbf{A}=c\mathbf{A}. \]
+PPT_ch7_page_030.png,[6],0.0,1.0,1.0,0.0,0.0,"$$
+\mathbf { A I } = \mathbf { I A } = \mathbf { A } .
+$$",\[ \mathbf{A}\mathbf{I}=\mathbf{I}\mathbf{A}=\mathbf{A}. \]
+PPT_ch7_page_034.png,[4],0.0,1.0,1.0,0.0,0.0,"$$
+\mathbf { A x } = \mathbf { b }
+$$",\[ \mathbf{A}\mathbf{x}=\mathbf{b} \]
+PPT_ch7_page_034.png,[6],0.0,1.0,1.0,0.041379310344827586,0.041379310344827586,"$$
+\mathbf{A}=\left[\begin{array}{cccc}a_{11} & a_{12} & \cdots & a_{1 n} \\ a_{21} & a_{22} & \cdots & a_{2 n} \\ \cdot & \cdot & \cdots & \cdot \\ a_{m 1} & a_{m 2} & \cdots & a_{m n}\end{array}\right], \quad \text{and} \quad \mathbf{x}=\left[\begin{array}{c}x_{1} \\ \cdot \\ \cdot \\ \cdot \\ x_{n}\end{array}\right] \quad \text{and} \quad \mathbf{b}=\left[\begin{array}{c}b_{1} \\ \vdots \\ b_{m}\end{array}\right]
+$$","\[ \mathbf{A}=\begin{bmatrix}a_{11}&a_{12}&\cdots&a_{1n}\\a_{21}&a_{22}&\cdots&a_{2n}\\\cdot&\cdot&\cdots&\cdot\\a_{m1}&a_{m2}&\cdots&a_{mn}\end{bmatrix},\quad and\quad\mathbf{x}=\begin{bmatrix}x_{1}\\\cdot\\\cdot\\\cdot\\x_{n}\end{bmatrix}\quad and\quad\mathbf{b}=\begin{bmatrix}b_{1}\\\vdots\\b_{m}\end{bmatrix} \]"
+PPT_ch7_page_057.png,[3],0.0,1.0,1.0,0.02857142857142857,0.02857142857142857,"$$
+c _ { 1 } \mathbf { a } _ { ( 1 ) } , + c _ { 2 } \mathbf { a } _ { ( 2 ) } , + \dots + c _ { m } \mathbf { a } _ { ( m ) }
+$$","\[ c_{1}\mathbf{a}_{(1)},+c_{2}\mathbf{a}_{(2)},+\ldots+c_{m}\mathbf{a}_{(m)} \]"
+PPT_ch7_page_057.png,[7],0.0,1.0,1.0,0.02702702702702703,0.02702702702702703,"$$
+c _ { 1 } \mathbf { a } _ { ( 1 ) } , + c _ { 2 } \mathbf { a } _ { ( 2 ) } , + \dots + c _ { m } \mathbf { a } _ { ( m ) } = \mathbf { 0 }
+$$","\[ c_{1}\mathbf{a}_{(1)},+c_{2}\mathbf{a}_{(2)},+\ldots+c_{m}\mathbf{a}_{(m)}=\mathbf{0} \]"
+PPT_ch7_page_090.png,[3.001],0.0,1.0,1.0,0.0,0.0,\[{ a _ { 1 1 } x _ { 1 } + a _ { 1 2 } x _ { 2 } + a _ { 1 3 } x _ { 3 } = b _ { 1 } }\],\[ a_{11}x_{1}+a_{12}x_{2}+a_{13}x_{3}=b_{1} \]
+PPT_ch7_page_090.png,[8],0.0,1.0,1.0,0.04580152671755725,0.04580152671755725,"$$
+D_1=\begin{vmatrix}b_1&a_{12}&a_{13}\\b_2&a_{22}&a_{23}\\b_3&a_{32}&a_{33}\end{vmatrix},\quad D_2=\begin{vmatrix}a_{11}&b_1&a_{13}\\a_{21}&b_2&a_{23}\\a_{31}&b_3&a_{33}\end{vmatrix},\quad D_3=\begin{vmatrix}a_{11}&a_{12}&b_1\\a_{21}&a_{22}&b_2\\a_{31}&a_{32}&b_3\end{vmatrix}.
+$$","\[ D_{1}=\left|\begin{matrix}b_{1}&a_{12}&a_{13}\\ b_{2}&a_{22}&a_{23}\\ b_{3}&a_{32}&a_{33}\end{matrix}\right|,\quad D_{2}=\left|\begin{matrix}a_{11}&b_{1}&a_{13}\\ a_{21}&b_{2}&a_{23}\\ a_{31}&b_{3}&a_{33}\end{matrix}\right|,\quad D_{3}=\left|\begin{matrix}a_{11}&a_{12}&b_{1}\\ a_{21}&a_{22}&b_{2}\\ a_{31}&a_{32}&b_{3}\end{matrix}\right|. \]"
+PPT_ch7_page_132.png,[14],0.0,1.0,1.0,0.0,0.0,$$ \left\|\mathbf{a} + \mathbf{b}\right\|^2 + \left\|\mathbf{a} - \mathbf{b}\right\|^2 = 2\left(\left\|\mathbf{a}\right\|^2 + \left\|\mathbf{b}\right\|^2\right) $$,\[ \left\|\mathbf{a}+\mathbf{b}\right\|^{2}+\left\|\mathbf{a}-\mathbf{b}\right\|^{2}=2\left(\left\|\mathbf{a}\right\|^{2}+\left\|\mathbf{b}\right\|^{2}\right) \]
+PPT_ch7_page_132.png,[3],0.0,1.0,1.0,0.0,0.0,"$$
+\|\mathbf{a}\| = \sqrt{(a, a)} \quad (\geq 0).
+$$","\[ \left\|\mathbf{a}\right\|=\sqrt{(\mathbf{a},\mathbf{a})}\quad(\geq0). \]"
+PPT_ch7_page_136.png,[4],0.0,1.0,1.0,0.0,0.0,"$$
+\mathbf { x } = \mathbf { A } ^ { - 1 } \mathbf { y } .
+$$",\[ \mathbf{x}=\mathbf{A}^{-1}\mathbf{y}. \]
+PPT_ch7_page_142.png,[5],0.0,1.0,1.0,0.0,0.0,"$$
+\mathbf { A } \mathbf { x } = \mathbf { b }
+$$",\[ \mathbf{A}\mathbf{x}=\mathbf{b} \]
+PPT_fundamental_theorem_of_calculus___page_006.png,[2.002],0.0,1.0,1.0,0.09090909090909091,0.09090909090909091,\[\qquad = 56 \text{ units}^2\],\[&=56\ units^{2}\]
+PPT_fundamental_theorem_of_calculus___page_013.png,[3.001],0.0,1.0,1.0,0.0,0.0,\[&=\Bigg[x^3\Bigg]_2^4\],\[&=\Bigg[ x^{3} \Bigg]_{2}^{4}\]
+PPT_fundamental_theorem_of_calculus___page_013.png,[3.002],0.0,1.0,1.0,0.0,0.0,\[&=\Bigg[4^3\Bigg]-\Bigg[2^3\Bigg]\],\[&=\Bigg[ 4^{3} \Bigg] - \Bigg[ 2^{3} \Bigg]\]
+PPT_fundamental_theorem_of_calculus___page_013.png,[3.003],0.0,1.0,1.0,0.0,0.0,\[&=64-8\],\[&=64 - 8\]
+PPT_fundamental_theorem_of_calculus___page_013.png,[3.004],0.0,1.0,1.0,0.09090909090909091,0.09090909090909091,\[&=56~ \mathrm {units^2}\],\[&= 56\ \text{units}^2\]
+PPT_lay_linalg5_01_05_page_003.png,[3.001],0.0,1.0,1.0,0.0,0.0,\[{ 3 x _ { 1 } + 5 x _ { 2 } - 4 x _ { 3 } = 0 }\],\[3x_{1}+5x_{2}-4x_{3}&=0\]
+PPT_lay_linalg5_01_05_page_003.png,[3.002],0.0,1.0,1.0,0.0,0.0,\[{ - 3 x _ { 1 } - 2 x _ { 2 } + 4 x _ { 3 } = 0 }\],\[-3x_{1}-2x_{2}+4x_{3}&=0\]
+PPT_lay_linalg5_01_05_page_003.png,[3.003],0.0,1.0,1.0,0.0,0.0,\[{ 6 x _ { 1 } + x _ { 2 } - 8 x _ { 3 } = 0 }\],\[6x_{1}+x_{2}-8x_{3}&=0\]
+PPT_lay_linalg5_01_05_page_004.png,[1],0.0,1.0,1.0,0.14925373134328357,0.14925373134328357,"$$
+\begin{bmatrix}3&5&-4&0\\
+-3 &-2&4 &0\\6 &1&-8&0\end{bmatrix}{\sim}\begin{bmatrix}3&5&-4&0\\
+0 &3&0 &0\\0 &-9&0&0\end{bmatrix}{\sim}\begin{bmatrix}3&5&-4&0\\
+0 &3&0 &0\\0 &0&0&0\end{bmatrix}
+$$",\[ \begin{bmatrix}{{{3}}}&{{{5}}}&{{{-4}}}&{{{0}}} \\{{{-3}}}&{{{-2}}}&{{{4}}}&{{{0}}} \\{{{6}}}&{{{1}}}&{{{-8}}}&{{{0}}}\end{bmatrix}\sim\begin{bmatrix}{{{3}}}&{{{5}}}&{{{-4}}}&{{{0}}} \\{{{0}}}&{{{3}}}&{{{0}}}&{{{0}}} \\{{{0}}}&{{{-9}}}&{{{0}}}&{{{0}}}\end{bmatrix}\sim\begin{bmatrix}{{{3}}}&{{{5}}}&{{{-4}}}&{{{0}}} \\{{{0}}}&{{{3}}}&{{{0}}}&{{{0}}} \\{{{0}}}&{{{0}}}&{{{0}}}&{{{0}}}\end{bmatrix} \]
+PPT_lay_linalg5_01_05_page_004.png,[5],0.0,1.0,1.0,0.12962962962962962,0.12962962962962962,"$$
+\begin{bmatrix}1&0&-\frac{4}{3}&0\\
+0 &1&0 &0\\0 &0&0&0\end{bmatrix} \qquad \begin{array}{}x_1-\frac{4}{3}x_3=0\\
+x_2=0\\
+0=0\end{array}
+$$",\[ \begin{aligned}&\begin{bmatrix} \\{{{1}}}&{{{0}}}&{{{-\frac{4}{3}}}}&{{{0}}} \\{{{0}}}&{{{1}}}&{{{0}}}&{{{0}}} \\{{{0}}}&{{{0}}}&{{{0}}}&{{{0}}} \\\end{bmatrix}\quad\begin{aligned}x_{1}-\frac{4}{3}x_{3}&=0\\x_{2}&=0\\0&=0\end{aligned}\\ \end{aligned} \]
+PPT_lay_linalg5_01_05_page_008.png,[2],0.0,1.0,1.0,0.0,0.0,"$$
+A=\begin{bmatrix}
+3&5&-4 \\-3&-2&4\\6&1&-8
+\end{bmatrix} \mathrm {~~and~~b}=\begin{bmatrix}
+7\\-1\\-4 
+\end{bmatrix}.
+$$",\[ \boldsymbol{A}=\begin{bmatrix}3&5&-4\\ -3&-2&4\\ 6&1&-8\end{bmatrix}\text{and}\mathbf{b}=\begin{bmatrix}7\\ -1\\ -4\end{bmatrix}. \]

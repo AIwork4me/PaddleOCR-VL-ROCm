@@ -1,0 +1,1274 @@
+{
+  "overall": {
+    "gguf_cdm_mean": 0.973295,
+    "roc_nonzero_cdm_mean": 0,
+    "roc_zero_cdm_count": 2352,
+    "cdm_gap": 0.973295,
+    "total_common_pairs": 2352,
+    "total_cdm_loss_sum": 2261.937
+  },
+  "by_category": {
+    "CONTENT_DIFF": {
+      "count": 10,
+      "description": "Actual math content differs",
+      "cdm_loss_sum": 0.0,
+      "cdm_loss_pct": 0.0,
+      "avg_cdm_loss": 0.0,
+      "examples": [
+        {
+          "img_id": "book_en_国外数学教材-非数学专业教材-线性代数-Gilbert Strang—Linear Algebra and Its Applications 4e_0242.png",
+          "gt_position": [
+            2
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.23076923076923078,
+          "gt_preview": "$$\nM = \\left[ { \\begin{array} { c c c c } { 0 } & { 0 } & { 0 } & { 2 } \\\\ { 0 } & { 0 } & { 2 } & { 6 } \\\\ { 0 } & { 1 } & { 2 } & { 2 } \\\\ { 4 } & {",
+          "roc_pred_preview": "\\[ \\begin{pmatrix}{{{M=\\left[\\begin{bmatrix}0}}}&{{{0}}}&{{{0}}}&{{{2}}} \\\\{{{0}}}&{{{0}}}&{{{2}}}&{{{6}}} \\\\{{{0}}}&{{{1}}}&{{{2}}}&{{{2}}} \\\\{{{4}}}"
+        },
+        {
+          "img_id": "exam_paper_en-file-putnam-archive_2015_Solutions_2015s_page_006.png",
+          "gt_position": [
+            5
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.20588235294117646,
+          "gt_preview": "$$\ns - a , s - b , s - c > 0 \\qquad s = \\frac { a + b + c } { 2 } ,\n$$",
+          "roc_pred_preview": "\\[ \\frac{s-a,s-b,s-c>0 貼 s=\\frac{a+b+c}{2}, \\]"
+        },
+        {
+          "img_id": "jiaocai_71434495.pdf_0.jpg",
+          "gt_position": [
+            48
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.15555555555555556,
+          "gt_preview": "$$\n\\root n \\of{\\mathrm{e}}-1=\\frac{1} {n}+\\frac{1} {2 n^{2}}+o \\left( \\frac{1} {n^{2}} \\right),\n$$",
+          "roc_pred_preview": "\\[ \\sqrt[n]{\\mathrm{e}}-1=\\frac{1}{n}+\\frac{1}{2n^{2}}+o\\left(\\frac{1}{n^{2}}\\right), \\]"
+        },
+        {
+          "img_id": "notes_9e951846094758afac08c620144e3a76_14.jpg",
+          "gt_position": [
+            10.002
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.8,
+          "gt_preview": "\\[& =9\\cdot\\text{高.①}\\]",
+          "roc_pred_preview": "\\[ S_{\\Delta MAD} = ? \\]"
+        },
+        {
+          "img_id": "page-8524b54d-6372-4f9e-a662-5254349cfda3.png",
+          "gt_position": [
+            16
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.461038961038961,
+          "gt_preview": "$$(\\mathscr{M})_{\\ell\\geq2,S^{\\prime},J^{\\prime(p)}}+((\\mathring{\\Delta}^{^{\\prime}}+2)\\Lambda)_{\\ell\\geq2,S^{\\prime},J^{{\\prime}(p)}}+\\mathcal{L}[\\mu",
+          "roc_pred_preview": "\\[+\\frac{3}{2}(\\mathcal{P}\\operatorname*{curl}^{\\circ}{^{\\prime}}F)_{\\ell=1,S^{\\prime},J^{\\prime(p)}}+\\mathcal{L}[\\operatorname{curl}\\beta](F,\\underli"
+        }
+      ]
+    },
+    "EMPTY_PRED": {
+      "count": 4,
+      "description": "Empty/missing prediction from model",
+      "cdm_loss_sum": 0.0,
+      "cdm_loss_pct": 0.0,
+      "avg_cdm_loss": 0.0,
+      "examples": [
+        {
+          "img_id": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+          "gt_position": [
+            11
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 1,
+          "gt_preview": "$$\\mathop{\\lim }\\limits_{{\\varepsilon  \\rightarrow  0}}{\\int }_{\\left\\{  \\parallel \\pmb x{\\parallel }_{\\mathbb{V}} \\geq  {\\varepsilon }^{-1}\\right\\}  ",
+          "roc_pred_preview": ""
+        },
+        {
+          "img_id": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+          "gt_position": [
+            16
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 1,
+          "gt_preview": "$$\\leq C \\int_{\\{\\|\\pmb x\\|_\\mathbb{V} \\geq \\varepsilon^{-1}\\}} e^{\\kappa \\|\\pmb x\\|_\\mathbb{H}^2} \\|\\pmb x\\|_\\mathbb{V}^4 \\|\\pmb x\\|_\\mathbb{H}^2 \\et",
+          "roc_pred_preview": ""
+        },
+        {
+          "img_id": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+          "gt_position": [
+            18
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 1,
+          "gt_preview": "$$\\leq \\frac{C}{\\lambda_1^{2\\delta}} \\int_{\\{\\|\\pmb x\\|_\\mathbb{V} \\geq \\varepsilon^{-1}\\}} e^{\\kappa \\|\\pmb x\\|_\\mathbb{H}^2} \\|A^{\\delta} \\pmb x\\|_{",
+          "roc_pred_preview": ""
+        },
+        {
+          "img_id": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+          "gt_position": [
+            19
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 1,
+          "gt_preview": "$$\\le C \\lambda _ { 1 } ^ { \\delta ( 2 - 8 \\delta ) }  \\int _ { \\{ \\| { \\pmb x } \\| _ { \\mathbb { V } } \\geq \\varepsilon ^ { - 1 } \\} } e ^ { \\kappa \\",
+          "roc_pred_preview": ""
+        }
+      ]
+    },
+    "EXTRA_TEXT": {
+      "count": 1,
+      "description": "Prediction includes non-formula text artifacts",
+      "cdm_loss_sum": 0.941,
+      "cdm_loss_pct": 0.04,
+      "avg_cdm_loss": 0.941,
+      "examples": [
+        {
+          "img_id": "page-74c7629d-b064-4b8f-8667-bf943f5ba367.png",
+          "gt_position": [
+            13
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.941,
+          "roc_edit": 0.5260115606936416,
+          "gt_preview": "$${P}_{i} - \\mathrm{j}{Q}_{i} = {U}_{i}{e}^{-\\mathrm{j}{\\delta }_{i}}\\mathop{\\sum }\\limits_{{j = 1}}^{n}\\left( {{G}_{ij} + \\mathrm{j}{B}_{ij}}\\right) ",
+          "roc_pred_preview": "\\[ P_{i}-\\mathrm{j}Q_{i}=U_{i}e^{-\\mathrm{j}\\delta_{i}}\\sum_{j=1}^{n}(\\mathbf{\\Theta}G_{i j}+\\mathrm{j}B_{i j})\\mathbf{\\Theta}U_{j}e^{j\\widehat{\\delta"
+        }
+      ]
+    },
+    "FULL_STRUCTURE_MISMATCH": {
+      "count": 2,
+      "description": "Matrix/array structure differs",
+      "cdm_loss_sum": 0.0,
+      "cdm_loss_pct": 0.0,
+      "avg_cdm_loss": 0.0,
+      "examples": [
+        {
+          "img_id": "page-ad5a110f-a4b4-430b-b5db-ecd0ee394451.png",
+          "gt_position": [
+            17
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.7878787878787878,
+          "gt_preview": "$$\\leq  \\frac{C}{{\\lambda }_{1}^{2\\delta }}{\\int }_{\\left\\{  \\parallel \\pmb x {\\parallel }_{\\mathbb{V}} \\geq  {\\varepsilon }^{-1}\\right\\}  }{e}^{\\kapp",
+          "roc_pred_preview": "\\[ \\begin{align*}&\\int_{\\{\\|\\pmb x\\|_{\\mathbb{V}\\geq\\varepsilon^{-1}\\}\\}}e^{\\kappa\\|\\pmb x\\|_{\\mathbb{H}}^{2}}\\|\\mathcal{C}(\\pmb x)\\|_{\\mathbb{H}}^{2}"
+        },
+        {
+          "img_id": "page-f108020f-edc5-4a27-85d9-d9d9c5d67309.png",
+          "gt_position": [
+            18
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.6374622356495468,
+          "gt_preview": "$$\\left[\\begin{array}{cc}\n((1 - \\epsilon) \\bar{\\Phi}_\\mathrm{u} \\bar{\\Phi}_\\mathrm{u}^\\mathsf{H}  - \\left( \\frac{1 - \\epsilon}{\\epsilon} \\right) \\bar{",
+          "roc_pred_preview": "\\[ \\begin{aligned}&\\begin{vmatrix} \\\\{{{\\left(1-\\epsilon\\right)\\left(\\bar{Z}_{\\mathrm{u},1}\\hat{Z}^{\\mathrm{H}}+\\hat{Z}\\bar{Z}_{\\mathrm{u},1}^{\\mathrm"
+        }
+      ]
+    },
+    "MISSING_CONTENT": {
+      "count": 12,
+      "description": "Prediction missing significant content",
+      "cdm_loss_sum": 3.49,
+      "cdm_loss_pct": 0.15,
+      "avg_cdm_loss": 0.2908,
+      "examples": [
+        {
+          "img_id": "book_zh_CNASGL0072018_extracted_page_48.png",
+          "gt_position": [
+            10
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.615,
+          "roc_edit": 0.5208333333333334,
+          "gt_preview": "$$\n\\begin{array} { l c r } { { u _ {2 } = 0 . 5\\% /\\sqrt { 3 } = 0 . 2 9 \\% } } \\\\ { { \\nu = ( 1 / 2 ) ( 1 0 / 1 0 0 ) ^ { - 2 } = 5 0 } } \\end{array}",
+          "roc_pred_preview": "\\[ u_{2}=0.5\\%/\\sqrt{3}=0.29\\% \\]"
+        },
+        {
+          "img_id": "page-7050793e-109f-4066-be91-107f94b617b9.png",
+          "gt_position": [
+            20
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.539,
+          "roc_edit": 0.6571428571428571,
+          "gt_preview": "$$+ {f}_{i} \\otimes  {f}_{j} \\otimes  \\left( {P\\left( {\\mathfrak{l}\\left( {P\\left( {e}_{i}\\right) }\\right) \\left( {e}_{j}\\right) }\\right)  + P\\left( {",
+          "roc_pred_preview": "\\[\\mathrm{I}^{*}(P(e_{i}))(f_{j})=\\sum_{k=1}f_{j}(\\mathrm{I}(P(e_{i}))(e_{k}))f_{k}\\]"
+        },
+        {
+          "img_id": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+          "gt_position": [
+            78
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.4,
+          "roc_edit": 0.68,
+          "gt_preview": "$$\n\\textcircled{a}- 1 2 5 a^{3}b^{3}\\textcircled{b}1\\textcircled{c}\\frac{1} {3 6 x^{6}}\n$$",
+          "roc_pred_preview": "\\[ 113. \\frac{1}{p} \\]"
+        },
+        {
+          "img_id": "yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg",
+          "gt_position": [
+            61
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.381,
+          "roc_edit": 0.68,
+          "gt_preview": "$$\n\\textcircled{a}\\frac{1} {2 5}\\textcircled{b}\\frac{1} {2 5}\\textcircled{c}25\\textcircled{d}-25\n$$",
+          "roc_pred_preview": "\\[ \\frac{1}{a^{2}} \\]"
+        },
+        {
+          "img_id": "jiaocaineedrop_jiaocai_needrop_en_1198.jpg",
+          "gt_position": [
+            8.001
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.357,
+          "roc_edit": 0.7222222222222222,
+          "gt_preview": "\\[=-{\\left(x_{1}-1\\right)\\left(x_{2}-1\\right)-k^{2}\\left(x_{1}-1\\right)\\left(x_{2}-1\\right)=-\\left(1+k^{2}\\right)\\left[\\,x_{1}x_{2}-\\left(x_{1}+x_{2}\\",
+          "roc_pred_preview": "\\[ y_0=\\frac{1}{2}x_1x_0-y_1=kx_1-y_1=-1 \\]"
+        }
+      ]
+    },
+    "NOTATION_STYLE": {
+      "count": 12,
+      "description": "Equivalent math, different notation",
+      "cdm_loss_sum": 0.0,
+      "cdm_loss_pct": 0.0,
+      "avg_cdm_loss": 0.0,
+      "examples": [
+        {
+          "img_id": "PPT_fundamental_theorem_of_calculus___page_006.png",
+          "gt_position": [
+            2.001
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.06521739130434782,
+          "gt_preview": "\\[Area = \\lim_{\\text{as } h \\to 0} 56( 1 + 2h + 4h^2 + 8h^3 + \\dots )\\]",
+          "roc_pred_preview": "\\[\\left|\\text{Area}&=\\lim_{as\\ h\\to0}56(1+2h+4h^{2}+8h^{3}+\\ldots)\\]"
+        },
+        {
+          "img_id": "book_en_A.Concise.Introduction.to.Linear.Algebra,.Geza.Schay,.Birkhauser,.2012_page_065.png",
+          "gt_position": [
+            2
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.05714285714285714,
+          "gt_preview": "$$\n\\begin{array}{}2 x _ { 1 } + 2 x _ { 2 } - 3 x _ { 3 } = 0\\\\\nx_1+5x_2+2x_3=1\n\\end{array}\n$$",
+          "roc_pred_preview": "\\[ \\begin{aligned}\\left|\\begin{matrix}2x_{1}+2x_{2}-3x_{3}=0\\\\x_{1}+5x_{2}+2x_{3}=1\\end{matrix}\\right|\\end{aligned} \\]"
+        },
+        {
+          "img_id": "book_en_国外数学教材-数论-Melvyn B. Nathanson—Elementary Methods in Number Theory_0451.png",
+          "gt_position": [
+            8
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.056451612903225805,
+          "gt_preview": "$$\n\\begin{array} { r l r }  &{  \\sum _ { u ^  2  + d \\delta = n \\atop \\delta \\equiv 1  { ~\\pmod  2  } }( - 1 ) ^ { ( \\delta - 1 ) / 2 } (d ^ { 4 } ( n",
+          "roc_pred_preview": "\\[ \\begin{array}{r l r}{\\lefteqn{\\displaystyle\\sum_{u^{2}+d\\delta=n\\atop\\delta\\equiv1\\pmod2}(-1)^{(\\delta-1)/2}(d^{4}(n-11u^{2})+10d^{2}u^{2}(n-3u^{2}"
+        },
+        {
+          "img_id": "book_zh_CNASGL0092018_extracted_page_69.png",
+          "gt_position": [
+            19
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.08620689655172414,
+          "gt_preview": "$$\n\\begin{array} {}\nu _ r ( c _  基  ) = \\sqrt {[ u _ { \\mathrm { r } } ( p ) ] ^ { 2 } + [ u _  r   ( m _ 基 ) ] ^ { 2 } +[ u _r ( V _容 ) ] ^ { 2 } +[ ",
+          "roc_pred_preview": "\\[ \\begin{array}{c}u_{r}(c_{基})=\\sqrt{[u_{t}(p)]^{2}+[u_{r}(m_{基})]^{2}+[u_{t}(V_{容})]^{2}+[u_{t}(M_{基})]^{2}}\\\\=\\sqrt{(1.00\\times10^{-4})^{2}+(4.05\\t"
+        },
+        {
+          "img_id": "exam_paper_en-file-putnam-archive_1996_Solutions_1996s_page_002.png",
+          "gt_position": [
+            12.001
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 0.0,
+          "roc_edit": 0.015151515151515152,
+          "gt_preview": "\\[\\sum_{n=1}^{4r} \\frac{(-1)^{n-1}}{n} &= \\sum_{n=1}^{4r} \\frac{1}{n} - 2\\sum_{n=1}^{2r} \\frac{1}{2n}\\]",
+          "roc_pred_preview": "\\[\\left|\\sum_{n=1}^{4r}\\frac{(-1)^{n-1}}{n}&=\\sum_{n=1}^{4r}\\frac{1}{n}-2\\sum_{n=1}^{2r}\\frac{1}{2n}\\]"
+        }
+      ]
+    },
+    "ZERO_TOKENS": {
+      "count": 2311,
+      "description": "Prediction produces zero renderable tokens",
+      "cdm_loss_sum": 2257.506,
+      "cdm_loss_pct": 99.8,
+      "avg_cdm_loss": 0.9769,
+      "examples": [
+        {
+          "img_id": "PPT_CalculusReview_page_014.png",
+          "gt_position": [
+            3
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.0,
+          "gt_preview": "$$\\nabla C = \\mathbf{i}\\frac{\\partial C}{\\partial x} + \\mathbf{j}\\frac{\\partial C}{\\partial y}$$",
+          "roc_pred_preview": "\\[ \\nabla C=\\mathbf{i}\\frac{\\partial C}{\\partial x}+\\mathbf{j}\\frac{\\partial C}{\\partial y} \\]"
+        },
+        {
+          "img_id": "PPT_CalculusReview_page_014.png",
+          "gt_position": [
+            5
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.3125,
+          "gt_preview": "$$ \\mathbf{J} = -D \\nabla C $$",
+          "roc_pred_preview": "\\[ {\\bf J}=-D\\nabla C \\]"
+        },
+        {
+          "img_id": "PPT_CalculusReview_page_033.png",
+          "gt_position": [
+            2.001
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.0,
+          "gt_preview": "\\[\\int ax^n \\partial x = a \\frac{x^{(n+1)}}{n+1} + C\\]",
+          "roc_pred_preview": "\\[\\int ax^{n}\\partial x&=a\\frac{x^{(n+1)}}{n+1}+C\\]"
+        },
+        {
+          "img_id": "PPT_CalculusReview_page_033.png",
+          "gt_position": [
+            2.002
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.0,
+          "gt_preview": "\\[\\int ax \\partial x = a \\frac{x^2}{2} + C\\]",
+          "roc_pred_preview": "\\[\\int ax\\partial x&=a\\frac{x^{2}}{2}+C\\]"
+        },
+        {
+          "img_id": "PPT_CalculusReview_page_033.png",
+          "gt_position": [
+            2.003
+          ],
+          "roc_cdm": 0.0,
+          "gguf_cdm": 1.0,
+          "roc_edit": 0.0,
+          "gt_preview": "\\[\\int ax^2 \\partial x = a \\frac{x^3}{3} + C\\]",
+          "roc_pred_preview": "\\[\\int ax^{2}\\partial x&=a\\frac{x^{3}}{3}+C\\]"
+        }
+      ]
+    }
+  },
+  "worst_cases": [
+    {
+      "img_id": "PPT_CalculusReview_page_014.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\\nabla C = \\mathbf{i}\\frac{\\partial C}{\\partial x} + \\mathbf{j}\\frac{\\partial C}{\\partial y}$$",
+      "roc_pred": "\\[ \\nabla C=\\mathbf{i}\\frac{\\partial C}{\\partial x}+\\mathbf{j}\\frac{\\partial C}{\\partial y} \\]",
+      "gguf_pred": "\\[ \\nabla C=\\mathbf{i}\\frac{\\partial C}{\\partial x}+\\mathbf{j}\\frac{\\partial C}{\\partial y} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_CalculusReview_page_014.png",
+      "gt_position": [
+        5
+      ],
+      "gt": "$$ \\mathbf{J} = -D \\nabla C $$",
+      "roc_pred": "\\[ {\\bf J}=-D\\nabla C \\]",
+      "gguf_pred": "\\[ {\\bf J}=-D\\nabla C \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.3125,
+      "gguf_edit": 0.3125,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_CalculusReview_page_033.png",
+      "gt_position": [
+        2.001
+      ],
+      "gt": "\\[\\int ax^n \\partial x = a \\frac{x^{(n+1)}}{n+1} + C\\]",
+      "roc_pred": "\\[\\int ax^{n}\\partial x&=a\\frac{x^{(n+1)}}{n+1}+C\\]",
+      "gguf_pred": "\\[\\int ax^{n}\\partial x&=a\\frac{x^{(n+1)}}{n+1}+C\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_CalculusReview_page_033.png",
+      "gt_position": [
+        2.002
+      ],
+      "gt": "\\[\\int ax \\partial x = a \\frac{x^2}{2} + C\\]",
+      "roc_pred": "\\[\\int ax\\partial x&=a\\frac{x^{2}}{2}+C\\]",
+      "gguf_pred": "\\[\\int ax\\partial x&=a\\frac{x^{2}}{2}+C\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_CalculusReview_page_033.png",
+      "gt_position": [
+        2.003
+      ],
+      "gt": "\\[\\int ax^2 \\partial x = a \\frac{x^3}{3} + C\\]",
+      "roc_pred": "\\[\\int ax^{2}\\partial x&=a\\frac{x^{3}}{3}+C\\]",
+      "gguf_pred": "\\[\\int ax^{2}\\partial x&=a\\frac{x^{3}}{3}+C\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_MMAT5390Lecture1_page_023.png",
+      "gt_position": [
+        4
+      ],
+      "gt": "$$\nf : \\Omega \\to \\mathbb { R }\n$$",
+      "roc_pred": "\\[ f:\\Omega \\to \\mathbb{R} \\]",
+      "gguf_pred": "\\[ f:\\Omega \\to \\mathbb{R} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_MMAT5390Lecture1_page_023.png",
+      "gt_position": [
+        8
+      ],
+      "gt": "$$\nf(x, y)=\\left[\\begin{array}{cccc}f(1,1) & f(1,2) & \\ldots & f(1, N) \\\\ f(2,1) & f(2,2) & \\ldots & f(2, N) \\\\ \\vdots & \\vdots & & \\vdots \\\\ f(N, 1) & f(N, 2) & \\ldots & f(N, N)\\end{array}\\right] \n$$",
+      "roc_pred": "\\[ f(x,y)=\\begin{bmatrix}f(1,1)&f(1,2)&\\cdots&f(1,N)\\\\ f(2,1)&f(2,2)&\\cdots&f(2,N)\\\\ \\vdots&\\vdots&&\\vdots\\\\ f(N,1)&f(N,2)&\\cdots&f(N,N)\\end{bmatrix} \\]",
+      "gguf_pred": "\\[ f(x,y)=\\begin{bmatrix}f(1,1)&f(1,2)&\\cdots&f(1,N)\\\\ f(2,1)&f(2,2)&\\cdots&f(2,N)\\\\ \\vdots&\\vdots&&\\vdots\\\\ f(N,1)&f(N,2)&\\cdots&f(N,N)\\end{bmatrix} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.047619047619047616,
+      "gguf_edit": 0.047619047619047616,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_MMAT5390Lecture1_page_024.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\nf : = ( f _ { R } , f _ { G } , f _ { B } ) : \\Omega \\to \\mathbb { R } ^ { 3 }\n$$",
+      "roc_pred": "\\[ f:=(f_{R},f_{G},f_{B}):\\Omega\\to\\mathbb{R}^{3} \\]",
+      "gguf_pred": "\\[ f:=(f_{R},f_{G},f_{B}):\\Omega\\to\\mathbb{R}^{3} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_007.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\n\\frac { \\Delta ( u v ) } { \\Delta x } = u \\frac { \\Delta v } { \\Delta x } + v \\frac { \\Delta u } { \\Delta x } + \\Delta u \\frac { \\Delta v } { \\Delta x }\n$$",
+      "roc_pred": "\\[ \\frac{\\Delta(uv)}{\\Delta x}=u\\frac{\\Delta v}{\\Delta x}+v\\frac{\\Delta u}{\\Delta x}+\\Delta u\\frac{\\Delta v}{\\Delta x} \\]",
+      "gguf_pred": "\\[ \\frac{\\Delta(uv)}{\\Delta x}=u\\frac{\\Delta v}{\\Delta x}+v\\frac{\\Delta u}{\\Delta x}+\\Delta u\\frac{\\Delta v}{\\Delta x} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_007.png",
+      "gt_position": [
+        5.001
+      ],
+      "gt": "\\[\\frac{d}{dx}(uv) &= \\lim_{\\Delta x \\to 0} \\frac{\\Delta(uv)}{\\Delta x} = \\lim_{\\Delta x \\to 0} \\left( u \\frac{\\Delta v}{\\Delta x} + v \\frac{\\Delta u}{\\Delta x} + \\Delta u \\frac{\\Delta v}{\\Delta x} \\right)\\]",
+      "roc_pred": "\\[\\frac{d}{dx}\\left(uv\\right)&=\\lim_{\\Delta x\\to0}\\frac{\\Delta(uv)}{\\Delta x}=\\lim_{\\Delta x\\to0}\\left(u\\frac{\\Delta v}{\\Delta x}+v\\frac{\\Delta u}{\\Delta x}+\\Delta u\\frac{\\Delta v}{\\Delta x}\\right)\\]",
+      "gguf_pred": "\\[\\frac{d}{dx}\\left(uv\\right)&=\\lim_{\\Delta x\\to0}\\frac{\\Delta(uv)}{\\Delta x}=\\lim_{\\Delta x\\to0}\\left(u\\frac{\\Delta v}{\\Delta x}+v\\frac{\\Delta u}{\\Delta x}+\\Delta u\\frac{\\Delta v}{\\Delta x}\\right)\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_007.png",
+      "gt_position": [
+        5.002
+      ],
+      "gt": "\\[&= u \\lim_{\\Delta x \\to 0} \\frac{\\Delta v}{\\Delta x} + v \\lim_{\\Delta x \\to 0} \\frac{\\Delta u}{\\Delta x} + \\left( \\lim_{\\Delta x \\to 0} \\Delta u \\right) \\left( \\lim_{\\Delta x \\to 0} \\frac{\\Delta v}{\\Delta x} \\right)\\]",
+      "roc_pred": "\\[&=u\\lim_{\\Delta x\\to0}\\frac{\\Delta v}{\\Delta x}+v\\lim_{\\Delta x\\to0}\\frac{\\Delta u}{\\Delta x}+\\left(\\lim_{\\Delta x\\to0}\\Delta u\\right)\\left(\\lim_{\\Delta x\\to0}\\frac{\\Delta v}{\\Delta x}\\right)\\]",
+      "gguf_pred": "\\[&=u\\lim_{\\Delta x\\to0}\\frac{\\Delta v}{\\Delta x}+v\\lim_{\\Delta x\\to0}\\frac{\\Delta u}{\\Delta x}+\\left(\\lim_{\\Delta x\\to0}\\Delta u\\right)\\left(\\lim_{\\Delta x\\to0}\\frac{\\Delta v}{\\Delta x}\\right)\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_007.png",
+      "gt_position": [
+        5.003
+      ],
+      "gt": "\\[&= u \\frac{dv}{dx} + v \\frac{du}{dx} + 0 \\cdot \\frac{dv}{dx}\\]",
+      "roc_pred": "\\[&=u\\frac{dv}{dx}+v\\frac{du}{dx}+0\\cdot\\frac{dv}{dx}\\]",
+      "gguf_pred": "\\[&=u\\frac{dv}{dx}+v\\frac{du}{dx}+0\\cdot\\frac{dv}{dx}\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_010.png",
+      "gt_position": [
+        5
+      ],
+      "gt": "$$\nf ^ { \\prime } ( x ) = \\frac { d } { d x } \\left( x e ^ { x } \\right)\n$$",
+      "roc_pred": "\\[f^{\\prime}(x)&=\\frac{d}{dx}\\left(xe^{x}\\right)\\]",
+      "gguf_pred": "\\[f^{\\prime}(x)&=\\frac{d}{dx}\\left(xe^{x}\\right)\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_010.png",
+      "gt_position": [
+        6
+      ],
+      "gt": "$$\n= x \\frac{d}{dx}(e^x) + e^x \\frac{d}{dx}(x)\n$$",
+      "roc_pred": "\\[&=x\\frac{d}{dx}\\left(e^{x}\\right)+e^{x}\\frac{d}{dx}\\left(x\\right)\\]",
+      "gguf_pred": "\\[&=x\\frac{d}{dx}\\left(e^{x}\\right)+e^{x}\\frac{d}{dx}\\left(x\\right)\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_010.png",
+      "gt_position": [
+        7
+      ],
+      "gt": "$$\n= x e ^ { x } + e ^ { x } \\cdot 1 = ( x + 1 ) e ^ { x }\n$$",
+      "roc_pred": "\\[&=xe^{x}+e^{x}\\cdot1=(x+1)e^{x}\\]",
+      "gguf_pred": "\\[&=xe^{x}+e^{x}\\cdot1=(x+1)e^{x}\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_012.png",
+      "gt_position": [
+        5
+      ],
+      "gt": "$$\nf ^ { ( n ) } ( x ) = ( x + n ) e ^ { x }\n$$",
+      "roc_pred": "\\[ f^{(n)}(x)=(x+n)e^{x} \\]",
+      "gguf_pred": "\\[ f^{(n)}(x)=(x+n)e^{x} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_014.png",
+      "gt_position": [
+        4
+      ],
+      "gt": "$$\n\\Delta\\left(\\frac{u}{v}\\right) = \\frac{u + \\Delta u}{v + \\Delta v} - \\frac{u}{v} = \\frac{(u + \\Delta u)v - u(v + \\Delta v)}{v(v + \\Delta v)}\n$$",
+      "roc_pred": "\\[\\Delta\\left(\\frac{u}{v}\\right)=\\frac{u+\\Delta u}{v+\\Delta v}-\\frac{u}{v}=\\frac{(u+\\Delta u)v-u(v+\\Delta v)}{v(v+\\Delta v)}\\]",
+      "gguf_pred": "\\[\\Delta\\left(\\frac{u}{v}\\right)=\\frac{u+\\Delta u}{v+\\Delta v}-\\frac{u}{v}=\\frac{(u+\\Delta u)v-u(v+\\Delta v)}{v(v+\\Delta v)}\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_014.png",
+      "gt_position": [
+        5
+      ],
+      "gt": "$$\n= \\frac { v \\Delta u - u \\Delta v } { v ( v + \\Delta v ) }\n$$",
+      "roc_pred": "\\[=\\frac{v\\Delta u-u\\Delta v}{v(v+\\Delta v)}\\]",
+      "gguf_pred": "\\[=\\frac{v\\Delta u-u\\Delta v}{v(v+\\Delta v)}\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_015.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\n{ \\frac { d } { d x } } { \\bigg ( } { \\frac { u } { v } } { \\bigg ) } = \\operatorname* { l i m } _ { \\Delta x \\to 0 } { \\frac { \\Delta ( u / v ) } { \\Delta x } } = \\operatorname* { l i m } _ { \\Delta x \\to 0 } { \\frac { v { \\frac { \\Delta u } { \\Delta x } } - u { \\frac { \\Delta v } { \\Delta x } } } { v ( v + \\Delta v ) } }\n$$",
+      "roc_pred": "\\[ \\frac{d}{dx}\\left(\\frac{u}{v}\\right)=\\lim_{\\Delta x\\to0}\\frac{\\Delta(u/v)}{\\Delta x}=\\lim_{\\Delta x\\to0}\\frac{v\\frac{\\Delta u}{\\Delta x}-u\\frac{\\Delta v}{\\Delta x}}{v(v+\\Delta v)} \\]",
+      "gguf_pred": "\\[ \\frac{d}{dx}\\left(\\frac{u}{v}\\right)=\\lim_{\\Delta x\\to0}\\frac{\\Delta(u/v)}{\\Delta x}=\\lim_{\\Delta x\\to0}\\frac{v\\frac{\\Delta u}{\\Delta x}-u\\frac{\\Delta v}{\\Delta x}}{v(v+\\Delta v)} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.12121212121212122,
+      "gguf_edit": 0.12121212121212122,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_03_02_page_015.png",
+      "gt_position": [
+        6
+      ],
+      "gt": "$$\n\\frac { d } { dx }(  \\frac { u } { v  } ) = { \\frac { v ~\\operatorname* { l i m } _ { \\Delta x \\to 0 } { \\frac { \\Delta u } { \\Delta x } } - u \\operatorname* { l i m } _ { \\Delta x \\to 0 } { \\frac { \\Delta v } { \\Delta x } } } { v~ \\operatorname* { l i m } _ { \\Delta x \\to 0 } ( v + \\Delta v ) } } = { \\frac { v { \\frac { du } { dx } }-u\\frac { dv } { dx } } { v^2} }\n$$",
+      "roc_pred": "\\[ \\frac{d}{dx}\\left(\\frac{u}{v}\\right)=\\frac{v\\lim\\limits_{\\Delta x\\to0}\\frac{\\Delta u}{\\Delta x}-u\\lim\\limits_{\\Delta x\\to0}\\frac{\\Delta v}{\\Delta x}}{v\\lim\\limits_{\\Delta x\\to0}(v+\\Delta v)}=\\frac{v\\frac{du}{dx}-u\\frac{dv}{dx}}{v^2} \\]",
+      "gguf_pred": "\\[ \\frac{d}{dx}\\left(\\frac{u}{v}\\right)=\\frac{v\\lim\\limits_{\\Delta x\\to0}\\frac{\\Delta u}{\\Delta x}-u\\lim\\limits_{\\Delta x\\to0}\\frac{\\Delta v}{\\Delta x}}{v\\lim\\limits_{\\Delta x\\to0}(v+\\Delta v)}=\\frac{v\\frac{du}{dx}-u\\frac{dv}{dx}}{v^2} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.16666666666666666,
+      "gguf_edit": 0.16666666666666666,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_04_09_page_018.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\nv ( t ) = 3 t ^ { 2 } + 4 t - 6\n$$",
+      "roc_pred": "\\[ v(t)=3t^{2}+4t-6 \\]",
+      "gguf_pred": "\\[ v(t)=3t^{2}+4t-6 \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_StewartCalcET7e_04_09_page_018.png",
+      "gt_position": [
+        7
+      ],
+      "gt": "$$\ns ( t ) = t ^ { 3 } + 2 t ^ { 2 } - 6 t + 9\n$$",
+      "roc_pred": "\\[ s(t)=t^{3}+2t^{2}-6t+9 \\]",
+      "gguf_pred": "\\[ s(t)=t^{3}+2t^{2}-6t+9 \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_020.png",
+      "gt_position": [
+        11
+      ],
+      "gt": "$$\n\\mathbf {(A+B)C=AC+BC}\n$$",
+      "roc_pred": "\\[ (\\mathbf{A}+\\mathbf{B})\\mathbf{C}=\\mathbf{A}\\mathbf{C}+\\mathbf{B}\\mathbf{C} \\]",
+      "gguf_pred": "\\[ (\\mathbf{A}+\\mathbf{B})\\mathbf{C}=\\mathbf{A}\\mathbf{C}+\\mathbf{B}\\mathbf{C} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_020.png",
+      "gt_position": [
+        13
+      ],
+      "gt": "$$\n\\mathbf {C(A+B)=CA+CB}\n$$",
+      "roc_pred": "\\[ \\mathbf{C}(\\mathbf{A}+\\mathbf{B})=\\mathbf{C}\\mathbf{A}+\\mathbf{C}\\mathbf{B} \\]",
+      "gguf_pred": "\\[ \\mathbf{C}(\\mathbf{A}+\\mathbf{B})=\\mathbf{C}\\mathbf{A}+\\mathbf{C}\\mathbf{B} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_020.png",
+      "gt_position": [
+        5
+      ],
+      "gt": "$$\n(k \\mathbf { A ) } \\mathbf { B } = k \\mathbf { ( AB )}=\\mathbf A(k\\mathbf B)\n$$",
+      "roc_pred": "\\[ (k\\mathbf{A})\\mathbf{B}=k(\\mathbf{A}\\mathbf{B})=\\mathbf{A}(k\\mathbf{B}) \\]",
+      "gguf_pred": "\\[ (k\\mathbf{A})\\mathbf{B}=k(\\mathbf{A}\\mathbf{B})=\\mathbf{A}(k\\mathbf{B}) \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_020.png",
+      "gt_position": [
+        8
+      ],
+      "gt": "$$\n\\mathbf {A(BC)=(AB)C}\n$$",
+      "roc_pred": "\\[ \\mathbf{A}(\\mathbf{B}\\mathbf{C})=(\\mathbf{A}\\mathbf{B})\\mathbf{C} \\]",
+      "gguf_pred": "\\[ \\mathbf{A}(\\mathbf{B}\\mathbf{C})=(\\mathbf{A}\\mathbf{B})\\mathbf{C} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_021.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\n\\mathbf { A B } = \\mathbf { A } [ \\mathbf { b } _ { 1 } \\ \\mathbf { b } _ { 2 } \\ \\dots \\ \\mathbf { b } _ { p } ] = [ \\mathbf { A b } _ { 1 } \\ \\mathbf { A b } _ { 2 } \\dots \\mathbf {  A b } _ { p }] .\n$$",
+      "roc_pred": "\\[ \\mathbf{|\\mathbf{A}\\mathbf{B}=\\mathbf{A}[\\mathbf{b}_{1}~\\mathbf{b}_{2}~\\ldots~\\mathbf{b}_{p}]=[\\mathbf{A}\\mathbf{b}_{1}~\\mathbf{A}\\mathbf{b}_{2}~\\ldots~\\mathbf{A}\\mathbf{b}_{p}]}. \\]",
+      "gguf_pred": "\\[ \\mathbf{A}\\mathbf{B}=\\mathbf{A}[\\mathbf{b}_{1}~\\mathbf{b}_{2}~\\ldots~\\mathbf{b}_{p}]=[\\mathbf{A}\\mathbf{b}_{1}~\\mathbf{A}\\mathbf{b}_{2}~\\ldots~\\mathbf{A}\\mathbf{b}_{p}]. \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.13636363636363635,
+      "gguf_edit": 0.11363636363636363,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_030.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\n\\mathbf{A}\\mathbf{S} = \\mathbf{S}\\mathbf{A} = c\\mathbf{A}.\n$$",
+      "roc_pred": "\\[ \\mathbf{A}\\mathbf{S}=\\mathbf{S}\\mathbf{A}=c\\mathbf{A}. \\]",
+      "gguf_pred": "\\[ \\mathbf{A}\\mathbf{S}=\\mathbf{S}\\mathbf{A}=c\\mathbf{A}. \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_030.png",
+      "gt_position": [
+        6
+      ],
+      "gt": "$$\n\\mathbf { A I } = \\mathbf { I A } = \\mathbf { A } .\n$$",
+      "roc_pred": "\\[ \\mathbf{A}\\mathbf{I}=\\mathbf{I}\\mathbf{A}=\\mathbf{A}. \\]",
+      "gguf_pred": "\\[ \\mathbf{A}\\mathbf{I}=\\mathbf{I}\\mathbf{A}=\\mathbf{A}. \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_034.png",
+      "gt_position": [
+        4
+      ],
+      "gt": "$$\n\\mathbf { A x } = \\mathbf { b }\n$$",
+      "roc_pred": "\\[ \\mathbf{A}\\mathbf{x}=\\mathbf{b} \\]",
+      "gguf_pred": "\\[ \\mathbf{A}\\mathbf{x}=\\mathbf{b} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_034.png",
+      "gt_position": [
+        6
+      ],
+      "gt": "$$\n\\mathbf{A}=\\left[\\begin{array}{cccc}a_{11} & a_{12} & \\cdots & a_{1 n} \\\\ a_{21} & a_{22} & \\cdots & a_{2 n} \\\\ \\cdot & \\cdot & \\cdots & \\cdot \\\\ a_{m 1} & a_{m 2} & \\cdots & a_{m n}\\end{array}\\right], \\quad \\text{and} \\quad \\mathbf{x}=\\left[\\begin{array}{c}x_{1} \\\\ \\cdot \\\\ \\cdot \\\\ \\cdot \\\\ x_{n}\\end{array}\\right] \\quad \\text{and} \\quad \\mathbf{b}=\\left[\\begin{array}{c}b_{1} \\\\ \\vdots \\\\ b_{m}\\end{array}\\right]\n$$",
+      "roc_pred": "\\[ \\mathbf{A}=\\begin{bmatrix}a_{11}&a_{12}&\\cdots&a_{1n}\\\\a_{21}&a_{22}&\\cdots&a_{2n}\\\\\\cdot&\\cdot&\\cdots&\\cdot\\\\a_{m1}&a_{m2}&\\cdots&a_{mn}\\end{bmatrix},\\quad and\\quad\\mathbf{x}=\\begin{bmatrix}x_{1}\\\\\\cdot\\\\\\cdot\\\\\\cdot\\\\x_{n}\\end{bmatrix}\\quad and\\quad\\mathbf{b}=\\begin{bmatrix}b_{1}\\\\\\vdots\\\\b_{m}\\end{bmatrix} \\]",
+      "gguf_pred": "\\[ \\mathbf{A}=\\begin{bmatrix}a_{11}&a_{12}&\\cdots&a_{1n}\\\\a_{21}&a_{22}&\\cdots&a_{2n}\\\\\\cdot&\\cdot&\\cdots&\\cdot\\\\a_{m1}&a_{m2}&\\cdots&a_{mn}\\end{bmatrix},\\quad and\\quad\\mathbf{x}=\\begin{bmatrix}x_{1}\\\\\\cdot\\\\\\cdot\\\\\\cdot\\\\x_{n}\\end{bmatrix}\\quad and\\quad\\mathbf{b}=\\begin{bmatrix}b_{1}\\\\\\vdots\\\\b_{m}\\end{bmatrix} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.041379310344827586,
+      "gguf_edit": 0.041379310344827586,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_057.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\nc _ { 1 } \\mathbf { a } _ { ( 1 ) } , + c _ { 2 } \\mathbf { a } _ { ( 2 ) } , + \\dots + c _ { m } \\mathbf { a } _ { ( m ) }\n$$",
+      "roc_pred": "\\[ c_{1}\\mathbf{a}_{(1)},+c_{2}\\mathbf{a}_{(2)},+\\ldots+c_{m}\\mathbf{a}_{(m)} \\]",
+      "gguf_pred": "\\[ c_{1}\\mathbf{a}_{(1)},+c_{2}\\mathbf{a}_{(2)},+\\ldots+c_{m}\\mathbf{a}_{(m)} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.02857142857142857,
+      "gguf_edit": 0.02857142857142857,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_057.png",
+      "gt_position": [
+        7
+      ],
+      "gt": "$$\nc _ { 1 } \\mathbf { a } _ { ( 1 ) } , + c _ { 2 } \\mathbf { a } _ { ( 2 ) } , + \\dots + c _ { m } \\mathbf { a } _ { ( m ) } = \\mathbf { 0 }\n$$",
+      "roc_pred": "\\[ c_{1}\\mathbf{a}_{(1)},+c_{2}\\mathbf{a}_{(2)},+\\ldots+c_{m}\\mathbf{a}_{(m)}=\\mathbf{0} \\]",
+      "gguf_pred": "\\[ c_{1}\\mathbf{a}_{(1)},+c_{2}\\mathbf{a}_{(2)},+\\ldots+c_{m}\\mathbf{a}_{(m)}=\\mathbf{0} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.02702702702702703,
+      "gguf_edit": 0.02702702702702703,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_090.png",
+      "gt_position": [
+        3.001
+      ],
+      "gt": "\\[{ a _ { 1 1 } x _ { 1 } + a _ { 1 2 } x _ { 2 } + a _ { 1 3 } x _ { 3 } = b _ { 1 } }\\]",
+      "roc_pred": "\\[ a_{11}x_{1}+a_{12}x_{2}+a_{13}x_{3}=b_{1} \\]",
+      "gguf_pred": "\\[ a_{11}x_{1}+a_{12}x_{2}+a_{13}x_{3}=b_{1} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_090.png",
+      "gt_position": [
+        8
+      ],
+      "gt": "$$\nD_1=\\begin{vmatrix}b_1&a_{12}&a_{13}\\\\b_2&a_{22}&a_{23}\\\\b_3&a_{32}&a_{33}\\end{vmatrix},\\quad D_2=\\begin{vmatrix}a_{11}&b_1&a_{13}\\\\a_{21}&b_2&a_{23}\\\\a_{31}&b_3&a_{33}\\end{vmatrix},\\quad D_3=\\begin{vmatrix}a_{11}&a_{12}&b_1\\\\a_{21}&a_{22}&b_2\\\\a_{31}&a_{32}&b_3\\end{vmatrix}.\n$$",
+      "roc_pred": "\\[ D_{1}=\\left|\\begin{matrix}b_{1}&a_{12}&a_{13}\\\\ b_{2}&a_{22}&a_{23}\\\\ b_{3}&a_{32}&a_{33}\\end{matrix}\\right|,\\quad D_{2}=\\left|\\begin{matrix}a_{11}&b_{1}&a_{13}\\\\ a_{21}&b_{2}&a_{23}\\\\ a_{31}&b_{3}&a_{33}\\end{matrix}\\right|,\\quad D_{3}=\\left|\\begin{matrix}a_{11}&a_{12}&b_{1}\\\\ a_{21}&a_{22}&b_{2}\\\\ a_{31}&a_{32}&b_{3}\\end{matrix}\\right|. \\]",
+      "gguf_pred": "\\[ D_{1}=\\left|\\begin{matrix}b_{1}&a_{12}&a_{13}\\\\ b_{2}&a_{22}&a_{23}\\\\ b_{3}&a_{32}&a_{33}\\end{matrix}\\right|,\\quad D_{2}=\\left|\\begin{matrix}a_{11}&b_{1}&a_{13}\\\\ a_{21}&b_{2}&a_{23}\\\\ a_{31}&b_{3}&a_{33}\\end{matrix}\\right|,\\quad D_{3}=\\left|\\begin{matrix}a_{11}&a_{12}&b_{1}\\\\ a_{21}&a_{22}&b_{2}\\\\ a_{31}&a_{32}&b_{3}\\end{matrix}\\right|. \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.04580152671755725,
+      "gguf_edit": 0.04580152671755725,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_132.png",
+      "gt_position": [
+        14
+      ],
+      "gt": "$$ \\left\\|\\mathbf{a} + \\mathbf{b}\\right\\|^2 + \\left\\|\\mathbf{a} - \\mathbf{b}\\right\\|^2 = 2\\left(\\left\\|\\mathbf{a}\\right\\|^2 + \\left\\|\\mathbf{b}\\right\\|^2\\right) $$",
+      "roc_pred": "\\[ \\left\\|\\mathbf{a}+\\mathbf{b}\\right\\|^{2}+\\left\\|\\mathbf{a}-\\mathbf{b}\\right\\|^{2}=2\\left(\\left\\|\\mathbf{a}\\right\\|^{2}+\\left\\|\\mathbf{b}\\right\\|^{2}\\right) \\]",
+      "gguf_pred": "\\[ \\left\\|\\mathbf{a}+\\mathbf{b}\\right\\|^{2}+\\left\\|\\mathbf{a}-\\mathbf{b}\\right\\|^{2}=2\\left(\\left\\|\\mathbf{a}\\right\\|^{2}+\\left\\|\\mathbf{b}\\right\\|^{2}\\right) \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_132.png",
+      "gt_position": [
+        3
+      ],
+      "gt": "$$\n\\|\\mathbf{a}\\| = \\sqrt{(a, a)} \\quad (\\geq 0).\n$$",
+      "roc_pred": "\\[ \\left\\|\\mathbf{a}\\right\\|=\\sqrt{(\\mathbf{a},\\mathbf{a})}\\quad(\\geq0). \\]",
+      "gguf_pred": "\\[ \\left\\|\\mathbf{a}\\right\\|=\\sqrt{(\\mathbf{a},\\mathbf{a})}\\quad(\\geq0). \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_136.png",
+      "gt_position": [
+        4
+      ],
+      "gt": "$$\n\\mathbf { x } = \\mathbf { A } ^ { - 1 } \\mathbf { y } .\n$$",
+      "roc_pred": "\\[ \\mathbf{x}=\\mathbf{A}^{-1}\\mathbf{y}. \\]",
+      "gguf_pred": "\\[ \\mathbf{x}=\\mathbf{A}^{-1}\\mathbf{y}. \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_ch7_page_142.png",
+      "gt_position": [
+        5
+      ],
+      "gt": "$$\n\\mathbf { A } \\mathbf { x } = \\mathbf { b }\n$$",
+      "roc_pred": "\\[ \\mathbf{A}\\mathbf{x}=\\mathbf{b} \\]",
+      "gguf_pred": "\\[ \\mathbf{A}\\mathbf{x}=\\mathbf{b} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_fundamental_theorem_of_calculus___page_006.png",
+      "gt_position": [
+        2.002
+      ],
+      "gt": "\\[\\qquad = 56 \\text{ units}^2\\]",
+      "roc_pred": "\\[&=56\\ units^{2}\\]",
+      "gguf_pred": "\\[&=56\\ units^{2}\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.09090909090909091,
+      "gguf_edit": 0.09090909090909091,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_fundamental_theorem_of_calculus___page_013.png",
+      "gt_position": [
+        3.001
+      ],
+      "gt": "\\[&=\\Bigg[x^3\\Bigg]_2^4\\]",
+      "roc_pred": "\\[&=\\Bigg[ x^{3} \\Bigg]_{2}^{4}\\]",
+      "gguf_pred": "\\[&=\\Bigg[ x^{3} \\Bigg]_{2}^{4}\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_fundamental_theorem_of_calculus___page_013.png",
+      "gt_position": [
+        3.002
+      ],
+      "gt": "\\[&=\\Bigg[4^3\\Bigg]-\\Bigg[2^3\\Bigg]\\]",
+      "roc_pred": "\\[&=\\Bigg[ 4^{3} \\Bigg] - \\Bigg[ 2^{3} \\Bigg]\\]",
+      "gguf_pred": "\\[&=\\Bigg[ 4^{3} \\Bigg] - \\Bigg[ 2^{3} \\Bigg]\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_fundamental_theorem_of_calculus___page_013.png",
+      "gt_position": [
+        3.003
+      ],
+      "gt": "\\[&=64-8\\]",
+      "roc_pred": "\\[&=64 - 8\\]",
+      "gguf_pred": "\\[&=64 - 8\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_fundamental_theorem_of_calculus___page_013.png",
+      "gt_position": [
+        3.004
+      ],
+      "gt": "\\[&=56~ \\mathrm {units^2}\\]",
+      "roc_pred": "\\[&= 56\\ \\text{units}^2\\]",
+      "gguf_pred": "\\[&= 56\\ units^{2}\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.09090909090909091,
+      "gguf_edit": 0.09090909090909091,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_lay_linalg5_01_05_page_003.png",
+      "gt_position": [
+        3.001
+      ],
+      "gt": "\\[{ 3 x _ { 1 } + 5 x _ { 2 } - 4 x _ { 3 } = 0 }\\]",
+      "roc_pred": "\\[3x_{1}+5x_{2}-4x_{3}&=0\\]",
+      "gguf_pred": "\\[3x_{1}+5x_{2}-4x_{3}&=0\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_lay_linalg5_01_05_page_003.png",
+      "gt_position": [
+        3.002
+      ],
+      "gt": "\\[{ - 3 x _ { 1 } - 2 x _ { 2 } + 4 x _ { 3 } = 0 }\\]",
+      "roc_pred": "\\[-3x_{1}-2x_{2}+4x_{3}&=0\\]",
+      "gguf_pred": "\\[-3x_{1}-2x_{2}+4x_{3}&=0\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_lay_linalg5_01_05_page_003.png",
+      "gt_position": [
+        3.003
+      ],
+      "gt": "\\[{ 6 x _ { 1 } + x _ { 2 } - 8 x _ { 3 } = 0 }\\]",
+      "roc_pred": "\\[6x_{1}+x_{2}-8x_{3}&=0\\]",
+      "gguf_pred": "\\[6x_{1}+x_{2}-8x_{3}&=0\\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_lay_linalg5_01_05_page_004.png",
+      "gt_position": [
+        1
+      ],
+      "gt": "$$\n\\begin{bmatrix}3&5&-4&0\\\\\n-3 &-2&4 &0\\\\6 &1&-8&0\\end{bmatrix}{\\sim}\\begin{bmatrix}3&5&-4&0\\\\\n0 &3&0 &0\\\\0 &-9&0&0\\end{bmatrix}{\\sim}\\begin{bmatrix}3&5&-4&0\\\\\n0 &3&0 &0\\\\0 &0&0&0\\end{bmatrix}\n$$",
+      "roc_pred": "\\[ \\begin{bmatrix}{{{3}}}&{{{5}}}&{{{-4}}}&{{{0}}} \\\\{{{-3}}}&{{{-2}}}&{{{4}}}&{{{0}}} \\\\{{{6}}}&{{{1}}}&{{{-8}}}&{{{0}}}\\end{bmatrix}\\sim\\begin{bmatrix}{{{3}}}&{{{5}}}&{{{-4}}}&{{{0}}} \\\\{{{0}}}&{{{3}}}&{{{0}}}&{{{0}}} \\\\{{{0}}}&{{{-9}}}&{{{0}}}&{{{0}}}\\end{bmatrix}\\sim\\begin{bmatrix}{{{3}}}&{{{5}}}&{{{-4}}}&{{{0}}} \\\\{{{0}}}&{{{3}}}&{{{0}}}&{{{0}}} \\\\{{{0}}}&{{{0}}}&{{{0}}}&{{{0}}}\\end{bmatrix} \\]",
+      "gguf_pred": "\\[ \\begin{bmatrix}{{{3}}}&{{{5}}}&{{{-4}}}&{{{0}}} \\\\{{{-3}}}&{{{-2}}}&{{{4}}}&{{{0}}} \\\\{{{6}}}&{{{1}}}&{{{-8}}}&{{{0}}}\\end{bmatrix}\\sim\\begin{bmatrix}{{{3}}}&{{{5}}}&{{{-4}}}&{{{0}}} \\\\{{{0}}}&{{{3}}}&{{{0}}}&{{{0}}} \\\\{{{0}}}&{{{-9}}}&{{{0}}}&{{{0}}}\\end{bmatrix}\\sim\\begin{bmatrix}{{{3}}}&{{{5}}}&{{{-4}}}&{{{0}}} \\\\{{{0}}}&{{{3}}}&{{{0}}}&{{{0}}} \\\\{{{0}}}&{{{0}}}&{{{0}}}&{{{0}}}\\end{bmatrix} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.14925373134328357,
+      "gguf_edit": 0.14925373134328357,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_lay_linalg5_01_05_page_004.png",
+      "gt_position": [
+        5
+      ],
+      "gt": "$$\n\\begin{bmatrix}1&0&-\\frac{4}{3}&0\\\\\n0 &1&0 &0\\\\0 &0&0&0\\end{bmatrix} \\qquad \\begin{array}{}x_1-\\frac{4}{3}x_3=0\\\\\nx_2=0\\\\\n0=0\\end{array}\n$$",
+      "roc_pred": "\\[ \\begin{aligned}&\\begin{bmatrix} \\\\{{{1}}}&{{{0}}}&{{{-\\frac{4}{3}}}}&{{{0}}} \\\\{{{0}}}&{{{1}}}&{{{0}}}&{{{0}}} \\\\{{{0}}}&{{{0}}}&{{{0}}}&{{{0}}} \\\\\\end{bmatrix}\\quad\\begin{aligned}x_{1}-\\frac{4}{3}x_{3}&=0\\\\x_{2}&=0\\\\0&=0\\end{aligned}\\\\ \\end{aligned} \\]",
+      "gguf_pred": "\\[ \\begin{aligned}&\\begin{bmatrix} \\\\{{{1}}}&{{{0}}}&{{{-\\frac{4}{3}}}}&{{{0}}} \\\\{{{0}}}&{{{1}}}&{{{0}}}&{{{0}}} \\\\{{{0}}}&{{{0}}}&{{{0}}}&{{{0}}} \\\\\\end{bmatrix}\\quad\\begin{aligned}x_{1}-\\frac{4}{3}x_{3}&=0\\\\x_{2}&=0\\\\0&=0\\end{aligned}\\\\ \\end{aligned} \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.12962962962962962,
+      "gguf_edit": 0.12962962962962962,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    },
+    {
+      "img_id": "PPT_lay_linalg5_01_05_page_008.png",
+      "gt_position": [
+        2
+      ],
+      "gt": "$$\nA=\\begin{bmatrix}\n3&5&-4 \\\\-3&-2&4\\\\6&1&-8\n\\end{bmatrix} \\mathrm {~~and~~b}=\\begin{bmatrix}\n7\\\\-1\\\\-4 \n\\end{bmatrix}.\n$$",
+      "roc_pred": "\\[ \\boldsymbol{A}=\\begin{bmatrix}3&5&-4\\\\ -3&-2&4\\\\ 6&1&-8\\end{bmatrix}\\text{and}\\mathbf{b}=\\begin{bmatrix}7\\\\ -1\\\\ -4\\end{bmatrix}. \\]",
+      "gguf_pred": "\\[ \\boldsymbol{A}=\\begin{bmatrix}3&5&-4\\\\ -3&-2&4\\\\ 6&1&-8\\end{bmatrix}\\text{and}\\mathbf{b}=\\begin{bmatrix}7\\\\ -1\\\\ -4\\end{bmatrix}. \\]",
+      "roc_cdm": 0.0,
+      "gguf_cdm": 1.0,
+      "cdm_diff": 1.0,
+      "roc_edit": 0.0,
+      "gguf_edit": 0.0,
+      "roc_gt_tokens": 0,
+      "roc_pred_tokens": 0,
+      "gguf_gt_tokens": 0,
+      "gguf_pred_tokens": 0
+    }
+  ]
+}

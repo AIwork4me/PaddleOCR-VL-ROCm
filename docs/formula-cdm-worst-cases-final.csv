@@ -1,0 +1,120 @@
+img_id,gt_position,roc_cdm,gguf_cdm,cdm_diff,roc_edit,gguf_edit,gt,roc_pred
+book_zh_DLT10562007_extracted_page_17.png,[15],0.0,1.0,1.0,0.0,0.0,"$$
+数据采集系统(DAS)完好率=\frac{DAS测点完好总数}{DAS测点设计总数}\times100\%
+$$",\[  数据采集系统 (DAS) 完好率 =\frac{DAS 测点完好总数 }{DAS 测点设计总数 }\times100\% \]
+book_zh_DLT10562007_extracted_page_17.png,[18],0.0,1.0,1.0,0.0,0.0,"$$
+DCS模拟量测点校验合格率=\frac{DCS模拟量测点校验总合格数}{DCS模拟量测点校验总数}\times100\%
+$$",\[ DCS模拟量测点校验合格率=\frac{DCS模拟量测点校验总合格数}{DCS模拟量测点校验总数}\times100\% \]
+book_zh_DLT10562007_extracted_page_17.png,[22],0.0,1.0,1.0,0.0,0.0,"$$
+顺序控制系统投入率=\frac{投入顺序控制系统总数}{设计顺序控制系统总数}\times100\%
+$$",\[  顺序控制系统投入率 =\frac{ 投入顺序控制系统总数 }{ 设计顺序控制系统总数 }\times100\% \]
+book_zh_DLT10562007_extracted_page_17.png,[28],0.0,1.0,1.0,0.0,0.0,"$$
+标准仪器全年累计送检率=\frac{标准仪器全年累计送检数}{标准仪器全年应送检数}\times100\%
+$$",\[  标准仪器全年累计送检率 =\frac{ 标准仪器全年累计送检数 }{ 标准仪器全年应送检数 }\times100\% \]
+book_zh_DLT10902008_extracted_page_8.png,[9],0.0,1.0,1.0,0.03773584905660377,0.03773584905660377,"$$
+\mathrm {MTBF=  \frac { 串联补偿装置的可用小时数 } { 串联补偿装置的强迫停运的次数 }= \frac { AH}{FOT} }
+$$",\[ MTBF=\frac{ 串联补偿装置的可用小时数 }{ 串联补偿装置的强迫停运的次数 }=\frac{AH}{FOT} \]
+book_zh_GBT 50744-2011_extracted_page_67.png,[3],0.0,1.0,1.0,0.0,0.0,"$$
+操作侧机列中心线偏移= \frac { \frac { C+D } { 2 } - \frac { c + d } { 2 } } { 2 }
+$$",\[ 操作侧机列中心线偏移=\frac{\frac{C+D}{2}-\frac{c+d}{2}}{2} \]
+book_zh_TB100782001_extracted_page_21.png,[15],0.0,1.0,1.0,0.11538461538461539,0.11538461538461539,"$$
+N_{编发}=\frac{( 1440 M - \sum t _ 固  ) ( 1 - \gamma _空) }{t_{编发}}
+$$",\[ N_{ 编发 }=\frac{\left(1440M-\sum t_{ 固 }\right)(1-\gamma_{ 空 })}{t_{ 编发 }} \]
+book_zh_TB100782001_extracted_page_21.png,[17.001],0.0,1.0,1.0,0.0,0.0,\[t_{编发}=&t_{预占}+t_{分解}+t_{集占}+t_{待编}+t_{编}+\],\[t_{ 编发 }=&t_{ 预占 }+t_{ 分解 }+t_{ 集占 }+t_{ 待编 }+t_{ 编 }+\]
+book_zh_TB100782001_extracted_page_21.png,[23],0.0,1.0,1.0,0.12962962962962962,0.12962962962962962,"$$
+N _ { 交接} = \frac { (1 4 4 0 M - \sum t _ 固) ( 1 - \gamma _ 空 ) } { t _ {占交接}}
+$$",\[ N_{ 交接 }=\frac{\left(1\ 440M-\sum t_{ 固 }\right)\left(1-\gamma_{ 空 }\right)}{t_{ 占交接 }} \]
+book_zh_TB100782001_extracted_page_21.png,[7],0.0,1.0,1.0,0.15789473684210525,0.15789473684210525,"$$
+K_{到(发)}= \frac { T - \sum t _固 } { ( 1440 M - \sum t _ 固  ) ( 1 - \gamma _空) }
+$$",\[ K_{到(发)}=\frac{T-\sum t_{固}}{\left(1440M-\sum t_{固}\right)\left(1-\gamma_{空}\right)} \]
+book_zh_YDT10512018_extracted_page_30.png,[10],0.0,1.0,1.0,0.0,0.0,"$$
+平均年停电次数= 市电在一年统计期内平均停电次数
+$$",\[  平均年停电次数 = 市电在一年统计期内平均停电次数 \]
+book_zh_YDT10512018_extracted_page_30.png,[4],0.0,1.0,1.0,0.0,0.0,"$$
+市电不可用度= \frac { 市电停电时间 } { 统计期时间 }  =1-市电供电可靠率
+$$",\[  市电不可用度 =\frac{ 市电停电时间 }{ 统计期时间 }=1- 市电供电可靠率 \]
+book_zh_YDT10512018_extracted_page_30.png,[7],0.0,1.0,1.0,0.0,0.0,"$$
+平均年停电时间= 市电不可用度\times365\times24
+$$",\[  平均年停电时间 = 市电不可用度 \times365\times24 \]
+docstructbench_dianzishu_zhongwenzaixian-o.O-61520788.pdf_391.jpg,[15],0.0,1.0,1.0,0.0,0.0,"$$
+运输保险费=材料原价\times材料运输保险费率
+ $$",\[  运输保险费 = 材料原价 \times 材料运输保险费率 \]
+jiaocaineedrop_jiaocai_needrop_en_250.jpg,[3],0.0,1.0,1.0,0.0,0.0,"$$
+化学能{\underset{氧化还原反应} {\xrightarrow{\text{化学电池}}}}电能  
+$$",\[ 化学能{\underset{氧化还原反应} {\xrightarrow{化学电池}}}电能 \]
+notes_1ba14cb325bc448f7201b20502ecf2b5_16.jpg,[4],0.0,1.0,1.0,0.07692307692307693,0.07692307692307693,$$日平均气温=一日内气温观测值之和{\div} 观测次数$$,\[ 日平均气温 = 一日内气温观测值之和 \div 观测次数 \]
+page-28657a85-95cc-4bfa-8156-cc98518a0b4c.png,[8],0.0,1.0,1.0,0.0,0.0,$$\frac{\text{阿里巴巴服务新消费交易额}}{\text{国家相关行业交易额}} = \frac{\text{ 阿里巴巴直接带动就业人数}}{\text{国家相关行业就业人数}}  \tag{2.4}$$,\[ \frac{ 阿里巴巴服务新消费交易额 }{ 国家相关行业交易额 }=\frac{ 阿里巴巴直接带动就业人数 }{ 国家相关行业就业人数 } \]
+page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png,[5],0.0,1.0,1.0,0.13793103448275862,0.13793103448275862,"$$x_{\text{final}}=
+\left\{\begin{array}{l}
+0,  \text{对成品跳过检测} \\
+1, \text{决定检测}
+\end{array}\right.$$","\[ x_{final}=\left\{\begin{aligned}0,&\quad 对成品跳过检测 \\ 1,&\quad 决定检测 \end{aligned}\right. \]"
+page-7a7566fd-43d8-46e4-8a4f-0330e1f27a88.png,[17],0.0,1.0,1.0,0.018018018018018018,0.018018018018018018,$$\lesssim \int_{\Omega} \int_{\Omega} \frac{|v(x + y) - v(y)|^{4\sigma}}{|x|^{1+\alpha}} dx dy \quad (F \text{ is } 2\sigma-\text{Hölder continuous})$$,\[&\lesssim\int_{\Omega}\int_{\Omega}\frac{|v(x+y)-v(y)|^{4\sigma}}{|x|^{1+\alpha}}\mathrm{d}x\mathrm{d}y\quad(F\text{is}2\sigma\text{-Hölder continuous})\]
+page-99c0fd2f-608e-479c-9af5-5b012de4f6af.png,[11],0.0,1.0,1.0,0.2222222222222222,0.2222222222222222,"$${q}_{i} = \left\{  \begin{array}{ll} 0, & \text{ 合格 } \\  1, & \text{ 次品 } \end{array}\right.$$","\[ q_{i}=\left\{\begin{aligned}&0,& 合格 \\ &1,& 次品 \end{aligned}\right. \]"
+page-99c0fd2f-608e-479c-9af5-5b012de4f6af.png,[9],0.0,1.0,1.0,0.21052631578947367,0.21052631578947367,"$${d}_{i} = \left\{ \begin{array}{l}0,\text{ 未检测 } \\  1,\text{ 检测 } \end{array}\right.$$","\[ d_{i}=\left\{\begin{aligned}&0,&& 未检测 \\ &1,&& 检测 \end{aligned}\right. \]"
+yanbaopptmerge_yanbaoPPT_1465.jpg,[3],0.0,1.0,1.0,0.05,0.05,$$\mathbf{F e}_{3} \mathbf{O}_{4} \text{的相对分子质量}  = 5 6 \times3+1 6 \times4=2 3 2$$,\[ Fe_{3}O_{4} 的相对分子质量 = 56 \times 3 + 16 \times 4 = 232 \]
+book_zh_DLT10902008_extracted_page_8.png,[12],0.0,0.99,0.99,0.02564102564102564,0.02564102564102564,"$$
+\mathrm {UF= 1-AF= \frac { 串联补偿装置的不可用小时数 } { 串联补偿装置的统计期间小时数 }\times100\%= \frac { UH}{PH}\times100\% }
+$$",\[ \mathrm{UF}=1-\mathrm{AF}=\frac{ 串联补偿装置的不可用小时数 }{ 串联补偿装置的统计期间小时数 }\times100\%=\frac{\mathrm{UH}}{\mathrm{PH}}\times100\% \]
+book_zh_DLT10902008_extracted_page_8.png,[3],0.0,0.989,0.989,0.0410958904109589,0.0410958904109589,"$$
+\mathrm {AF= { \frac { 串联补偿装置的可用小时数 } { 串联补偿装置的统计期间小时数 }\times100\%= \frac { AH}{PH}\times100\% }}
+$$",\[  AF=\frac{ 串联补偿装置的可用小时数 }{ 串联补偿装置的统计期间小时数 }\times100\%=\frac{AH}{PH}\times100\% \]
+book_zh_DLT10902008_extracted_page_8.png,[6],0.0,0.989,0.989,0.0410958904109589,0.0410958904109589,"$$
+\mathrm {SF= { \frac { 串联补偿装置的运行小时数 } { 串联补偿装置的统计期间小时数 }\times100\%= \frac { SH}{PH}\times100\% }}
+$$",\[ SF=\frac{ 串联补偿装置的运行小时数 }{ 串联补偿装置的统计期间小时数 }\times100\%=\frac{SH}{PH}\times100\% \]
+page-44a14308-9d3e-4044-9508-5c3e30141a19.png,[9],0.0,0.987,0.987,0.07647058823529412,0.07647058823529412,"$$\left\{  \begin{array}{l} \exists x \in  R,a{x}^{2} + {3x} + 1 < 0\text{成立} \\   \Rightarrow  \text{否定: }\forall x \in  R,a{x}^{2} + {3x} + 1 \geq  0\text{成立} \Rightarrow  \left\{  \begin{array}{l} a = 0,{3x} + 1 \geq  0\text{不恒成立, 舍} \\  a > 0,\Delta  \leq  0 \Rightarrow  a \geq  \frac{9}{4} \end{array} \right.\end{array}\right\} \Rightarrow a < \frac{9}{4}$$","\[ \left\{\begin{aligned}&\exists x\in R,ax^{2}+3x+1<0 成立 \\ &\Rightarrow 否定：\forall x\in R,ax^{2}+3x+1\geq0 成立 \Rightarrow\left\{\begin{aligned}&a=0,3x+1\geq0 不恒成立 , 舍 \\ &a>0,\Delta\leq0\Rightarrow a\geq\frac{9}{4}\end{aligned}\right.\end{aligned}\right\}\Longrightarrow a<\frac{9}{4} \]"
+book_zh_DLT10902008_extracted_page_8.png,[15],0.0,0.966,0.966,0.00819672131147541,0.00819672131147541,"$$
+\begin{matrix}\mathrm{SEAF}&=&\frac{\sum(各串联补偿装置的额定补偿容量\times该串联补偿装置的可用时间)} { 该串联补偿系统的额定补偿容量\times统计期间}\\&=&\mathrm {\frac {\sum(Q_N\times AH)}{Q_N\times PH}\times100\%} \end{matrix}
+$$",\[ \begin{aligned}SEAF=&\frac{\sum( 各串联补偿装置的额定补偿容量 \times 该串联补偿装置的可用时间 )}{ 该串联补偿系统的额定补偿容量 \times 统计期间 }\\=&\frac{\sum(Q_{n}\times AH)}{Q_{n}\times PH}\times100\%\end{aligned} \]
+page-cdd33cf6-76ce-42bb-a99c-342c861afed0.png,[3],0.0,0.941,0.941,0.1293800539083558,0.1293800539083558,"$$\left\{\begin{array}{l}\left(1\right)\text{ 令 }\tan\frac{x}{2}=t\Rightarrow\left\{{\begin{array}{l}\sin x=\frac{2t}{1 + {t}^{2}}\\ \cos x=\frac{1 - {t}^{2}}{1 + {t}^{2}}\neq\frac{2}{3}\end{array}\Rightarrow\frac{1 - \sin x}{2 - 3\cos x}=\frac{1-\frac{2t}{1 + {t}^{2}}}{2-3 \cdot \frac{1 - {t}^{2}}{1 + {t}^{2}}}=\frac{1 + t^2 - {2t}}{5{t}^{2} - 1}\left({5{t}^{2} \neq1}\right)}\right.\\ \left(2\right)\text{ 令 }\frac{1+{t}^{2} - {2t}}{5{t}^{2} - 1}=y\Rightarrow\left\{\begin{array}{l}\left({{5y} - 1}\right){t}^2+{2t}-y-1=0\\ \text{ 判别式法 }\end{array}\right.\\ \Rightarrow\left\{{\begin{array}{l} {5y} - 1 - 0\text{ 时,}t = \frac{3}{5}\text{ 符合题意 } \\ 5y - 1 \neq0\text{ 时,}\Delta= 4 + 4\left( {{5y} - 1}\right) \left( {y + 1}\right) \geq0 \end{array} \Rightarrow y \geq0\text{ 或 }y \leq\frac{4}{5}}\right.\end{array}\right.$$","\begin{array}{l} {\tan\frac{x}{2}=t\Rightarrow\begin{cases}\sin x=\dfrac{2t}{1+t^2}\\ \cos x=\dfrac{1-t^2}{1+t^2}\neq\dfrac{2}{3}\end{cases}\Rightarrow\dfrac{1-\sin x}{2-3\cos x}=\dfrac{1-\dfrac{2t}{1+t^2}}{2-3\cdot\dfrac{1-t^2}{1+t^2}}=\dfrac{1+t^2-2}{5^2-1}t,} \\ {\vec{5}t\neq0} \\ {\dfrac{1+t^2-2t}{5t^2-1}=y\Rightarrow\begin{cases}(5y-1)t^2+2t-y-1=0\\ \text{判别式法}\end{cases}} \\ {\Rightarrow\begin{cases}5y-1=0\text{时},&t=\dfrac{3}{5}\text{符合题意}\\5y-1\neq0\text{时},&\Delta=4+4(5y-1)(y+1)\geq0\end{cases}\Rightarrow y\geq0\text{或}y\leq\dfrac{4}{5}} \end{array}"
+docstructbench_dianzishu_zhongwenzaixian-o.O-61569751.pdf_155.jpg,[14.001],0.0,0.926,0.926,0.15,0.15,\[\text{ 血中原卟啉含量 }(\mathrm{g/L}\text{ 全血 })=\frac{\text{ 样品荧光强度空白荧光强度 }}{\text{ 标准管荧光强度空白荧光强度 }}\times\text{ 标准管原卟啉含量 }(\mathrm{g})\times\],\[  血中原卟啉含量（g/L 全血）=\frac{ 样品荧光强度空白荧光强度 }{ 标准管荧光强度空白荧光强度 }\times 标准管原卟啉含量（g）\times \]
+page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png,[3],0.0,0.92,0.92,0.17647058823529413,0.17647058823529413,"$$x_{\text{semi}_j}=
+\left\{\begin{array}{l}
+0,  \text{对半成品}j\text{跳过检测} \\
+1, \text{决定检测}
+\end{array}\right.$$","\[ x_{s e m i_{j}}=\left\{\begin{aligned}0,&\quad 对半成品 j 跳过检测 \\ &1,&\quad 决定检测 \end{aligned}\right. \]"
+page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png,[9],0.0,0.913,0.913,0.16666666666666666,0.16666666666666666,"$${y}_{\text{semi}_j} = \left\{\begin{array}{l} 0 \text{ ,不拆解次品半成品}j \\  1\text{,拆解} \end{array}\right.$$","\[ \begin{aligned}y_{semi_{j}}=\left\{\begin{aligned}0,&\quad 不拆解次品半成品 j\\&1,&\quad 拆解 \end{aligned}\right.\end{aligned} \]"
+yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg,[76],0.0,0.909,0.909,0.09090909090909091,0.09090909090909091,"$$
+\textcircled{d}\frac{16}{y^{6} } 
+$$",\[ ☑ \frac{16}{y^{6}} \]
+page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png,[11],0.0,0.905,0.905,0.18518518518518517,0.18518518518518517,"$$y_{\text{final}} = \left\{\begin{array}{l} 0,  \text{不拆解次品成品} \\  1,  \text{ 拆解 } \end{array}\right.$$","\[ \begin{aligned}y_{final}=\left\{\begin{aligned}0,&\quad 不拆解次品成品 \\&1,&\quad 拆解 \end{aligned}\right.\end{aligned} \]"
+page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png,[''],0.0,0.9,0.9,0.21428571428571427,0.21428571428571427,"$$x_i=
+\left\{\begin{array}{l}
+0,  \text{对零件}i\text{跳过检测} \\
+1, \text{进行检测}
+\end{array}\right.$$","\[ x_{i}=\left\{\begin{aligned}0,&\quad 对零件 i 跳过检测 \\ &1,&\quad 进行检测 \end{aligned}\right. \]"
+book_zh_JJD10031991_extracted_page_6.png,[20],0.0,0.857,0.857,0.11864406779661017,0.11864406779661017,"$$
+RE ^ { * } \%= \frac {C_{单道}  - C _ {双道 } } { ( C _ 单道 + C _ {双道 } ) \div 2 } \times 100 \
+$$",\[ RE^{*}\%=\frac{C_{单重}-C_{双重}}{(C_{单重}+C_{双重})\div2}\times100 \]
+book_zh_GB14536.11998_extracted_page_145.png,[15],0.0,0.833,0.833,0.18421052631578946,0.18421052631578946,"$$
+T _ 1 = \frac { U_ i  } {U _A } =\frac {负序电压}{正序电压}
+$$",\[ T_{*}=\frac{U_{*}}{U_{a}}=\frac{ 负序电压 }{ 正序电压 } \]
+yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg,[46],0.0,0.833,0.833,0.17647058823529413,0.17647058823529413,"$$
+\textcircled{a}p^{1 4}\textcircled{b}4^{1 2}\textcircled{c}\frac{1}{b^{8}}\textcircled{d}\frac{1}{4^{5}}
+$$",\[ 91. ^{a}p^{14} ⓐ 4^{12} ⓒ \frac{1}{b^{8}} ⓒ \frac{1}{4^{5}} \]
+yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg,[75],0.0,0.774,0.774,0.24,0.24,"$$
+\textcircled{a}9 x^{2} y^{2}\textcircled{b}1\textcircled{c}\frac{1} {2 5 x^{4}}
+$$",\[ 119. 9x^{2}y^{2} ☑ 1 ☐ \frac{1}{25x^{4}} \]
+yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg,[71],0.0,0.759,0.759,0.25,0.25,"$$
+\textcircled{a}m^{8}\textcircled{b}1 0^{1 8}\textcircled{c}\frac{1} {x^{1 2}}
+$$",\[ 115. m^{8} ☑ 10^{18} ☑ \frac{1}{x^{12}} \]
+book_zh_GB115041989_extracted_page_9.png,[17.002],0.0,0.722,0.722,0.45652173913043476,0.45652173913043476,\[&= \frac{\text{样品中}\delta\text{-ALA 的含量}[\mu\text{mol(\mu{g})}]}{\text{分析样品的体积}[10^{-3}\mathrm{L(mL)}]}\],\[  尿中 \ \delta-ALA\  的含量 [(\mu mol/L(mg/L)]=\frac{ 样品中 \ \delta-ALA\  的含量 [(\mu mol(\mu g)]}{ 分析样品的体积 [10^{-3}L(mL)]} \]
+page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png,[22],0.274,0.968,0.694,0.5965217391304348,0.2714285714285714,$$+ \frac{1}{{\bar{C}}_{x}}\frac{\left| \beta \right|  + 2}{\left| \beta \right|  + 1}\left\lbrack  {{24\alpha }{B}_{z}\varepsilon \mathop{\sum }\limits_{\substack{{{j}_{1} + {j}_{2} + {j}_{3} = \left| \beta \right| } \\  {{j}_{1} \geq  1} }}\frac{\left| \beta \right|  + 2}{{j}_{1}^{3}{\left( {j}_{2} + 1\right) }^{2}\left( {{j}_{3} + 2}\right) } + 2\mathop{\sum }\limits_{{j = 0}}^{\left| \beta \right| }\frac{\left| \beta \right|  + 2}{{\left( j + 1\right) }^{2}{\left( \left| \beta \right|  + 1 - j\right) }^{2}} + \frac{9}{2}{B}_{z}\varepsilon \mathop{\sum }\limits_{{{j}_{1} + {j}_{2} + {j}_{3} = \left| \beta \right| }}\frac{\left| \beta \right|  + 2}{{\left( {j}_{1} + 1\right) }^{2}{\left( {j}_{2} + 1\right) }^{2}{\left( {j}_{3} + 1\right) }^{2}}}\right\rbrack$$,\[ \left[\begin{aligned}\alpha\frac{(|\beta|+e_{x}|+1)^{2}\|\partial^{\beta}\tilde{K}\|_{L_{x}^{\infty}}}{|\beta+e_{x}|!\overline{C}_{x}^{\beta_{x}+1}\overline{C}_{t}^{\beta_{t}}B_{k}\varepsilon}&\leq9\frac{\overline{C}_{t}}{\overline{C}_{x}^{2}}+30\frac{\overline{C}_{t}}{\overline{C}_{x}^{2}}\frac{|\beta|+2}{|\beta|+1}\sum_{j_{1}+j_{2}+j_{3}=|\beta|}\frac{|\beta|+2}{j_{1}^{3}(j_{2}+1)^{2}(j_{3}+1)^{2}}\\ &+\frac{1}{\overline{C}_{x}}\frac{|\beta|+2}{|\beta|+1}\Biggl[24\alpha B_{z}\varepsilon\sum_{j_{1}+j_{2}+j_{3}=|\beta|}\frac{|\beta|+2}{j_{1}^{3}(j_{2}+1)^{2}(j_{3}+2)}+2\sum_{j=0}^{|\beta|}\frac{|\beta|+2}{(j+1)^{2}(|\beta|+1-j)^{2}}+\frac{9}{2}B_{z}\varepsilon\sum_{j_{1}+j_{2}+j_{3}=|\beta|}\frac{|\beta|+2}{(j+1)^{2}(j_{2}+1)^{2}(j_{3}+1)^{2}}\Biggr]\end{aligned}\right] \]
+yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg,[48],0.0,0.6,0.6,0.625,0.625,"$$
+\textcircled{a}1\textcircled{b}1
+$$",\[ 93. ^{a}1 ⓒ 1 \]
+page-67013be9-58e5-4842-809d-7a3c1fc91fc7.png,[2],0.0,0.573,0.573,0.34959349593495936,0.6260162601626016,"$$\left\{  \begin{array}{l} y = \sin \left( {{wx} + \varphi }\right) \\  k \in  Z,w > 0,\left| \varphi \right|  < \frac{\pi }{2} \end{array}\right. \left\{  \begin{array}{l} \left( {a,b}\right) \text{ 单调}\uparrow\longrightarrow   - \frac{\pi }{2} \leq  {aw} + \varphi  < {bw} + \varphi  \leq  \frac{\pi }{2},\left| {b - a}\right|  \leq  \frac{T}{2} \\  \left( {a,b}\right) \text{ 不单调 } \longrightarrow   {aw} + \varphi  < \frac{\pi }{2}\left( {\text{ 或 } - \frac{\pi }{2}}\right)  < {bw} + \varphi \left( \text{ 视情况具体分析 }\right)  \end{array}\right.$$","\begin{array}{l} {\left\{\begin{array}{l} y = \sin(wx + \varphi) \\ k \in \mathbb{Z}, \ w > 0, |\varphi| < \frac{\pi}{2} \end{array}\right.} \\ {(a, b)} \\ {\uparrow} \\ {-\frac{\pi}{2} \leq aw + \varphi < bw + \varphi \leq \frac{\pi}{2}, |b - a| \leq \frac{T}{2}} \\ {(a, b)} \\ {-\frac{\pi}{2}} \\ {< bw + \varphi} \end{array}"
+page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png,[21],0.471,0.969,0.498,0.6114649681528662,0.09235668789808917,"$$\alpha\frac{(|\beta|+e_{x}|+1)^{2}\|\partial^{\beta}\mathring{K}\|_{L_{x}^{\infty}}}{|\beta+e_{x}|!\overline{C}_{x}^{\beta_{x}+1}\overline{C}_{t}^{\beta_{t}}B_{k}\varepsilon}\leq9\frac{\overline{C}_{t}}{\overline{C}_{x}}+30\frac{\overline{C}_{t}}{\overline{C}_{x}^{2}}\frac{|\beta|+2}{|\beta|+1}\sum_{
+\substack{
+j_{1}+j_{2}+j_{3}=|\beta|\\j_{1}\geq1
+}}\frac{|\beta|+2}{j_{1}^{3}(j_{2}+1)^{2}(j_{3}+1)^{2}}$$","\[ \frac{(|\beta|+1)^{2}\|\partial^{\beta}\mathring{K}\|_{L_{x}^{\infty}}}{|\beta|!\overline{{C}}_{x}^{\beta_{x}}\overline{{C}}_{t}^{\beta_{t}}}\leq B_{k}\varepsilon, \]"
+page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png,[8],0.667,1.0,0.33299999999999996,0.4634146341463415,0.004048582995951417,"$$\frac{(|\beta|+1)^{2}\|\partial^{\beta}\eta_{x}\|_{L_{x}^{\infty}}}{|\beta|!\overline{C}_{x}^{\beta_{x}}\overline{C}_{t}^{\beta_{t}}}\leq3,\quad\frac{(|\beta|+1)^{2}\|\partial^{\beta}(\eta_{x}\mathring{W})\|_{L_{x}^{\infty}}}{|\beta|!\overline{C}_{x}^{\beta_{x}}\overline{C}_{t}^{\beta_{t}}}\leq\frac{4}{3},\tag{5.30c}$$","\[ \frac{(|\beta|+1)^{2}\|\partial^{\beta}(\eta_{x}\mathring{W})\|_{L_{x}^{\infty}}}{|\beta|!\overline{C}_{x}^{\beta_{x}}\overline{C}_{t}^{\beta_{t}}}\leq\frac{4}{3}, \]"
+page-39f38730-0ae6-4cfe-8b99-c65d06d09544.png,[7],0.672,0.988,0.31599999999999995,0.49097472924187724,0.007194244604316547,"$$\frac{(|\beta|+1)^2\|\partial^{\beta}\Sigma_{t}\|_{L_{x}^{\infty}}}{|\beta|!\overline{C}_{x}^{\beta_{x}}\overline{C}_{t}^{\beta_{t}}}\leq4\alpha B_{x}\varepsilon,\quad\frac{(|\beta|+1)^2\|\partial^{\beta}(\Sigma^{-1})_{t}\|_{L_{x}^{\infty}}}{|\beta|!\overline{C}_{x}^{\beta_{x}}\overline{C}_{t}^{\beta_{t}}}\leq4\alpha B_{z}\varepsilon,\tag{5.30b}$$","\[ \frac{(|\beta|+1)^{2}\|\partial^{\beta}(\Sigma^{-1})_{t}\|_{L_{x}^{\infty}}}{|\beta|!\overline{C}_{x}^{\beta_{x}}\overline{C}_{t}^{\beta_{t}}}\leq4\alpha B_{z}\varepsilon, \]"
+jiaocaineedrop_jiaocai_needrop_en_546.jpg,[8],0.0,0.175,0.175,0.9130434782608695,0.9130434782608695,"$$
+79\div9=
+$$","\begin{array}{l} {79\div9=} \\ {5. 典典摆了一组有规律的图形 \triangle ○ \square \triangle ○ \square \cdots \cdots 他摆的第15个图形是( ), 第29个图形是( )。} \end{array}"
+notes_9e951846094758afac08c620144e3a76_14.jpg,[14],0.78,0.927,0.14700000000000002,0.5384615384615384,0.5384615384615384,$$\therefore BQ=AD=8  \therefore CQ=2. DQ=BA=4.$$,\[ ∴ BQ = AD = 8 ∴ CQ = 2，DQ = BA = 4. \]
+page-39d18b46-ad1b-4c7a-b7e2-132471c27c15.png,[0],0.391,0.51,0.119,0.7272727272727273,0.7727272727272727,$$=\frac{k(x_1-4)\times(2x_2-5)+3k(x_2-4)}{2x_2-5}$$,"\[ (x_1, y_1), (x_2, y_2) \]"
+yanbaopptmerge_9081a70ff98b3e7d640660a9412c447d.pdf_1287.jpg,[57],0.692,0.769,0.07700000000000007,0.2857142857142857,0.2857142857142857,"$$
+\textcircled{a}\frac{64} {2 5}\textcircled{b}\frac{a^{2} }{b^{2} } 
+$$",\[ 101. {}^{⑧} \frac{64}{25} {}^{⑨} \frac{a^{2}}{b^{2}} \]
