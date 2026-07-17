@@ -6,6 +6,12 @@ interpretation is maintained in the
 Do not construct a public score by mixing values from different files in this
 directory.
 
+The accepted G3 Overall is **95.99**. Its acceptance source is the tracked
+[G3 maintainer attestation](../../../docs/releases/0.1.0-g3-attestation.md),
+which records PaddleOCR's out-of-band confirmation and the maintainer's waiver
+of another full run. It is not reconstructed from the historical files in this
+directory.
+
 ## Tracked artifacts
 
 | Artifact family | Purpose | Release status |

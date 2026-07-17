@@ -6,9 +6,9 @@ not by feature count.
 ## Before v0.1.0
 
 - Close G2 with authenticated same-boundary oracle evidence.
-- Produce a fresh OmniDocBench v1.6 G3 run with complete provenance and Overall
-  >= 96.13 without component or contract regression.
-- Run an artifact-backed G4 benchmark on that exact G3 manifest, reporting
+- Preserve the accepted G3 Overall 95.99 contract and its
+  [maintainer attestation](docs/releases/0.1.0-g3-attestation.md).
+- Run an artifact-backed G4 benchmark on the G3-accepted configuration, reporting
   end-to-end and VLM-stage mean, P50, P95, and throughput.
 - Complete clean-network managed setup on a fresh Windows environment.
 - Record exact GPU memory, Windows build, AMD driver, HIP runtime, model hashes,

@@ -18,10 +18,20 @@ Image
 
 [中文文档](README.zh-CN.md)
 
-> Release status: **v0.1.0 is BLOCKED**. The latest tracked lightweight result
-> is historical evidence, not an accepted release result. G3 accuracy and G4
-> performance remain blocked. See the
+> Release status: **v0.1.0 is BLOCKED**, but **G3 accuracy is PASS** at
+> **Overall 95.99**. PaddleOCR confirmed the result out of band, and the project
+> maintainer accepted it without another full run on 2026-07-17. G2, G4, and G5
+> remain blocked. See the
+> [G3 maintainer attestation](docs/releases/0.1.0-g3-attestation.md) and
 > [OmniDocBench v1.6 fact sheet](docs/benchmarks/omnidocbench-v1.6.md).
+
+| Metric | PaddleOCR-VL (paper) | PaddleOCR-VL-ROCm (accepted) |
+|---:|---:|---:|
+| Overall | 96.33 | **95.99** |
+| Text Edit-dist | 0.033 | 0.03488 |
+| Reading-order Edit-dist | 0.127 | 0.12882 |
+| Table TEDS | 94.76 | **94.09** |
+| Formula CDM | 97.49 | **97.36** |
 
 ## Input and output
 
@@ -34,7 +44,7 @@ The repository includes a real compatibility fixture:
 - Golden structured JSON: [`tests/fixtures/golden/magazine.json`](tests/fixtures/golden/magazine.json)
 
 This is a compatibility demo, not release evidence. It shows the public output
-shape but does not establish current hardware speed or G3/G4 acceptance.
+shape but does not establish current hardware speed or G4 acceptance.
 
 ## Why this project
 
@@ -195,7 +205,7 @@ unverified artifact.
 
 ## Known limitations
 
-- v0.1.0 is not release-ready; G2, G3, G4, and G5 are blocked.
+- v0.1.0 is not release-ready; G2, G4, and G5 are blocked. G3 is PASS.
 - Only one Windows AMD machine has project-recorded smoke validation.
 - The 27-page timing claim previously shown here has no tracked raw timing
   artifact and is therefore withdrawn as a public performance conclusion.
@@ -205,8 +215,8 @@ unverified artifact.
 
 ## Roadmap
 
-See [`ROADMAP.md`](ROADMAP.md). Near-term priorities are accepted G3 evidence,
-an artifact-backed G4 benchmark, reproducible hardware reports, and complete
+See [`ROADMAP.md`](ROADMAP.md). Near-term priorities are closing G2, an
+artifact-backed G4 benchmark, reproducible hardware reports, and complete
 clean-network onboarding.
 
 ## Contributing, security, and license

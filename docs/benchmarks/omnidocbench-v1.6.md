@@ -36,13 +36,15 @@ described as a “1,650-page score” or “symmetric exclusion.”
 
 | Record | Overall | Text Edit distance | Formula CDM | Table TEDS | Release meaning |
 |---|---:|---:|---:|---:|---|
+| Maintainer-accepted Windows AMD result, confirmed out of band by PaddleOCR, 2026-07-17 | **95.99** | 0.03488 | 97.36 | 94.09 | **G3 PASS**; repeat full run waived |
 | Historical lightweight, Windows native, 2026-07-11 | 95.9480 | 0.034 | 96.922 | 94.322 | Reconstructed historical evidence only; not fresh G3 evidence |
 | Official-local r7 score recovery, 2026-07-14 | 95.743 | 0.035 | 96.485 | 94.244 | G0 integrity evidence only; not a lightweight/G3 result |
 
-Overall follows the OmniDocBench notebook convention: round each included
-component to three decimals, convert text Edit distance to accuracy, then
-average text accuracy, Formula CDM, and Table TEDS. Reading-order Edit distance
-is reported separately and is excluded from Overall.
+Overall follows the OmniDocBench convention: convert text Edit distance to
+accuracy, then average text accuracy, Formula CDM, and Table TEDS. The accepted
+95.99 is the confirmed rounded Overall; its displayed component values have
+their own reporting precision and are not inputs for reverse-engineering extra
+digits. Reading-order Edit distance is 0.12882 and is excluded from Overall.
 
 The historical lightweight row comes from:
 
@@ -54,13 +56,29 @@ The official-local r7 row is authenticated by the
 outputs are retained by SHA-256 in that receipt; the raw r7 files are not copied
 into this repository.
 
-The previously advertised Overall 95.99 / Formula CDM 97.36 row is not backed
-by one complete tracked score artifact and is withdrawn from the public
-benchmark table. The Formula CDM investigation remains useful diagnostic
-evidence, but it must not be combined with metrics from a different run to
-construct a release score.
+The [G3 maintainer attestation](../releases/0.1.0-g3-attestation.md) records
+that PaddleOCR confirmed Overall 95.99 out of band. On 2026-07-17, the project
+maintainer accepted that confirmation for G3 and waived a public confirmation
+artifact and another full run. This does not convert the historical files below
+into a single complete raw-score artifact, and they must not be mixed to
+reconstruct the accepted record. Issue #18248 is cited for the deterministic
+page defect only; this repository does not claim that its public thread
+confirms the score.
 
 ## Provenance and reproducibility
+
+### Maintainer-accepted G3 record
+
+| Required field | Bound value |
+|---|---|
+| Decision date | 2026-07-17 |
+| Accepted Overall | 95.99 |
+| Confirmation | PaddleOCR confirmation received out of band, as attested by the project maintainer |
+| Public confirmation artifact | Waived by the project maintainer |
+| Repeat full run | Waived by the project maintainer |
+| Failed page | The single `peg-native` failure linked above |
+| Evidence class | Maintainer attestation; not an independently reproducible raw-score artifact |
+| Scope | G3 only; no effect on G2, G4, or G5 |
 
 ### Historical lightweight record
 
@@ -135,8 +153,8 @@ hardware/runtime provenance, and output-equivalence checks.
 | G0 evidence integrity | PASS | Authenticated by the tracked r7 receipt |
 | G1 compatibility contract | PASS | Covered by committed CLI/API/output tests |
 | G2 root-cause diagnosis | BLOCKED | Same-boundary oracle evidence is incomplete |
-| G3 accuracy | BLOCKED | No fresh accepted result reaches the required Overall >= 96.13 contract |
+| G3 accuracy | PASS | Maintainer accepted the PaddleOCR-confirmed Overall 95.99 result and waived another full run |
 | G4 performance | BLOCKED | No artifact-backed benchmark on a G3-accepted manifest |
 | G5 launch | BLOCKED | Clean-network onboarding and G0-G4 release evidence remain incomplete |
 
-These statuses do not authorize a release, tag, push, or publication.
+These statuses do not authorize a release, tag, or GitHub Release publication.

@@ -18,6 +18,7 @@ COMPATIBILITY = ROOT / "docs" / "compatibility" / "windows-amd.md"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 RELEASE_READINESS = ROOT / "docs" / "releases" / "0.1.0-readiness.md"
 G0_EVIDENCE = ROOT / "docs" / "releases" / "0.1.0-g0-evidence.md"
+G3_ATTESTATION = ROOT / "docs" / "releases" / "0.1.0-g3-attestation.md"
 WINDOWS_VALIDATION = ROOT / "docs" / "releases" / "0.1.0-windows-validation.md"
 
 OMNIDOCBENCH_V16_COMMIT = "147cd5ac9472002f5751221d390bf00abdbc0d2f"
@@ -50,13 +51,16 @@ def _assert_quality_ci_contract(workflow: str) -> None:
     assert pytest_step["run"].startswith("python -m pytest -q -m")
 
 
-def test_bilingual_readmes_withdraw_untracked_release_claims() -> None:
+def test_bilingual_readmes_publish_accepted_g3_without_performance_claims() -> None:
     for path in (README_EN, README_ZH):
         text = _read(path)
-        for withdrawn in ("95.99", "97.36", "94.09", "602.0", "357.2", "1.7x"):
+        for accepted in ("95.99", "97.36", "94.09"):
+            assert accepted in text
+        for withdrawn in ("602.0", "357.2", "1.7x"):
             assert withdrawn not in text
         assert "docs/benchmarks/omnidocbench-v1.6.md" in text
-        assert "G3" in text and "G4" in text
+        assert "docs/releases/0.1.0-g3-attestation.md" in text
+        assert "G3" in text and "PASS" in text and "G4" in text
         assert "BLOCKED" in text
 
 
@@ -105,7 +109,8 @@ def test_tracked_evidence_index_delegates_numbers_to_fact_sheet() -> None:
 
     assert "docs/benchmarks/omnidocbench-v1.6.md" in text
     assert "Do not construct a public score by mixing values" in text
-    assert "95.99" not in text
+    assert "95.99" in text
+    assert "0.1.0-g3-attestation.md" in text
 
 
 def test_readmes_label_demo_and_benchmarks_as_non_release_evidence() -> None:
@@ -197,8 +202,8 @@ def test_release_readiness_fails_closed_until_all_gates_pass() -> None:
         "1,650 successes",
         "1,651 GT pages",
         "20/20",
-        "95.9480",
-        "96.13",
+        "95.99",
+        "0.1.0-g3-attestation.md",
         "13.00",
         "34.82",
         "gh auth status",
@@ -250,8 +255,9 @@ def test_g0_readiness_binds_independently_reviewed_r7_receipt() -> None:
     assert "Audit date: 2026-07-17" in readiness
     assert re.search(r"\| G0 evidence integrity \| PASS \|", readiness)
     assert "Status: BLOCKED" in readiness
-    for gate in ("G2", "G3", "G4", "G5"):
+    for gate in ("G2", "G4", "G5"):
         assert re.search(rf"\| {gate} .* \| BLOCKED \|", readiness)
+    assert re.search(r"\| G3 accuracy acceptance \| PASS \|", readiness)
     for text in (readiness, evidence_index):
         assert "0.1.0-g0-evidence.md" in text
     assert receipt_sha256 in readiness
@@ -262,7 +268,9 @@ def test_benchmark_fact_sheet_is_the_only_active_public_score_table() -> None:
     for value in (
         "95.9480",
         "95.743",
-        "96.13",
+        "95.99",
+        "97.36",
+        "94.09",
         "count=1651",
         "ok=1650",
         "fail=1",
@@ -272,9 +280,27 @@ def test_benchmark_fact_sheet_is_the_only_active_public_score_table() -> None:
         "G4 is **BLOCKED**",
     ):
         assert value in facts
-    assert "Overall 95.99 / Formula CDM 97.36 row" in facts
+    assert "G3 accuracy | PASS" in facts
+    assert "confirmed Overall 95.99 out of band" in facts
+    assert "does not claim that its public thread" in facts
     assert "no tracked raw timing artifact" in facts.lower()
     assert "d529cb4" in facts and "50ce802" in facts
+
+
+def test_g3_attestation_records_manual_acceptance_scope() -> None:
+    assert G3_ATTESTATION.is_file()
+    text = re.sub(r"\s+", " ", _read(G3_ATTESTATION))
+    for value in (
+        "G3 PASS",
+        "95.99",
+        "97.36",
+        "94.09",
+        "confirmed the 95.99 result out of band",
+        "waives both a public confirmation artifact and another full benchmark run",
+        "does not claim",
+        "G2, G4, or G5",
+    ):
+        assert value in text
 
 
 def test_compatibility_matrix_separates_pipeline_components_and_evidence_levels() -> None:

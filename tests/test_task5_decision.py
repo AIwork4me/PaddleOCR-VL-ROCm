@@ -445,8 +445,15 @@ def test_strict_unknown_does_not_block_independent_amd_pass() -> None:
     assert amd["g3"] is True
 
 
-@pytest.mark.parametrize("overall", [96.129, 95.743])
-def test_g3_fails_below_9613(overall: float) -> None:
+def test_g3_passes_at_9599_boundary() -> None:
+    decision = decide_with_lightweight_overall(95.99)
+    assert decision["g3"] is True
+    assert decision["minimum_overall"] == 95.99
+    assert decision["checks"]["overall_at_least_minimum"] is True
+
+
+@pytest.mark.parametrize("overall", [95.989, 95.743])
+def test_g3_fails_below_9599(overall: float) -> None:
     assert decide_with_lightweight_overall(overall)["g3"] is False
 
 

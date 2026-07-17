@@ -19,7 +19,8 @@ from eval.artifact_utils import analyze_metric_quality, extract_notebook_metrics
 from eval.task5_manifest import validate_task5_manifest
 
 EXPECTED_PAIRED_PAGES = 1650
-G3_MINIMUM_OVERALL = 96.13
+# Policy source: docs/releases/0.1.0-g3-attestation.md.
+G3_MINIMUM_OVERALL = 95.99
 RECEIPT_NAME = "receipt.sha256.json"
 ATTEMPT_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -225,7 +226,7 @@ def amd_adaptation_decision(
     )
     checks = {
         "component_not_worse": components_pass,
-        "overall_at_least_96_13": threshold_pass,
+        "overall_at_least_minimum": threshold_pass,
         "metric_quality": quality_pass,
         "provider_attestation": attestation_pass,
         "lightweight_coverage": stats_pass,

@@ -140,6 +140,15 @@ def test_gate_decision_requires_notebook_rounded_overall() -> None:
     assert decision["g3"] is False
 
 
+def test_gate_decision_accepts_9599_boundary() -> None:
+    decision = decide_release_gates(
+        official_stats=accepted_known_failure_stats(),
+        lightweight_metric=metric(text=0.034, formula=0.9698, table=0.9439),
+    )
+    assert decision["overall"] == pytest.approx(95.99)
+    assert decision["g3"] is True
+
+
 def test_gate_decision_fails_closed_on_invalid_metric_quality() -> None:
     value = metric(text=0.01, formula=0.99, table=0.99)
     value["table"]["metric_debug"]["TEDS"]["error_case_count"] = 1

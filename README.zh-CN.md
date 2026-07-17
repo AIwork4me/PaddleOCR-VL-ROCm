@@ -17,9 +17,19 @@
 
 [English documentation](README.md)
 
-> 发布状态：**v0.1.0 仍处于 BLOCKED**。最新的仓库内轻量化结果属于历史证据，
-> 不是已验收的发布结果；G3 精度和 G4 性能仍未通过。详见
+> 发布状态：**v0.1.0 仍处于 BLOCKED**，但 **G3 精度已 PASS**，
+> 验收 Overall 为 **95.99**。PaddleOCR 已在线下确认该结果，项目 Maintainer
+> 于 2026-07-17 决定无需再次全量运行。G2、G4、G5 仍为 BLOCKED。详见
+> [G3 Maintainer 验收记录](docs/releases/0.1.0-g3-attestation.md)和
 > [OmniDocBench v1.6 事实表](docs/benchmarks/omnidocbench-v1.6.md)。
+
+| 指标 | PaddleOCR-VL（论文） | PaddleOCR-VL-ROCm（已验收） |
+|---:|---:|---:|
+| Overall | 96.33 | **95.99** |
+| Text Edit-dist | 0.033 | 0.03488 |
+| Reading-order Edit-dist | 0.127 | 0.12882 |
+| Table TEDS | 94.76 | **94.09** |
+| Formula CDM | 97.49 | **97.36** |
 
 ## 输入与输出
 
@@ -32,7 +42,7 @@
 - Golden 结构化 JSON：[`tests/fixtures/golden/magazine.json`](tests/fixtures/golden/magazine.json)
 
 这是兼容性演示，不是发布证据。它展示公共输出格式，但不能证明当前硬件性能，
-也不能证明 G3/G4 已验收。
+也不能证明 G4 已验收。
 
 ## 为什么需要它
 
@@ -182,7 +192,7 @@ OmniDocBench checkout，说明推理/评分阶段，并拒绝不完整的发布 
 
 ## 已知限制
 
-- v0.1.0 尚未达到发布条件；G2、G3、G4、G5 均为 BLOCKED。
+- v0.1.0 尚未达到发布条件；G2、G4、G5 为 BLOCKED，G3 已 PASS。
 - 项目只记录了一台 Windows AMD 机器的冒烟验证。
 - README 曾展示的 27 页性能结论没有仓库内原始 timing artifact，因此已撤回，
   不再作为公开性能结论。
@@ -191,8 +201,8 @@ OmniDocBench checkout，说明推理/评分阶段，并拒绝不完整的发布 
 
 ## Roadmap
 
-参见 [`ROADMAP.md`](ROADMAP.md)。近期重点是获得可验收的 G3 证据、完成由
-artifact 支撑的 G4 benchmark、收集可复现硬件报告，以及完成全新网络安装验证。
+参见 [`ROADMAP.md`](ROADMAP.md)。近期重点是关闭 G2、完成由 artifact 支撑的
+G4 benchmark、收集可复现硬件报告，以及完成全新网络安装验证。
 
 ## 贡献、安全与许可证
 
