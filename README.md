@@ -1,16 +1,32 @@
-﻿# PaddleOCR-VL-ROCm
+# PaddleOCR-VL-ROCm
 
-Document image to Markdown inference for Windows AMD GPUs. PP-DocLayoutV3 runs through ONNX Runtime DirectML, while PaddleOCR-VL 1.6 is served by the pinned llama.cpp HIP runtime. The legacy external OpenAI-compatible endpoint workflow remains supported on Windows and Linux.
+![PaddleOCR-VL-ROCm converts documents to Markdown and JSON locally on Windows AMD GPUs](docs/assets/paddleocr-vl-rocm-readme-hero.png.jpg)
 
-[Chinese documentation](README.zh-CN.md)
+Run PaddleOCR-VL 1.6 locally on Windows AMD GPUs and convert document images
+into Markdown and structured JSON.
 
-## Evidence status
+This project uses a hybrid backend; the whole pipeline does **not** run through
+ROCm:
 
-OmniDocBench v1.6 paired evaluation, 1,650 scored pages (1 symmetric exclusion).
-Full CDM scoring on Windows native TeX Live 2026. Lightweight CDM report,
-0 TEDS errors, 0 timeouts.
+```text
+Image
+→ PP-DocLayoutV3 / ONNX Runtime DirectML
+→ Region crops
+→ PaddleOCR-VL / llama.cpp HIP
+→ Markdown + JSON
+```
 
-| Metric | PaddleOCR-VL (paper) | PaddleOCR-VL-ROCm (measured) |
+[中文文档](README.zh-CN.md)
+
+> Release status: **v0.1.0 is READY**; **G3 accuracy is PASS** at
+> **Overall 95.99**. PaddleOCR confirmed the result out of band, and the project
+> maintainer accepted it without another full run on 2026-07-17. **G4 is PASS**
+> at mean 6.33 seconds/page and P95 19.54; **G5 is PASS** under the documented
+> public-network transport waiver. See the
+> [G3 maintainer attestation](docs/releases/0.1.0-g3-attestation.md) and
+> [G5 maintainer attestation](docs/releases/0.1.0-g5-attestation.md).
+
+| Metric | PaddleOCR-VL (paper) | PaddleOCR-VL-ROCm (accepted) |
 |---:|---:|---:|
 | Overall | 96.33 | **95.99** |
 | Text Edit-dist | 0.033 | 0.03488 |
@@ -18,76 +34,195 @@ Full CDM scoring on Windows native TeX Live 2026. Lightweight CDM report,
 | Table TEDS | 94.76 | **94.09** |
 | Formula CDM | 97.49 | **97.36** |
 
-Overall = (Text accuracy + CDM + TEDS) / 3, where Text accuracy = (1 - Edit_dist) x 100.
-Reading order is excluded from Overall (layout metric, not content accuracy).
-Full evidence at [omnidocbench-amd-windows](https://github.com/AIwork4me/omnidocbench-amd-windows).
-The inference run (llama.cpp HIP, AMD ROCm) had 1,650 successful pages
-and one deterministic peg-native HTTP 500 for
-newspaper_The Times UK_0801@magazinesclubnew_page_031.png, tracked in
-[PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248).
-G3 accuracy has passed; G4 performance: **1.7x** speedup (27-page stratified benchmark, 9 categories, 602.0s → 357.2s, 0 structural mismatches). The default `vlm_max_workers=8` enables this automatically—ThreadPoolExecutor is wired in pipeline_core.py, no extra config needed.
-## Compatibility demo
+## Input and output
 
-The tracked sample [`examples/input/magazine.png`](examples/input/magazine.png) and its [`Markdown`](tests/fixtures/golden/magazine.md) and [`structured JSON`](tests/fixtures/golden/magazine.json) golden outputs show the public output shape. This is a compatibility demo, not release evidence; the goldens do not establish current hardware speed or G3/G4 acceptance.
+The repository includes a real compatibility fixture:
 
-## Windows AMD managed setup
+![Magazine input example](examples/input/magazine.png)
 
-Requirements: Windows 10/11, an AMD GPU with a working HIP runtime, Python 3.10-3.13, and enough disk space. Managed setup pins llama.cpp HIP `b9884` (`86961efd5`) and verifies every downloaded file by size and SHA-256.
+- Input: [`examples/input/magazine.png`](examples/input/magazine.png)
+- Golden Markdown: [`tests/fixtures/golden/magazine.md`](tests/fixtures/golden/magazine.md)
+- Golden structured JSON: [`tests/fixtures/golden/magazine.json`](tests/fixtures/golden/magazine.json)
+
+This is a compatibility demo, not release evidence. It shows the public output
+shape but does not establish current hardware speed or G4 acceptance.
+
+## Why this project
+
+PaddleOCR-VL normally depends on a VLM serving stack that is awkward to deploy
+on Windows AMD systems. This package joins:
+
+- DirectML document-layout inference;
+- a pinned Windows llama.cpp HIP runtime and verified GGUF resources;
+- an external OpenAI-compatible endpoint option;
+- stable CLI and Python output contracts;
+- auditable OmniDocBench tooling.
+
+## Verified scope
+
+- One Windows 11 / Radeon 8060S machine passed verified-cache setup, DirectML
+  layout activation, managed-server smoke inference, and existing-server smoke
+  inference.
+- The exact AMD driver and HIP runtime versions were not captured, so this is
+  not a reproducible performance or release-gate benchmark.
+- The managed download manifest pins 2.27 GB (2.12 GiB) of resources by size
+  and SHA-256.
+- The formal scoring denominator is 1,651 GT pages. The approved official-local
+  run has 1,650 successful predictions and one failed page scored as an empty
+  prediction; it is **not** a 1,650-page score with a symmetric exclusion.
+
+See the [compatibility matrix](docs/compatibility/windows-amd.md) and
+[benchmark fact sheet](docs/benchmarks/omnidocbench-v1.6.md) for evidence and
+limitations.
+
+## Five-minute Quick Start
+
+Recommended: Windows 11, Python 3.11, PowerShell, an AMD GPU supported by the
+current AMD HIP SDK, and at least 5 GiB free disk space.
 
 ```powershell
-pip install -e .[download]
+git clone https://github.com/AIwork4me/PaddleOCR-VL-ROCm.git
+cd PaddleOCR-VL-ROCm
+
+py -3.11 -m venv .venv
+.venv\Scripts\Activate.ps1
+
+python -m pip install --upgrade pip
+pip install -e ".[download]"
+
 paddleocr-vl-rocm setup --auto
 paddleocr-vl-rocm doctor
 paddleocr-vl-rocm run examples/input/magazine.png
 ```
 
-`setup --auto` downloads, verifies, installs, and starts the local server. Use `setup --no-start` to install without starting it, or `--root` to select a managed data directory. No telemetry is sent.
+`setup --auto` downloads, verifies, installs, and starts the managed server on
+port 8111. The default root is
+`%LOCALAPPDATA%\PaddleOCR-VL-ROCm`; models are under `models\`, the runtime is
+under `runtime\`, cached downloads are under `cache\`, and `config.json`
+records the active paths.
 
-English users can download PP-DocLayoutV3 ONNX directly from [Hugging Face](https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx). Chinese users can use the [ModelScope mirror](https://modelscope.cn/models/PaddlePaddle/PP-DocLayoutV3_onnx).
+Use a different drive or directory with:
+
+```powershell
+paddleocr-vl-rocm setup --auto --root D:\PaddleOCR-VL-ROCm
+```
+
+Use `setup --no-start` to install without starting the server. The CLI prints
+the exact `llama-server.exe` command needed to start it later.
+
+The project currently has no managed `stop` or `clean` command. Stop the
+`llama-server.exe` process you started before removing the managed root. Do not
+delete a shared `--root` until you have checked its contents.
 
 ## Existing server
 
-Keep an existing llama.cpp, vLLM, or compatible endpoint and use the same pipeline without managed runtime assets:
+To keep your own llama.cpp, vLLM, or other OpenAI-compatible endpoint:
 
 ```powershell
-pip install -e .[download]
+pip install -e ".[download]"
 paddleocr-vl-rocm doctor --server-url http://127.0.0.1:8111/v1
 paddleocr-vl-rocm run examples/input/magazine.png --server-url http://127.0.0.1:8111/v1
+```
+
+The backward-compatible legacy form is also available:
+
+```powershell
 paddleocr-vl-rocm --input examples/input/magazine.png --server-url http://127.0.0.1:8111/v1
 ```
 
-The last command is the backward-compatible legacy form. Use `--api-model-name` when the endpoint requires a specific model identifier.
+Use `--api-model-name` when the endpoint requires a specific model identifier.
+The external server owns its GPU/runtime compatibility; this repository does
+not validate or install that server.
+
+## CLI
+
+```text
+paddleocr-vl-rocm setup [--auto | --no-start] [--root PATH] [--force]
+paddleocr-vl-rocm doctor [--json] [--config PATH] [--server-url URL]
+paddleocr-vl-rocm run INPUT [--output DIR] [--layout-model DIR]
+                         [--layout-provider auto|directml|cpu]
+                         [--server-url URL] [--api-model-name NAME]
+                         [--vlm-max-workers N]
+```
+
+The public concurrency default is `vlm_max_workers=8` for the CLI, Python API,
+and low-level parser. Override it only when memory pressure or the server's
+request capacity requires a lower value.
+
+English users can obtain PP-DocLayoutV3 ONNX from
+[Hugging Face](https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx).
+Chinese users can use the
+[ModelScope mirror](https://modelscope.cn/models/PaddlePaddle/PP-DocLayoutV3_onnx).
+Managed setup downloads the pinned model automatically.
 
 ## Python API
 
 ```python
 from paddleocr_vl_rocm import PaddleOCRVLROCm
 
-pipeline = PaddleOCRVLROCm(layout_model_dir="models/PP-DocLayoutV3-onnx", vlm_server_url="http://127.0.0.1:8111/v1")
+pipeline = PaddleOCRVLROCm(
+    layout_model_dir="models/PP-DocLayoutV3-onnx",
+    vlm_server_url="http://127.0.0.1:8111/v1",
+)
 result = pipeline.predict("examples/input/magazine.png")
 print(result.markdown_text)
 ```
 
-## Support matrix
+## Output structure
 
-| Path | Status | Notes |
-|---|---|---|
-| Windows 10/11 + AMD + managed llama.cpp HIP | Supported | [Environment doctor evidence](docs/windows-amd-doctor-evidence-2026-07-12.md) detects Windows 11, Radeon 8060S, and HIP; full release gates remain pending |
-| Windows + existing OpenAI-compatible server | Supported | `doctor --server-url` validates the endpoint |
-| Linux + existing OpenAI-compatible server | Supported | Server ownership remains external |
-| macOS | Not supported | No managed runtime or tested layout provider |
+The CLI writes `result.md` and `result.json` under `--output` (default:
+`outputs`). JSON contains the source path, page dimensions, ordered blocks,
+labels, bounding boxes, recognition content, and provider metadata. Treat
+coordinates and labels as a versioned compatibility contract; compare against
+the tracked golden fixtures when changing layout or serialization.
 
-## Benchmark reproduction
+## Reproduce evaluation
 
-See [`eval/README.md`](eval/README.md) for the pinned OmniDocBench v1.6 checkout, inference stages, official metric definitions, and artifact gates. Do not publish a score from an incomplete run, fallback output, mismatched scorer, or unverified artifact.
+Read [`eval/README.md`](eval/README.md) before downloading data or running a
+score. It pins the OmniDocBench checkout, documents inference/scoring stages,
+and rejects incomplete release artifacts. Public numbers and gate status live
+only in the
+[OmniDocBench v1.6 fact sheet](docs/benchmarks/omnidocbench-v1.6.md).
+
+Do not publish results from a subset, mismatched scorer, fallback output, or
+unverified artifact.
 
 ## Troubleshooting
 
-- Run `paddleocr-vl-rocm doctor` first. Every failed check includes remediation.
-- Use `paddleocr-vl-rocm doctor --json` for a redacted hardware report.
-- DirectML must be the first active layout provider; the pipeline fails closed rather than silently using CPU fallback.
-- Downloads are resumable. A size or SHA-256 mismatch never replaces a verified installation.
+- **PowerShell blocks activation:** use
+  `Set-ExecutionPolicy -Scope Process Bypass`, then activate the venv again.
+- **Port 8111 is busy:** stop the intended process or use an external server on
+  another port and pass `--server-url`.
+- **Downloads fail:** rerun setup; partial downloads are resumable. Proxy, DNS,
+  and GitHub release-asset access must work.
+- **DirectML is unavailable:** update the AMD graphics driver, then run
+  `paddleocr-vl-rocm doctor --json`. Managed Windows validation requires
+  DirectML first and disables silent CPU fallback.
+- **HIP DLL or server startup fails:** compare the GPU and OS with AMD's current
+  Windows HIP support table, then inspect
+  `%LOCALAPPDATA%\PaddleOCR-VL-ROCm\logs\server.log`.
+- **Sensitive diagnostics:** redact user names, local paths, tokens, private
+  documents, and endpoint credentials before posting Doctor JSON or logs.
 
-## Contributing and security
+## Known limitations
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. Report security issues privately as described in [`SECURITY.md`](SECURITY.md).
+- v0.1.0 is release-ready; G0, G1, G3, G4, and G5 are PASS.
+- Only one Windows AMD machine has project-recorded smoke validation.
+- G4 passes latency and a targeted GT accuracy projection. Raw historical
+  output equivalence remains false on 8/27 frozen pages and is not claimed. See the
+  [G4 diagnostic](docs/releases/0.1.0-g4-diagnostic.md).
+- Managed setup is Windows-only and has no stop/cleanup command.
+- Empty-cache public-network transport was explicitly waived for v0.1.0 and is
+  not claimed as successful; verified-cache installation passed.
+
+## Roadmap
+
+See [`ROADMAP.md`](ROADMAP.md). Near-term priorities are reproducible hardware
+reports and improved offline/mirror onboarding.
+
+## Contributing, security, and license
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md), use the appropriate
+[issue form](.github/ISSUE_TEMPLATE), and report vulnerabilities privately as
+described in [`SECURITY.md`](SECURITY.md). Licensed under the
+[MIT License](LICENSE).

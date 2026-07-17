@@ -1,0 +1,51 @@
+name: Benchmark result submission
+description: Submit a reproducible accuracy or performance result
+title: "[Benchmark]: "
+labels: [benchmark]
+body:
+  - type: markdown
+    attributes:
+      value: Do not attach models, datasets, full predictions, tokens, private documents, or unredacted logs.
+  - type: input
+    id: project_commit
+    attributes: {label: Full project commit SHA}
+    validations: {required: true}
+  - type: input
+    id: model
+    attributes: {label: Model, quantization, and SHA-256}
+    validations: {required: true}
+  - type: input
+    id: mmproj
+    attributes: {label: mmproj SHA-256}
+    validations: {required: true}
+  - type: input
+    id: runtime
+    attributes: {label: llama.cpp build and commit}
+    validations: {required: true}
+  - type: input
+    id: scorer
+    attributes: {label: OmniDocBench commit}
+    validations: {required: true}
+  - type: textarea
+    id: environment
+    attributes:
+      label: Hardware and software environment
+      description: GPU/APU, memory, Windows build, AMD driver, HIP runtime, and Python.
+    validations: {required: true}
+  - type: textarea
+    id: coverage
+    attributes:
+      label: Coverage and failure handling
+      description: Dataset pages, successes, failures, exclusions, fallback count, and failed-page rule.
+    validations: {required: true}
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Metrics and aggregation
+      description: Name every metric, unit, aggregation convention, timing boundary, and sample statistic.
+    validations: {required: true}
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Redacted artifact links and SHA-256 values
+    validations: {required: true}

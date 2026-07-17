@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .utils import write_text_lf
+
 
 class PaddleOCRVLROCmResult(dict):
     """PaddleOCR-VL-style result with lightweight save helpers."""
@@ -31,15 +33,11 @@ class PaddleOCRVLROCmResult(dict):
     def save_to_json(self, save_path: str | Path) -> Path:
         base = Path(save_path)
         path = base if base.suffix.lower() == ".json" else base / f"{self.input_stem}_res.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(dict(self), ensure_ascii=False, indent=2), encoding="utf-8")
-        return path
+        return write_text_lf(path, json.dumps(dict(self), ensure_ascii=False, indent=2))
 
     def save_to_markdown(self, save_path: str | Path, pretty: bool = False) -> Path:
         base = Path(save_path)
         path = (
             base if base.suffix.lower() in {".md", ".markdown"} else base / f"{self.input_stem}.md"
         )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(self.markdown_text, encoding="utf-8")
-        return path
+        return write_text_lf(path, self.markdown_text)

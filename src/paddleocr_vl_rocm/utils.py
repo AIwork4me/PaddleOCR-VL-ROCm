@@ -76,13 +76,20 @@ def to_jsonable(value: Any, depth: int = 0, max_depth: int = 8) -> Any:
     return to_jsonable(converted, depth + 1, max_depth)
 
 
-def write_json(path: str | Path, value: Any) -> Path:
+def write_text_lf(path: str | Path, text: str) -> Path:
+    """Write UTF-8 text with deterministic LF line endings."""
     resolved = Path(path)
     resolved.parent.mkdir(parents=True, exist_ok=True)
-    resolved.write_text(
-        json.dumps(to_jsonable(value), ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    with resolved.open("w", encoding="utf-8", newline="\n") as stream:
+        stream.write(text)
     return resolved
+
+
+def write_json(path: str | Path, value: Any) -> Path:
+    return write_text_lf(
+        path,
+        json.dumps(to_jsonable(value), ensure_ascii=False, indent=2),
+    )
 
 
 def _call_noarg(value: Any, name: str) -> Any:

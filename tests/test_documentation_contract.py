@@ -1,5 +1,6 @@
 import hashlib
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -10,12 +11,17 @@ from eval.release_contract import KNOWN_V16_OFFICIAL_FAILURE
 ROOT = Path(__file__).parents[1]
 README_EN = ROOT / "README.md"
 README_ZH = ROOT / "README.zh-CN.md"
+ROADMAP = ROOT / "ROADMAP.md"
 EVAL_README = ROOT / "eval" / "README.md"
 EVIDENCE_README = ROOT / "results" / "omnidocbench" / "v16" / "README.md"
+BENCHMARK_FACTS = ROOT / "docs" / "benchmarks" / "omnidocbench-v1.6.md"
+COMPATIBILITY = ROOT / "docs" / "compatibility" / "windows-amd.md"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 RELEASE_READINESS = ROOT / "docs" / "releases" / "0.1.0-readiness.md"
 G0_EVIDENCE = ROOT / "docs" / "releases" / "0.1.0-g0-evidence.md"
+G3_ATTESTATION = ROOT / "docs" / "releases" / "0.1.0-g3-attestation.md"
 WINDOWS_VALIDATION = ROOT / "docs" / "releases" / "0.1.0-windows-validation.md"
+G5_ATTESTATION = ROOT / "docs" / "releases" / "0.1.0-g5-attestation.md"
 
 OMNIDOCBENCH_V16_COMMIT = "147cd5ac9472002f5751221d390bf00abdbc0d2f"
 LAYOUT_HF = "https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx"
@@ -47,24 +53,29 @@ def _assert_quality_ci_contract(workflow: str) -> None:
     assert pytest_step["run"].startswith("python -m pytest -q -m")
 
 
-def test_bilingual_readmes_lock_verified_historical_claims() -> None:
+def test_bilingual_readmes_publish_accepted_release_gates() -> None:
     for path in (README_EN, README_ZH):
         text = _read(path)
-        for value in (
-            "95.99",
-            "97.36",
-            "94.09",
-        ):
-            assert value in text, f"{path.name} must contain {value}"
-        assert "96.15" not in text
-        assert "96.13" not in text
+        for accepted in ("95.99", "97.36", "94.09"):
+            assert accepted in text
+        for withdrawn in ("602.0", "357.2", "1.7x"):
+            assert withdrawn not in text
+        assert "docs/benchmarks/omnidocbench-v1.6.md" in text
+        assert "docs/releases/0.1.0-g3-attestation.md" in text
+        assert "G3" in text and "PASS" in text and "G4" in text
+        assert "G5" in text and "PASS" in text
+        assert "0.1.0-g5-attestation.md" in text
 
 
 def test_bilingual_readmes_have_both_four_command_journeys() -> None:
     for path in (README_EN, README_ZH):
         text = _read(path)
         for command in (
-            "pip install -e .[download]",
+            "git clone https://github.com/AIwork4me/PaddleOCR-VL-ROCm.git",
+            "cd PaddleOCR-VL-ROCm",
+            "py -3.11 -m venv .venv",
+            r".venv\Scripts\Activate.ps1",
+            'pip install -e ".[download]"',
             "paddleocr-vl-rocm setup --auto",
             "paddleocr-vl-rocm doctor",
             "paddleocr-vl-rocm run examples/input/magazine.png",
@@ -96,13 +107,13 @@ def test_layout_download_sources_are_language_specific() -> None:
         assert "AlexTransformer/PP-DocLayoutV3-onnx" not in text
 
 
-def test_tracked_evidence_index_uses_official_notebook_rounding() -> None:
+def test_tracked_evidence_index_delegates_numbers_to_fact_sheet() -> None:
     text = _read(EVIDENCE_README)
 
-    assert "95.9480" in text
-    assert "95.7803" in text
-    assert "95.9475" not in text
-    assert "95.7657" not in text
+    assert "docs/benchmarks/omnidocbench-v1.6.md" in text
+    assert "Do not construct a public score by mixing values" in text
+    assert "95.99" in text
+    assert "0.1.0-g3-attestation.md" in text
 
 
 def test_readmes_label_demo_and_benchmarks_as_non_release_evidence() -> None:
@@ -120,24 +131,22 @@ def test_readmes_label_demo_and_benchmarks_as_non_release_evidence() -> None:
 def test_bilingual_readmes_document_the_single_page_exception_without_score_inflation() -> None:
     issue = "https://github.com/PaddlePaddle/PaddleOCR/issues/18248"
     filename = "newspaper_The Times UK_0801@magazinesclubnew_page_031.png"
-    english = _read(README_EN)
-    chinese = _read(README_ZH)
+    facts = _read(BENCHMARK_FACTS)
 
-    for text in (english, chinese):
-        assert issue in text
-        assert filename in text
-        assert "peg-native" in text
-    assert "1,650" in english and "1,651" not in english
-    assert "1,650" in chinese and "1,651" not in chinese
-    assert "1,650 页评分（1 页对称排除）" in chinese
-    assert "PaddleOCR issue #18248" in chinese
-    assert "PaddlePaddle maintainer confirmed" not in english
+    assert issue in facts
+    assert filename in facts
+    assert "peg-native" in facts
+    assert "formal scoring denominator is **all 1,651 ground-truth pages**" in facts
+    assert "ok=1650" in facts and "fail=1" in facts
+    assert "0 scoring exclusions" in facts
+    assert "1,650-page score" in facts
+    assert "PaddlePaddle maintainer confirmed" not in facts
 
     evaluation = re.sub(r"\s+", " ", _read(EVAL_README))
     assert "no prediction file" in evaluation
     assert "treats the missing output as empty for scoring" in evaluation
     assert "failed page is an empty prediction" not in evaluation
-    assert "PaddlePaddle 维护者已确认" not in chinese
+    assert "PaddlePaddle 维护者已确认" not in _read(README_ZH)
 
 
 def test_offline_ci_covers_supported_python_matrix_and_quality_gates() -> None:
@@ -156,6 +165,10 @@ def test_offline_ci_covers_supported_python_matrix_and_quality_gates() -> None:
         "mypy src",
         "python -m pytest -q",
         "python -m build",
+        "permissions:",
+        "contents: read",
+        "timeout-minutes: 20",
+        "cancel-in-progress: true",
     ):
         assert value in workflow
     for forbidden in ("download_omnidocbench", "setup --auto", "run --server-url"):
@@ -182,25 +195,26 @@ def test_ci_contract_rejects_setup_python_fixed_to_313() -> None:
         _assert_quality_ci_contract(workflow)
 
 
-def test_release_readiness_fails_closed_until_all_gates_pass() -> None:
+def test_release_readiness_records_all_gates_passed() -> None:
     text = _read(RELEASE_READINESS)
 
-    assert "Status: BLOCKED" in text
-    for gate in ("G0", "G1", "G2", "G3", "G4", "G5"):
+    assert "Status: READY" in text
+    for gate in ("G0", "G1", "G3", "G4", "G5"):
         assert gate in text
     for evidence in (
         "1,650 successes",
         "1,651 GT pages",
-        "20/20",
-        "95.9480",
-        "96.13",
+        "95.99",
+        "0.1.0-g3-attestation.md",
         "13.00",
         "34.82",
         "gh auth status",
         "does not authorize bypassing any evidence gate",
+        "0.1.0-g5-attestation.md",
+        "public-network",
     ):
         assert evidence in text
-    assert "Do not bump" in text
+    assert "All release gates pass" in text
 
 
 def test_g0_readiness_binds_independently_reviewed_r7_receipt() -> None:
@@ -242,18 +256,126 @@ def test_g0_readiness_binds_independently_reviewed_r7_receipt() -> None:
     ):
         assert value in normalized_receipt
 
-    assert "Audit date: 2026-07-14" in readiness
+    assert "Audit date: 2026-07-17" in readiness
     assert re.search(r"\| G0 evidence integrity \| PASS \|", readiness)
-    assert "Status: BLOCKED" in readiness
-    for gate in ("G2", "G3", "G4", "G5"):
-        assert re.search(rf"\| {gate} .* \| BLOCKED \|", readiness)
+    assert "Status: READY" in readiness
+    assert re.search(r"\| G4 .* \| PASS \|", readiness)
+    assert re.search(r"\| G5 .* \| PASS \|", readiness)
+    assert re.search(r"\| G3 accuracy acceptance \| PASS \|", readiness)
+    assert not re.search(r"\| G2 .* \|", readiness)
     for text in (readiness, evidence_index):
         assert "0.1.0-g0-evidence.md" in text
-        assert receipt_sha256 in text
+    assert receipt_sha256 in readiness
+
+
+def test_benchmark_fact_sheet_is_the_only_active_public_score_table() -> None:
+    facts = _read(BENCHMARK_FACTS)
+    for value in (
+        "95.9480",
+        "95.743",
+        "95.99",
+        "97.36",
+        "94.09",
+        "count=1651",
+        "ok=1650",
+        "fail=1",
+        "fallback=0",
+        "limit_pages=null",
+        "0 scoring exclusions",
+        "G4 is **PASS**",
+    ):
+        assert value in facts
+    assert "G3 accuracy | PASS" in facts
+    assert "confirmed Overall 95.99 out of band" in facts
+    assert "does not claim that its public thread" in facts
+    assert "no tracked raw timing artifact" in facts.lower()
+    assert "d529cb4" in facts and "50ce802" in facts
+
+
+def test_g3_attestation_records_manual_acceptance_scope() -> None:
+    assert G3_ATTESTATION.is_file()
+    text = re.sub(r"\s+", " ", _read(G3_ATTESTATION))
+    for value in (
+        "G3 PASS",
+        "95.99",
+        "97.36",
+        "94.09",
+        "confirmed the 95.99 result out of band",
+        "waives both a public confirmation artifact and another full benchmark run",
+        "does not claim",
+        "G4 or G5",
+    ):
+        assert value in text
+
+
+def test_g5_attestation_records_network_waiver_without_false_success() -> None:
+    assert G5_ATTESTATION.is_file()
+    text = re.sub(r"\s+", " ", _read(G5_ATTESTATION))
+    for value in (
+        "G5 PASS",
+        "explicitly waived",
+        "does not call that attempt successful",
+        "verified cache",
+        "managed-server journey",
+        "already-running-server journey",
+        "44 blocks",
+        "wheel",
+        "source distribution",
+        "full test suite passed",
+    ):
+        assert value in text
+
+
+def test_g2_is_not_an_active_release_gate() -> None:
+    for path in (README_EN, README_ZH, ROADMAP, RELEASE_READINESS, BENCHMARK_FACTS):
+        text = _read(path)
+        assert not re.search(r"\| G2 .* \|", text)
+    assert "G2 root-cause diagnosis is not a release gate" in _read(BENCHMARK_FACTS)
+
+
+def test_compatibility_matrix_separates_pipeline_components_and_evidence_levels() -> None:
+    text = _read(COMPATIBILITY)
+    for value in (
+        "Fully tested",
+        "Community verified",
+        "Expected but unverified",
+        "Unsupported",
+        "DirectML layout",
+        "Local HIP VLM",
+        "Managed runtime",
+        "External server",
+        "AMD Radeon(TM) 8060S Graphics",
+        "driver version",
+        "HIP runtime version",
+        "rocm.docs.amd.com",
+    ):
+        assert value in text
+
+
+def test_tracked_files_do_not_disclose_personal_workspace_paths() -> None:
+    raw_personal_root = b"C:" + b"\\Users\\" + b"rocm"
+    json_personal_root = b"C:" + b"\\\\Users\\\\" + b"rocm"
+    completed = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        pytest.skip("git metadata is unavailable")
+    for relative in completed.stdout.decode("utf-8").split("\0"):
+        if not relative:
+            continue
+        path = ROOT / relative
+        if not path.is_file():
+            continue
+        raw = path.read_bytes()
+        assert raw_personal_root not in raw, relative
+        assert json_personal_root not in raw, relative
 
 
 def test_windows_validation_distinguishes_cached_install_from_network_setup() -> None:
-    text = _read(WINDOWS_VALIDATION)
+    text = re.sub(r"\s+", " ", _read(WINDOWS_VALIDATION))
 
     for evidence in (
         "AMD Radeon(TM) 8060S Graphics",
@@ -263,8 +385,10 @@ def test_windows_validation_distinguishes_cached_install_from_network_setup() ->
         "44",
         "8123",
         "pre-verified local cache",
-        "release-assets.githubusercontent.com",
-        "not a clean network-download acceptance",
+        "9,437,184-byte partial file",
+        "explicitly waived empty-cache public-network transport",
+        "non-successful network attempt",
+        "No clean public-network download is claimed",
     ):
         assert evidence in text
 

@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .constants import DEFAULT_VLM_MAX_WORKERS
 from .layout import PPDocLayoutV3Onnx, resolve_layout_providers
 from .pipeline_core import run_light_parser
 from .result import PaddleOCRVLROCmResult
@@ -23,7 +24,7 @@ class PaddleOCRVLROCm:
         timeout: float = 300.0,
         seed: int = 1,
         threshold: float = 0.3,
-        vlm_max_workers: int = 8,
+        vlm_max_workers: int = DEFAULT_VLM_MAX_WORKERS,
         layout_provider: str = "auto",
         skip_server_check: bool = False,
         layout_profile_prefix: Path | None = None,

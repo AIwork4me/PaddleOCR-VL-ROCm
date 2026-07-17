@@ -314,8 +314,8 @@ git commit -m "feat(eval): add isolated v16 release evidence runner"
 - [ ] **Step 1: Freeze the evaluated commit and verify clean tracked state**
 
 ```powershell
-$Worktree = 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm\.worktrees\top-tier-quality'
-$EvidenceRoot = 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-13'
+$Worktree = '<repo>\.worktrees\top-tier-quality'
+$EvidenceRoot = '<evidence-root>\v16-2026-07-13'
 Set-Location $Worktree
 git status --porcelain=v1
 git rev-parse HEAD

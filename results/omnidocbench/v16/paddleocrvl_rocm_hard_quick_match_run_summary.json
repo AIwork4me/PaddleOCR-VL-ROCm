@@ -4,8 +4,8 @@
         "system": {
             "platform": "Windows-10-10.0.26200-SP0",
             "python_version": "3.11.15 (main, May 10 2026, 19:31:25) [MSC v.1944 64 bit (AMD64)]",
-            "python_executable": "C:\\Users\\rocm\\Desktop\\OmniDocBench\\.venv\\Scripts\\python.exe",
-            "python_prefix": "C:\\Users\\rocm\\Desktop\\OmniDocBench\\.venv",
+            "python_executable": "<omnidocbench-worktree>\\.venv\\Scripts\\python.exe",
+            "python_prefix": "<omnidocbench-worktree>\\.venv",
             "conda_env": "",
             "conda_prefix": "",
             "libc": "",

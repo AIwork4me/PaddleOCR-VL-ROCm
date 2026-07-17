@@ -25,3 +25,4 @@ def test_result_saves_paddleocr_vl_style_files(tmp_path):
         == "hello"
     )
     assert md_path.read_text(encoding="utf-8") == "hello\n"
+    assert md_path.read_bytes() == b"hello\n"

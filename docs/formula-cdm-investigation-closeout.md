@@ -1,5 +1,10 @@
 ﻿## Formula CDM Gap Investigation -- Closeout
 
+> Historical diagnostic record. The per-sample Formula CDM values below are not
+> a complete release score and must not be combined with metrics from another
+> run. Current public score and gate interpretation lives in
+> [`docs/benchmarks/omnidocbench-v1.6.md`](benchmarks/omnidocbench-v1.6.md).
+
 **Date**: 2026-07-16
 **Trigger**: Paper 97.49 vs ROCm 96.15, reported gap 1.34 pp
 **Status**: CLOSED -- gap does not exist

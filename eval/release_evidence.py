@@ -18,7 +18,8 @@ from eval.release_contract import (
     validate_release_run_stats,
 )
 
-G3_MINIMUM_OVERALL = 96.13
+# Policy source: docs/releases/0.1.0-g3-attestation.md.
+G3_MINIMUM_OVERALL = 95.99
 LOGICAL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 

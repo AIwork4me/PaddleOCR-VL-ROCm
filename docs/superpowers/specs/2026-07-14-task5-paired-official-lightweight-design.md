@@ -6,7 +6,7 @@
 - Benchmark: OmniDocBench v1.6 at commit
   `147cd5ac9472002f5751221d390bf00abdbc0d2f`
 - Evidence root:
-  `C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-14-official-r7-score-recovery-py310`
+  `<evidence-root>\v16-2026-07-14-official-r7-score-recovery-py310`
 
 ## 1. Purpose
 

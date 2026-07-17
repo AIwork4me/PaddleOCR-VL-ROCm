@@ -1,16 +1,30 @@
-﻿# PaddleOCR-VL-ROCm
+# PaddleOCR-VL-ROCm
 
-面向 Windows AMD GPU 的文档图片转 Markdown 推理工具。PP-DocLayoutV3 通过 ONNX Runtime DirectML 运行，PaddleOCR-VL 1.6 由固定版本的 llama.cpp HIP 服务提供推理；原有外部 OpenAI-compatible 服务工作流继续受支持。
+![PaddleOCR-VL-ROCm 在 Windows AMD GPU 上将文档转换为 Markdown 和 JSON](docs/assets/paddleocr-vl-rocm-readme-hero.png.jpg)
+
+在 Windows AMD GPU 上本地运行 PaddleOCR-VL 1.6，将文档图片转换为 Markdown
+和结构化 JSON。
+
+本项目使用混合后端；整个流水线并非全部通过 ROCm 执行：
+
+```text
+图片
+→ PP-DocLayoutV3 / ONNX Runtime DirectML
+→ 区域裁剪
+→ PaddleOCR-VL / llama.cpp HIP
+→ Markdown + JSON
+```
 
 [English documentation](README.md)
 
-## 证据状态
+> 发布状态：**v0.1.0 已就绪（READY）**；**G3 精度已 PASS**，
+> 验收 Overall 为 **95.99**。PaddleOCR 已在线下确认该结果，项目 Maintainer
+> 于 2026-07-17 决定无需再次全量运行。**G4 已 PASS**（均值 6.33 秒/页、
+> P95 19.54 秒），**G5 已在记录公网传输豁免后 PASS**。详见
+> [G3 Maintainer 验收记录](docs/releases/0.1.0-g3-attestation.md)和
+> [G5 Maintainer 验收记录](docs/releases/0.1.0-g5-attestation.md)。
 
-OmniDocBench v1.6 配对评估，1,650 页评分（1 页对称排除）。
-Windows 原生 TeX Live 2026 全量 CDM 评分，Lightweight CDM 报告，
-0 TEDS 错误，0 超时。
-
-| 指标 | PaddleOCR-VL (论文) | PaddleOCR-VL-ROCm (实测) |
+| 指标 | PaddleOCR-VL（论文） | PaddleOCR-VL-ROCm（已验收） |
 |---:|---:|---:|
 | Overall | 96.33 | **95.99** |
 | Text Edit-dist | 0.033 | 0.03488 |
@@ -18,76 +32,182 @@ Windows 原生 TeX Live 2026 全量 CDM 评分，Lightweight CDM 报告，
 | Table TEDS | 94.76 | **94.09** |
 | Formula CDM | 97.49 | **97.36** |
 
-Overall = (Text accuracy + CDM + TEDS) / 3, Text accuracy = (1 - Edit_dist) x 100。
-Reading-order 不计入 Overall（布局指标，非内容准确性）。
-完整证据见 [omnidocbench-amd-windows](https://github.com/AIwork4me/omnidocbench-amd-windows)。
-推理运行（llama.cpp HIP, AMD ROCm）成功 1,650 页，
-1 页确定性 peg-native HTTP 500：
-newspaper_The Times UK_0801@magazinesclubnew_page_031.png，详见
-[PaddleOCR issue #18248](https://github.com/PaddlePaddle/PaddleOCR/issues/18248)。
-G3 准确性已通过；G4 性能：**1.7x** 加速（27 页分层抽样基准，9 类别，602.0s → 357.2s，0 结构错配）。默认 `vlm_max_workers=8` 即可获得此加速——ThreadPoolExecutor 已在 pipeline_core.py 中预置，无需额外配置。
-## 兼容性演示
+## 输入与输出
 
-仓库中的 [`examples/input/magazine.png`](examples/input/magazine.png) 以及对应的 [`Markdown`](tests/fixtures/golden/magazine.md) 和 [`结构化 JSON`](tests/fixtures/golden/magazine.json) golden 输出展示公共输出格式。这是兼容性演示，不是发布证据，不能证明当前硬件速度或 G3/G4 已验收。
+仓库包含真实的兼容性样例：
 
-## Windows AMD 托管安装
+![杂志输入样例](examples/input/magazine.png)
 
-需要 Windows 10/11、可用 HIP 运行时的 AMD GPU、Python 3.10-3.13，以及足够的磁盘空间。托管安装固定 llama.cpp HIP `b9884`（`86961efd5`），并按文件大小和 SHA-256 校验全部资源。
+- 输入：[`examples/input/magazine.png`](examples/input/magazine.png)
+- Golden Markdown：[`tests/fixtures/golden/magazine.md`](tests/fixtures/golden/magazine.md)
+- Golden 结构化 JSON：[`tests/fixtures/golden/magazine.json`](tests/fixtures/golden/magazine.json)
+
+这是兼容性演示，不是发布证据。它展示公共输出格式，但不能证明当前硬件性能，
+也不能证明 G4 已验收。
+
+## 为什么需要它
+
+PaddleOCR-VL 通常依赖在 Windows AMD 环境中较难部署的 VLM 服务栈。本项目组合了：
+
+- DirectML 文档布局推理；
+- 固定版本的 Windows llama.cpp HIP runtime 和经过哈希校验的 GGUF 资源；
+- 外部 OpenAI-compatible endpoint 路径；
+- 稳定的 CLI 与 Python 输出契约；
+- 可审计的 OmniDocBench 工具。
+
+## 已验证范围
+
+- 一台 Windows 11 / Radeon 8060S 机器完成了缓存资源校验安装、DirectML
+  布局激活、托管 server 冒烟推理和外部 server 冒烟推理。
+- 该记录没有保存精确的 AMD 驱动和 HIP runtime 版本，因此不能作为可复现的
+  性能或发布门禁 benchmark。
+- 托管下载 manifest 固定了 2.27 GB（2.12 GiB）资源的大小和 SHA-256。
+- 正式评分分母是 1,651 个 GT 页面。已批准的 official-local 运行包含
+  1,650 个成功预测和 1 个失败页；失败页按空预测计分。它不是“对称排除 1 页”
+  后得到的 1,650 页成绩。
+
+证据和限制详见[兼容性矩阵](docs/compatibility/windows-amd.md)和
+[benchmark 事实表](docs/benchmarks/omnidocbench-v1.6.md)。
+
+## 五分钟快速开始
+
+推荐环境：Windows 11、Python 3.11、PowerShell、受当前 AMD HIP SDK 支持的
+AMD GPU，以及至少 5 GiB 可用磁盘空间。
 
 ```powershell
-pip install -e .[download]
+git clone https://github.com/AIwork4me/PaddleOCR-VL-ROCm.git
+cd PaddleOCR-VL-ROCm
+
+py -3.11 -m venv .venv
+.venv\Scripts\Activate.ps1
+
+python -m pip install --upgrade pip
+pip install -e ".[download]"
+
 paddleocr-vl-rocm setup --auto
 paddleocr-vl-rocm doctor
 paddleocr-vl-rocm run examples/input/magazine.png
 ```
 
-`setup --auto` 会下载、校验、安装并启动本地服务。只安装不启动可使用 `setup --no-start`，自定义目录可使用 `--root`。项目不包含遥测。
+`setup --auto` 会下载、校验、安装资源，并在 8111 端口启动托管 server。
+默认根目录为 `%LOCALAPPDATA%\PaddleOCR-VL-ROCm`；模型位于 `models\`，
+runtime 位于 `runtime\`，下载缓存位于 `cache\`，活动路径记录在
+`config.json` 中。
 
-中文用户可从 [ModelScope](https://modelscope.cn/models/PaddlePaddle/PP-DocLayoutV3_onnx) 直接下载 PP-DocLayoutV3 ONNX；英文用户可使用 [Hugging Face](https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx)。
-
-## 使用现有服务
-
-已有 llama.cpp、vLLM 或其他兼容端点时，可以不安装托管运行时：
+使用其他磁盘或目录：
 
 ```powershell
-pip install -e .[download]
+paddleocr-vl-rocm setup --auto --root D:\PaddleOCR-VL-ROCm
+```
+
+使用 `setup --no-start` 可以只安装、不启动 server。CLI 会打印稍后启动
+`llama-server.exe` 所需的完整命令。
+
+项目目前没有托管的 `stop` 或 `clean` 命令。删除托管根目录前，请先停止由你
+启动的 `llama-server.exe` 进程；不要在未检查内容时删除共享的 `--root`。
+
+## 使用已有 server
+
+如需保留自己的 llama.cpp、vLLM 或其他 OpenAI-compatible endpoint：
+
+```powershell
+pip install -e ".[download]"
 paddleocr-vl-rocm doctor --server-url http://127.0.0.1:8111/v1
 paddleocr-vl-rocm run examples/input/magazine.png --server-url http://127.0.0.1:8111/v1
+```
+
+仍支持向后兼容的旧命令形式：
+
+```powershell
 paddleocr-vl-rocm --input examples/input/magazine.png --server-url http://127.0.0.1:8111/v1
 ```
 
-最后一条是保持兼容的旧命令。若服务要求明确模型名，请传入 `--api-model-name`。
+当 endpoint 要求特定模型标识时使用 `--api-model-name`。外部 server 自己负责
+GPU/runtime 兼容性；本仓库不会验证或安装该 server。
+
+## CLI
+
+```text
+paddleocr-vl-rocm setup [--auto | --no-start] [--root PATH] [--force]
+paddleocr-vl-rocm doctor [--json] [--config PATH] [--server-url URL]
+paddleocr-vl-rocm run INPUT [--output DIR] [--layout-model DIR]
+                         [--layout-provider auto|directml|cpu]
+                         [--server-url URL] [--api-model-name NAME]
+                         [--vlm-max-workers N]
+```
+
+CLI、Python API 和底层 parser 共享公共并发默认值
+`vlm_max_workers=8`。仅在内存压力或 server 请求容量不足时调低。
+
+中文用户可从
+[ModelScope](https://modelscope.cn/models/PaddlePaddle/PP-DocLayoutV3_onnx)
+获取 PP-DocLayoutV3 ONNX；英文用户可使用
+[Hugging Face](https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx)。
+托管安装会自动下载固定版本。
 
 ## Python API
 
 ```python
 from paddleocr_vl_rocm import PaddleOCRVLROCm
 
-pipeline = PaddleOCRVLROCm(layout_model_dir="models/PP-DocLayoutV3-onnx", vlm_server_url="http://127.0.0.1:8111/v1")
+pipeline = PaddleOCRVLROCm(
+    layout_model_dir="models/PP-DocLayoutV3-onnx",
+    vlm_server_url="http://127.0.0.1:8111/v1",
+)
 result = pipeline.predict("examples/input/magazine.png")
 print(result.markdown_text)
 ```
 
-## 支持矩阵
+## 输出结构
 
-| 路径 | 状态 | 说明 |
-|---|---|---|
-| Windows 10/11 + AMD + 托管 llama.cpp HIP | 支持 | [环境 doctor 证据](docs/windows-amd-doctor-evidence-2026-07-12.md)检测到 Windows 11、Radeon 8060S 和 HIP；完整发布门禁仍待通过 |
-| Windows + 现有 OpenAI-compatible 服务 | 支持 | `doctor --server-url` 校验端点 |
-| Linux + 现有 OpenAI-compatible 服务 | 支持 | 服务由用户自行维护 |
-| macOS | 不支持 | 没有托管运行时或已测试 layout provider |
+CLI 会在 `--output`（默认 `outputs`）下写入 `result.md` 和 `result.json`。
+JSON 包含来源路径、页面尺寸、有序 block、标签、边界框、识别内容和 provider
+元数据。坐标和标签属于版本化兼容性契约；修改布局或序列化逻辑时，应与仓库内
+golden fixtures 对比。
 
 ## 复现评测
 
-固定 OmniDocBench v1.6 checkout、推理阶段、官方指标定义和产物门禁见 [`eval/README.md`](eval/README.md)。不得发布来自不完整运行、fallback 输出、错误评分器或未校验产物的分数。
+下载数据或运行评分前，请先阅读 [`eval/README.md`](eval/README.md)。其中固定了
+OmniDocBench checkout，说明推理/评分阶段，并拒绝不完整的发布 artifact。
+公开数字和门禁状态只在
+[OmniDocBench v1.6 事实表](docs/benchmarks/omnidocbench-v1.6.md)维护。
 
-## 故障排查
+不要发布子集、scorer 不匹配、使用 fallback 或未经验证 artifact 的成绩。
 
-- 首先运行 `paddleocr-vl-rocm doctor`，每个失败项都带有修复建议。
-- 使用 `paddleocr-vl-rocm doctor --json` 生成已脱敏的硬件报告。
-- DirectML 必须是首个活动 layout provider；程序会失败关闭，不会静默 CPU fallback。
-- 下载支持断点续传；大小或 SHA-256 不符时不会替换已验证安装。
+## 常见问题
 
-## 贡献与安全
+- **PowerShell 阻止激活：**执行
+  `Set-ExecutionPolicy -Scope Process Bypass`，再激活虚拟环境。
+- **8111 端口被占用：**停止预期进程，或在其他端口运行外部 server，并传入
+  `--server-url`。
+- **下载失败：**重新运行 setup；部分下载可以续传。代理、DNS 和 GitHub
+  release assets 必须可访问。
+- **DirectML 不可用：**更新 AMD 显卡驱动，再运行
+  `paddleocr-vl-rocm doctor --json`。Windows 托管验证要求 DirectML 排在首位，
+  且不会静默回退到 CPU。
+- **HIP DLL 或 server 启动失败：**对照 AMD 当前 Windows HIP 支持表检查 GPU
+  和系统，再查看
+  `%LOCALAPPDATA%\PaddleOCR-VL-ROCm\logs\server.log`。
+- **诊断信息敏感：**公开 Doctor JSON 或日志前，删除用户名、本地路径、token、
+  私有文档和 endpoint 凭据。
 
-提交 PR 前请阅读 [`CONTRIBUTING.md`](CONTRIBUTING.md)。安全问题请按照 [`SECURITY.md`](SECURITY.md) 私下报告。
+## 已知限制
+
+- v0.1.0 已达到发布条件；G0、G1、G3、G4、G5 均为 PASS。
+- 项目只记录了一台 Windows AMD 机器的冒烟验证。
+- G4 性能和定向 GT 精度投影均已通过；与历史 G3 基线相比仍有 8/27 页
+  输出哈希不同，因此不声明原始输出等价。详见
+  [G4 诊断](docs/releases/0.1.0-g4-diagnostic.md)。
+- 托管安装仅支持 Windows，且没有 stop/cleanup 命令。
+- v0.1.0 已明确豁免空缓存公网传输，且不声明该路径成功；预校验缓存安装已通过。
+
+## Roadmap
+
+参见 [`ROADMAP.md`](ROADMAP.md)。近期重点是收集可复现硬件报告，以及
+改进离线安装与镜像指引。
+
+## 贡献、安全与许可证
+
+提交改动前请阅读 [`CONTRIBUTING.md`](CONTRIBUTING.md)，并选择合适的
+[Issue Form](.github/ISSUE_TEMPLATE)。安全问题请按
+[`SECURITY.md`](SECURITY.md) 私下报告。项目使用 [MIT License](LICENSE)。

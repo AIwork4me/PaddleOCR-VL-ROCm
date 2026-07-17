@@ -12,6 +12,7 @@ from PIL import Image
 from .constants import (
     DEFAULT_MAX_PIXELS,
     DEFAULT_MIN_PIXELS,
+    DEFAULT_VLM_MAX_WORKERS,
     NON_MERGE_LABELS,
 )
 from .content import _normalize_vlm_result, _truncate_repetitive_content
@@ -34,7 +35,7 @@ from .serialize import _result_payload
 from .server import check_openai_compatible_server
 from .table import _convert_otsl_to_html
 from .timing import _covered_seconds
-from .utils import write_json
+from .utils import write_json, write_text_lf
 from .vlm.client import LlamaCppClient, _load_vlm_compat_cache, _prompt_for_label
 
 
@@ -56,7 +57,7 @@ def run_light_parser(
     compat_cache_path: Path | None = None,
     display_input_path: str | None = None,
     vlm_repeats: int = 1,
-    vlm_max_workers: int = 200,
+    vlm_max_workers: int = DEFAULT_VLM_MAX_WORKERS,
     layout_model: PPDocLayoutV3Onnx | None = None,
     skip_server_check: bool = False,
     vlm_trace_events: list[dict[str, Any]] | None = None,
@@ -279,7 +280,7 @@ def run_light_parser(
     json_path = write_json(output_dir / "result.json", result)
     markdown = _markdown_from_blocks(blocks, width)
     if markdown:
-        (output_dir / "result.md").write_text(markdown, encoding="utf-8")
+        write_text_lf(output_dir / "result.md", markdown)
     finalize_seconds = perf_counter() - finalize_started if timing_enabled else 0.0
     if timing_events is not None:
         timing_events.append(

@@ -303,3 +303,24 @@ the failed page and treats the missing output as empty for scoring.
 Any second or different failure is rejected. G3 accuracy and G4 performance remain pending.
 CI validates this integration offline and never downloads datasets/models or
 contacts a server.
+
+Public score, coverage, aggregation, provenance, and gate claims are maintained
+in [`docs/benchmarks/omnidocbench-v1.6.md`](../docs/benchmarks/omnidocbench-v1.6.md).
+This guide explains how to run the tooling; it is not an independent source of
+current release numbers.
+
+## G4 performance acceptance
+
+G4 uses the tracked [`g4-v1.6-samples.json`](g4-v1.6-samples.json): three
+deterministically selected pages from each of nine primary document-source
+categories. The manifest binds the OmniDocBench JSON and every image by
+SHA-256. `scripts/run_g4_benchmark.py` performs one warm-up page followed by
+the frozen 27-page corpus with cache disabled, compares every Markdown output
+against the accepted Lightweight baseline, and writes:
+
+- `g4-run-artifact.json` with per-page and stage timings plus runtime hashes;
+- `g4-decision.json` from the fail-closed `eval.g4_performance` validator;
+- `g4-receipt.json` binding the manifest, artifact, and decision.
+
+Acceptance requires zero failures, byte-identical outputs, mean latency at most
+13.00 seconds/page, and nearest-rank P95 at most 34.82 seconds/page.

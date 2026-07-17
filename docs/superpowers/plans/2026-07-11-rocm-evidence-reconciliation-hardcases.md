@@ -42,8 +42,8 @@
 - Modify: `README.zh-CN.md`
 
 **Interfaces:**
-- Consumes: `C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_metric_result.json`
-- Consumes: `C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_run_summary.json`
+- Consumes: `<omnidocbench-worktree>\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_metric_result.json`
+- Consumes: `<omnidocbench-worktree>\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_run_summary.json`
 - Produces: a tracked provenance record that explains which local score row is current and which artifacts are historical.
 
 - [ ] **Step 1: Inspect artifact sizes and copied values**
@@ -51,8 +51,8 @@
 Run:
 
 ```powershell
-Get-Item C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_metric_result.json
-Get-Item C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_run_summary.json
+Get-Item <omnidocbench-worktree>\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_metric_result.json
+Get-Item <omnidocbench-worktree>\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_run_summary.json
 ```
 
 Expected: both files are small enough for review (`metric_result` about 16 KB, `run_summary` about 10 KB).
@@ -63,11 +63,11 @@ Run:
 
 ```powershell
 Copy-Item `
-  C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_metric_result.json `
+  <omnidocbench-worktree>\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_metric_result.json `
   results\omnidocbench\v16\paddleocrvl_rocm_cdm_quick_match_metric_result_windows_native_2026-07-11.json
 
 Copy-Item `
-  C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_run_summary.json `
+  <omnidocbench-worktree>\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_run_summary.json `
   results\omnidocbench\v16\paddleocrvl_rocm_cdm_quick_match_run_summary_windows_native_2026-07-11.json
 ```
 
@@ -309,7 +309,7 @@ If the following file exists, run:
 
 ```powershell
 python scripts/analyze_formula_cdm_cases.py `
-  --per-sample-cdm C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_display_formula_per_sample_CDM.json `
+  --per-sample-cdm <omnidocbench-worktree>\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_display_formula_per_sample_CDM.json `
   --threshold 0.8 `
   --out docs\formula-cdm-rocm-hardcase-summary-2026-07-11.json
 ```

@@ -78,7 +78,7 @@
           "status": "failed: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}}",
           "seconds": 76.13,
           "attempts": 2,
-          "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\rocm\\Desktop\\PaddleOCR-VL-ROCm\\eval\\PaddleOCRVLROCm_img2md.py\", line 345, in run_official_folder\n    result = pipeline.predict(str(img))\n  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddleocr\\_pipelines\\paddleocr_vl.py\", line 186, in predict\n    return list(\n        self.predict_iter(\n    ...<25 lines>...\n        )\n    )\n  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddlex\\inference\\pipelines\\_parallel.py\", line 161, in predict\n    yield from self._pipeline.predict(\n    ...<3 lines>...\n    )\n  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddlex\\inference\\pipelines\\paddleocr_vl\\pipeline.py\", line 1179, in predict\n    raise RuntimeError(\n        f\"Exception from the '{item[1]}' worker: {item[2]}\"\n    )\nRuntimeError: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}}\n"
+          "traceback": "Traceback (most recent call last):\n  File \"<repo>\\eval\\PaddleOCRVLROCm_img2md.py\", line 345, in run_official_folder\n    result = pipeline.predict(str(img))\n  File \"<python-env>\\Lib\\site-packages\\paddleocr\\_pipelines\\paddleocr_vl.py\", line 186, in predict\n    return list(\n        self.predict_iter(\n    ...<25 lines>...\n        )\n    )\n  File \"<python-env>\\Lib\\site-packages\\paddlex\\inference\\pipelines\\_parallel.py\", line 161, in predict\n    yield from self._pipeline.predict(\n    ...<3 lines>...\n    )\n  File \"<python-env>\\Lib\\site-packages\\paddlex\\inference\\pipelines\\paddleocr_vl\\pipeline.py\", line 1179, in predict\n    raise RuntimeError(\n        f\"Exception from the '{item[1]}' worker: {item[2]}\"\n    )\nRuntimeError: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}}\n"
         }
       ]
     },
@@ -112,19 +112,19 @@
       "evidence": [
         "[2026-07-10T23:36:01] newspaper_The Times UK_0801@magazinesclubnew_page_031.png: Exception from the 'vlm' worker: Error code: 500 - {'error': {'code': 500, 'message': 'The model produced output that does not match the expected peg-native format', 'type': 'server_error'}} (attempts=2)",
         "Traceback (most recent call last):",
-        "  File \"C:\\Users\\rocm\\Desktop\\PaddleOCR-VL-ROCm\\eval\\PaddleOCRVLROCm_img2md.py\", line 345, in run_official_folder",
+        "  File \"<repo>\\eval\\PaddleOCRVLROCm_img2md.py\", line 345, in run_official_folder",
         "    result = pipeline.predict(str(img))",
-        "  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddleocr\\_pipelines\\paddleocr_vl.py\", line 186, in predict",
+        "  File \"<python-env>\\Lib\\site-packages\\paddleocr\\_pipelines\\paddleocr_vl.py\", line 186, in predict",
         "    return list(",
         "        self.predict_iter(",
         "    ...<25 lines>...",
         "        )",
         "    )",
-        "  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddlex\\inference\\pipelines\\_parallel.py\", line 161, in predict",
+        "  File \"<python-env>\\Lib\\site-packages\\paddlex\\inference\\pipelines\\_parallel.py\", line 161, in predict",
         "    yield from self._pipeline.predict(",
         "    ...<3 lines>...",
         "    )",
-        "  File \"C:\\Users\\rocm\\miniconda3\\Lib\\site-packages\\paddlex\\inference\\pipelines\\paddleocr_vl\\pipeline.py\", line 1179, in predict",
+        "  File \"<python-env>\\Lib\\site-packages\\paddlex\\inference\\pipelines\\paddleocr_vl\\pipeline.py\", line 1179, in predict",
         "    raise RuntimeError(",
         "        f\"Exception from the '{item[1]}' worker: {item[2]}\"",
         "    )",

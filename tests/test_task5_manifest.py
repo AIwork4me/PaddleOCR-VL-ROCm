@@ -12,6 +12,7 @@ import pytest
 import eval.task5_manifest as task5_manifest
 from eval.artifact_utils import sha256_file
 from eval.task5_manifest import (
+    APPROVED_G0_RECEIPT_SHA256,
     OFFICIAL_OUTPUTS,
     build_task5_manifest,
     snapshot_sealed_g0,
@@ -143,6 +144,10 @@ def test_manifest_binds_receipt_r7_manifest_and_six_outputs(tmp_path: Path) -> N
 
 def test_official_output_digest_contract_is_exact() -> None:
     assert PRODUCTION_OUTPUT_DIGESTS == EXPECTED_AUTHORIZED_OUTPUT_DIGESTS
+
+
+def test_approved_receipt_digest_matches_windows_and_linux_checkout_bytes() -> None:
+    assert sha256_file(G0_RECEIPT) == APPROVED_G0_RECEIPT_SHA256
 
 
 def test_manifest_rejects_task5_outside_exact_r7_child(tmp_path: Path) -> None:

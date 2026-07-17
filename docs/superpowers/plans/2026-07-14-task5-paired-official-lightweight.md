@@ -10,8 +10,8 @@
 
 ## Global Constraints
 
-- Work only in `C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm\.worktrees\top-tier-quality` on `codex/top-tier-quality`.
-- Preserve every existing byte under `C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-14-official-r7-score-recovery-py310` except new files below its `task5/` child.
+- Work only in `<repo>\.worktrees\top-tier-quality` on `codex/top-tier-quality`.
+- Preserve every existing byte under `<evidence-root>\v16-2026-07-14-official-r7-score-recovery-py310` except new files below its `task5/` child.
 - Bind tracked G0 receipt SHA-256 `d0b7fcbe389e03439b5ba65126008fa5ee828a59e358ae0347c5bb6a51648a04` and the six r7 Official output hashes from `docs/releases/0.1.0-g0-evidence.md`.
 - Use OmniDocBench v1.6 only; v1.7 must not enter configs, thresholds, tables, or claims.
 - Score all 1,651 GT pages. Pair exactly the 1,650 successful Official pages; the sole approved issue #18248 `peg-native` page is excluded only from equivalence pairing.
@@ -496,7 +496,7 @@ Then run the first v1.6 dataset page through evidence-mode profiling using the
 same r7-bound dataset/layout artifacts and validate the generated profile:
 
 ```powershell
-$R7 = 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-14-official-r7-score-recovery-py310'
+$R7 = '<evidence-root>\v16-2026-07-14-official-r7-score-recovery-py310'
 $Manifest = Get-Content -Raw "$R7\manifest.json" | ConvertFrom-Json
 $DatasetDir = Split-Path -Parent $Manifest.inputs.dataset.path
 $LayoutDir = Split-Path -Parent $Manifest.inputs.layout_model.path
@@ -698,7 +698,7 @@ param(
   [Parameter(Mandatory=$true)][string]$R7Root,
   [Parameter(Mandatory=$true)][ValidatePattern('^[a-z0-9][a-z0-9-]{0,63}$')][string]$AttemptId,
   [string]$PythonExe = ".\.venv\Scripts\python.exe",
-  [string]$ScorerPythonExe = "C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-scorer-v16-py310\Scripts\python.exe",
+  [string]$ScorerPythonExe = "<scorer-python>\Scripts\python.exe",
   [string]$ServerUrl = "http://127.0.0.1:8111/v1"
 )
 $Task5Root = Join-Path (Resolve-Path -LiteralPath $R7Root) "task5"
@@ -838,7 +838,7 @@ focused fix commit. Repeat full verification after the last fix.
 ### Task 7: Execute the real paired v1.6 run and seal Task 5 evidence
 
 **Files:**
-- Generate untracked external evidence: `C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-14-official-r7-score-recovery-py310\task5\**`
+- Generate untracked external evidence: `<evidence-root>\v16-2026-07-14-official-r7-score-recovery-py310\task5\**`
 - No repository files change during inference/scoring.
 
 **Interfaces:**
@@ -848,7 +848,7 @@ focused fix commit. Repeat full verification after the last fix.
 - [ ] **Step 1: Record exact pre-run state**
 
 ```powershell
-$R7 = 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-14-official-r7-score-recovery-py310'
+$R7 = '<evidence-root>\v16-2026-07-14-official-r7-score-recovery-py310'
 $Attempt = 'task5-20260714-paired-a1'
 git rev-parse HEAD
 git status --short
@@ -940,7 +940,7 @@ actual verdicts; never replace `UNKNOWN`/`FAIL` with a similarity claim.
 - Modify: `results/omnidocbench/v16/README.md`
 - Modify: `README.md`
 - Modify: `README.zh-CN.md`
-- Modify: `C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm\.superpowers\sdd\progress.md`
+- Modify: `<repo>\.superpowers\sdd\progress.md`
 
 **Interfaces:**
 - Consumes only the validated Task 5 receipt and its allowlisted small reports.
@@ -949,7 +949,7 @@ actual verdicts; never replace `UNKNOWN`/`FAIL` with a similarity claim.
 - [ ] **Step 1: Copy only allowlisted compact artifacts**
 
 ```powershell
-$Source = 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-14-official-r7-score-recovery-py310\task5'
+$Source = '<evidence-root>\v16-2026-07-14-official-r7-score-recovery-py310\task5'
 $Dest = 'results\omnidocbench\v16\task5'
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 Copy-Item -LiteralPath "$Source\comparison\decision.json" -Destination "$Dest\decision.json"

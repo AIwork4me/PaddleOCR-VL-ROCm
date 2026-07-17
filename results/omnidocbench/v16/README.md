@@ -1,51 +1,45 @@
-# OmniDocBench v1.6 Local Evidence
+# OmniDocBench v1.6 Local Evidence Index
 
-All artifacts in this directory are local Windows + AMD + llama.cpp/GGUF
-measurements. They are not Linux vLLM/BF16 reference-path measurements.
+The authoritative score, coverage, aggregation, provenance, and gate
+interpretation is maintained in the
+[OmniDocBench v1.6 benchmark fact sheet](../../../docs/benchmarks/omnidocbench-v1.6.md).
+Do not construct a public score by mixing values from different files in this
+directory.
 
-## Current ROCm Lightweight/Local Evidence
+The accepted G3 Overall is **95.99**. Its acceptance source is the tracked
+[G3 maintainer attestation](../../../docs/releases/0.1.0-g3-attestation.md),
+which records PaddleOCR's out-of-band confirmation and the maintainer's waiver
+of another full run. It is not reconstructed from the historical files in this
+directory.
 
-| Artifact | Source | Notes |
+## Tracked artifacts
+
+| Artifact family | Purpose | Release status |
 |---|---|---|
-| `paddleocrvl_rocm_cdm_quick_match_metric_result_windows_native_2026-07-11.json` | `omnidocbench-amd-windows` Windows-native CDM run | Current local ROCm CDM evidence for `predictions/paddleocrvl_rocm_cdm` |
-| `paddleocrvl_rocm_cdm_quick_match_run_summary_windows_native_2026-07-11.json` | same run | Records 1651 pages, 2352 CDM samples, 0 CDM errors/exceptions |
+| `paddleocrvl_rocm_cdm_*_windows_native_2026-07-11.json` | Historical Windows-native lightweight metric and environment evidence | Historical only; incomplete provenance; not G3 |
+| `paddleocr_official_local_llamacpp_gguf_*` | Historical official-local metrics, summaries, provenance, and failure diagnostics | Historical only; not the r7 G0 output set |
+| Other `paddleocrvl_rocm_*` files | Earlier comparisons and hard-case diagnostics | Diagnostic only |
 
-## Score Aggregation Conventions
+The independently reviewed official-local r7 outputs remain external. Their
+SHA-256 identities and scoring interpretation are bound by the
+[tracked G0 receipt](../../../docs/releases/0.1.0-g0-evidence.md).
 
-The dated Windows-native 2026-07-11 artifacts contain two valid score views
-with different aggregation conventions. Under the OmniDocBench official
-leaderboard/notebook convention, each Overall component is rounded to three
-decimals first. Historical lightweight values are Text Edit-distance **0.034**,
-Table TEDS **94.322**, Formula CDM **96.922**, and Overall **95.9480**. The
-historical official-local comparison is Text **0.034**, Table **94.239**,
-Formula **96.502**, and Overall **95.7803**. Reading-order Edit-distance
-**0.128238** is reported separately and does not enter Overall.
+## Scoring rule
 
-These are reconstructed historical values, not fresh release evidence. See
-`docs/accuracy-root-cause-v16.md` for provenance. The official path has 1,650
-successful pages plus one project-approved known `peg-native` failure linked to
-PaddleOCR issue #18248. Scoring retains all 1,651 GT pages and treats that page
-as an empty prediction.
+The formal denominator is all 1,651 GT pages. The approved official-local
+contract contains 1,650 successful predictions and one approved failed page
+with no prediction file. The scorer retains that page and treats the missing
+output as empty.
 
-## Fresh Official-Local r7 G0 Evidence
+A 1,650-page paired equivalence analysis is a separate diagnostic operation,
+not an accuracy scoring exclusion.
 
-The independently reviewed score-only r7 recovery reports Text Edit-distance
-**0.035**, Formula CDM **96.485%**, Table TEDS **94.244%**, and Overall
-**95.743** under three-decimal component rounding, with reading order excluded.
-It authenticates and reuses the immutable r5 inference source; r7 did not rerun
-inference. See the [tracked G0 evidence receipt](../../../docs/releases/0.1.0-g0-evidence.md),
-SHA-256 `d0b7fcbe389e03439b5ba65126008fa5ee828a59e358ae0347c5bb6a51648a04`, produced from commit
-`fd91cb0a2d75b0a18d16b1bb34652a148cb59b9e`.
+## Handling
 
-This is fresh official-local G0 integrity evidence. It is not a Lightweight/G3
-score and is not a Linux reference score.
-
-The lower-level raw all-values from `metric_result` are retained for audit:
-Table TEDS **93.1345** and Formula CDM **96.7129**. These values are not
-contradictory; always name the artifact and convention when comparing scores.
-
-## Historical Artifacts
-
-Existing `paddleocrvl_rocm_*` and `paddleocr_official_local_llamacpp_gguf_*`
-artifacts are retained for comparison. Do not mix score rows unless prediction
-directory, adapter version, config, and CDM environment are explicitly named.
+- Preserve historical failures and raw metric fields.
+- Redact machine-local user paths without changing metric values.
+- Name the exact artifact and aggregation convention when quoting a number.
+- Do not treat a commit message, README row, or partial CDM comparison as a
+  benchmark artifact.
+- Do not commit datasets, full predictions, private documents, credentials, or
+  unredacted logs.

@@ -1,4 +1,4 @@
-﻿# Task 3 Report
+# Task 3 Report
 
 Status: DONE_WITH_CONCERNS
 
@@ -20,7 +20,7 @@ Task 3 produced an evidence report from the checked-in scalar Formula CDM hard-c
 
 ## Verification Commands and Results
 
-- `python scripts/analyze_formula_cdm_cases.py --per-sample-cdm C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_display_formula_per_sample_CDM.json --threshold 0.8 --out docs\formula-cdm-rocm-hardcase-summary-2026-07-11.json`: PASS; regenerated the checked-in scalar summary from the real source.
+- `python scripts/analyze_formula_cdm_cases.py --per-sample-cdm <omnidocbench-worktree>\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_display_formula_per_sample_CDM.json --threshold 0.8 --out docs\formula-cdm-rocm-hardcase-summary-2026-07-11.json`: PASS; regenerated the checked-in scalar summary from the real source.
 - `python -m pytest tests/test_formula_cdm_case_analysis.py -q`: PASS; 3 tests passed.
 - `python -m pytest -q`: PASS; 61 tests passed.
 - PowerShell summary schema/count check: PASS; verified `count=2352`, `below_threshold_count=93`, `zero_count=17`, and scalar `page`/`sample_id`/`cdm` fields.

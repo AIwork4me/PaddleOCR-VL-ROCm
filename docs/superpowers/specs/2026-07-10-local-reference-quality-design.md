@@ -7,7 +7,7 @@
 ## 1. Background
 
 OmniDocBench v1.6 is already configured and validated locally in
-`C:\Users\rocm\Desktop\omnidocbench-amd-windows`. That companion repository
+`<omnidocbench-worktree>`. That companion repository
 contains the latest evidence for PaddleOCR-VL-1.6 on this machine:
 
 - The lightweight PaddleOCR-VL-ROCm path is strong on text, reading order, and
