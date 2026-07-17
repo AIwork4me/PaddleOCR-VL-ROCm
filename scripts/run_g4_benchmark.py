@@ -84,16 +84,16 @@ def main() -> int:
     _copy_samples(samples[:1], args.images_dir, warmup_inputs)
     adapter = _adapter_module()
     adapter.run_lightweight_folder(
-        warmup_inputs,
-        root / "warmup-output",
+        img_dir=warmup_inputs,
+        out_dir=root / "warmup-output",
         layout_model=str(args.layout_model),
         server_url=args.server_url,
         api_model_name=args.api_model_name,
     )
     start = time.perf_counter()
     summary = adapter.run_lightweight_folder(
-        inputs,
-        root / "outputs",
+        img_dir=inputs,
+        out_dir=root / "outputs",
         layout_model=str(args.layout_model),
         server_url=args.server_url,
         api_model_name=args.api_model_name,
