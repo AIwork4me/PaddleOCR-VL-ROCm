@@ -17,13 +17,14 @@
 
 [English documentation](README.md)
 
-> 发布状态：**v0.1.1 已就绪（READY）**；**G3 精度已 PASS**，
+> 发布状态：**v0.1.1 已发布（RELEASED）**；**G3 精度已 PASS**，
 > 验收 Overall 为 **95.99**。PaddleOCR 已在线下确认该结果，项目 Maintainer
 > 于 2026-07-17 决定无需再次全量运行。**G4 已 PASS**（均值 6.33 秒/页、
 > P95 19.54 秒），**G5 已在记录公网传输豁免后 PASS**。详见
 > [G3 Maintainer 验收记录](docs/releases/0.1.0-g3-attestation.md)和
 > [G5 Maintainer 验收记录](docs/releases/0.1.0-g5-attestation.md)，以及
-> [v0.1.1 补丁发布契约](docs/releases/0.1.1-release.md)。
+> [v0.1.1 补丁发布契约](docs/releases/0.1.1-release.md)和
+> [发布收尾记录](docs/releases/0.1.1-closeout.md)。
 
 | 指标 | PaddleOCR-VL（论文） | PaddleOCR-VL-ROCm（已验收） |
 |---:|---:|---:|

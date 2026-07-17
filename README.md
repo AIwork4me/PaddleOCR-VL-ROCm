@@ -18,14 +18,15 @@ Image
 
 [中文文档](README.zh-CN.md)
 
-> Release status: **v0.1.1 is READY**; **G3 accuracy is PASS** at
+> Release status: **v0.1.1 is RELEASED**; **G3 accuracy is PASS** at
 > **Overall 95.99**. PaddleOCR confirmed the result out of band, and the project
 > maintainer accepted it without another full run on 2026-07-17. **G4 is PASS**
 > at mean 6.33 seconds/page and P95 19.54; **G5 is PASS** under the documented
 > public-network transport waiver. See the
 > [G3 maintainer attestation](docs/releases/0.1.0-g3-attestation.md) and
 > [G5 maintainer attestation](docs/releases/0.1.0-g5-attestation.md), plus the
-> [v0.1.1 patch release contract](docs/releases/0.1.1-release.md).
+> [v0.1.1 patch release contract](docs/releases/0.1.1-release.md) and
+> [publication closeout](docs/releases/0.1.1-closeout.md).
 
 | Metric | PaddleOCR-VL (paper) | PaddleOCR-VL-ROCm (accepted) |
 |---:|---:|---:|

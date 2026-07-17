@@ -30,6 +30,7 @@ G5_ATTESTATION = ROOT / "docs" / "releases" / "0.1.0-g5-attestation.md"
 G5_CLOSEOUT = ROOT / "docs" / "releases" / "0.1.0-g5-closeout.md"
 PUBLICATION_HANDOFF = ROOT / "docs" / "releases" / "0.1.0-handoff.md"
 PATCH_RELEASE = ROOT / "docs" / "releases" / "0.1.1-release.md"
+PATCH_CLOSEOUT = ROOT / "docs" / "releases" / "0.1.1-closeout.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 PYPROJECT = ROOT / "pyproject.toml"
 
@@ -83,13 +84,16 @@ def test_patch_release_aligns_version_docs_without_rewriting_v010() -> None:
     chinese = _read(README_ZH)
     changelog = _read(CHANGELOG)
     contract = re.sub(r"\s+", " ", _read(PATCH_RELEASE))
+    closeout = re.sub(r"\s+", " ", _read(PATCH_CLOSEOUT))
 
     assert metadata["version"] == "0.1.1"
-    assert "v0.1.1 is READY" in english
-    assert "v0.1.1 已就绪" in chinese
+    assert "v0.1.1 is RELEASED" in english
+    assert "v0.1.1 已发布" in chinese
+    assert "docs/releases/0.1.1-closeout.md" in english
+    assert "docs/releases/0.1.1-closeout.md" in chinese
     assert "## 0.1.1 - 2026-07-17" in changelog
     for value in (
-        "Status: **READY**",
+        "Status: **CLOSED**",
         "evidence-alignment patch release",
         "no inference, scoring, runtime, model, resource-manifest, or public API",
         "v0.1.0 tag and Release remain unchanged",
@@ -98,6 +102,14 @@ def test_patch_release_aligns_version_docs_without_rewriting_v010() -> None:
         "does not claim a successful empty-cache public-network",
     ):
         assert value in contract
+    for value in (
+        "Status: **CLOSED**",
+        "5a52e8331b25c7684fc586b4de4dc8106070555a",
+        "c843ff7615a7958ded06b275ba4c2b91ca35b082a6f464b5437762a2b9b39bec",
+        "9585b42ba03d08703673bd8135fd666ca8acfcf2e7911151276dfe07cff2c40e",
+        "There is no remaining unwaived v0.1.1",
+    ):
+        assert value in closeout
 
 
 def test_bilingual_readmes_have_both_four_command_journeys() -> None:
