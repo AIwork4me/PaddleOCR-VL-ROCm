@@ -4,10 +4,14 @@ import subprocess
 from pathlib import Path
 
 import pytest
-import tomllib
 import yaml
 
 from eval.release_contract import KNOWN_V16_OFFICIAL_FAILURE
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 
 ROOT = Path(__file__).parents[1]
 README_EN = ROOT / "README.md"
