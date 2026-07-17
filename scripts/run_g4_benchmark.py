@@ -8,9 +8,12 @@ import json
 import platform
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from eval.artifact_utils import sha256_file
 from eval.g4_performance import build_receipt, decide_g4, verify_sample_files
