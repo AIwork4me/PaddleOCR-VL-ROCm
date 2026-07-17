@@ -20,7 +20,7 @@ Image
 
 > Release status: **v0.1.0 is BLOCKED**, but **G3 accuracy is PASS** at
 > **Overall 95.99**. PaddleOCR confirmed the result out of band, and the project
-> maintainer accepted it without another full run on 2026-07-17. G2, G4, and G5
+> maintainer accepted it without another full run on 2026-07-17. G4 and G5
 > remain blocked. See the
 > [G3 maintainer attestation](docs/releases/0.1.0-g3-attestation.md) and
 > [OmniDocBench v1.6 fact sheet](docs/benchmarks/omnidocbench-v1.6.md).
@@ -205,7 +205,7 @@ unverified artifact.
 
 ## Known limitations
 
-- v0.1.0 is not release-ready; G2, G4, and G5 are blocked. G3 is PASS.
+- v0.1.0 is not release-ready; G4 and G5 are blocked. G3 is PASS.
 - Only one Windows AMD machine has project-recorded smoke validation.
 - The 27-page timing claim previously shown here has no tracked raw timing
   artifact and is therefore withdrawn as a public performance conclusion.
@@ -215,9 +215,9 @@ unverified artifact.
 
 ## Roadmap
 
-See [`ROADMAP.md`](ROADMAP.md). Near-term priorities are closing G2, an
-artifact-backed G4 benchmark, reproducible hardware reports, and complete
-clean-network onboarding.
+See [`ROADMAP.md`](ROADMAP.md). Near-term priorities are an artifact-backed G4
+benchmark, reproducible hardware reports, and complete clean-network
+onboarding.
 
 ## Contributing, security, and license
 

@@ -5,7 +5,6 @@ not by feature count.
 
 ## Before v0.1.0
 
-- Close G2 with authenticated same-boundary oracle evidence.
 - Preserve the accepted G3 Overall 95.99 contract and its
   [maintainer attestation](docs/releases/0.1.0-g3-attestation.md).
 - Run an artifact-backed G4 benchmark on the G3-accepted configuration, reporting

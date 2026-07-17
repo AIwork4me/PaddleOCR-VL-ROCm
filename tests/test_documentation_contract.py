@@ -11,6 +11,7 @@ from eval.release_contract import KNOWN_V16_OFFICIAL_FAILURE
 ROOT = Path(__file__).parents[1]
 README_EN = ROOT / "README.md"
 README_ZH = ROOT / "README.zh-CN.md"
+ROADMAP = ROOT / "ROADMAP.md"
 EVAL_README = ROOT / "eval" / "README.md"
 EVIDENCE_README = ROOT / "results" / "omnidocbench" / "v16" / "README.md"
 BENCHMARK_FACTS = ROOT / "docs" / "benchmarks" / "omnidocbench-v1.6.md"
@@ -196,12 +197,11 @@ def test_release_readiness_fails_closed_until_all_gates_pass() -> None:
     text = _read(RELEASE_READINESS)
 
     assert "Status: BLOCKED" in text
-    for gate in ("G0", "G1", "G2", "G3", "G4", "G5"):
+    for gate in ("G0", "G1", "G3", "G4", "G5"):
         assert gate in text
     for evidence in (
         "1,650 successes",
         "1,651 GT pages",
-        "20/20",
         "95.99",
         "0.1.0-g3-attestation.md",
         "13.00",
@@ -255,9 +255,10 @@ def test_g0_readiness_binds_independently_reviewed_r7_receipt() -> None:
     assert "Audit date: 2026-07-17" in readiness
     assert re.search(r"\| G0 evidence integrity \| PASS \|", readiness)
     assert "Status: BLOCKED" in readiness
-    for gate in ("G2", "G4", "G5"):
+    for gate in ("G4", "G5"):
         assert re.search(rf"\| {gate} .* \| BLOCKED \|", readiness)
     assert re.search(r"\| G3 accuracy acceptance \| PASS \|", readiness)
+    assert not re.search(r"\| G2 .* \|", readiness)
     for text in (readiness, evidence_index):
         assert "0.1.0-g0-evidence.md" in text
     assert receipt_sha256 in readiness
@@ -298,9 +299,16 @@ def test_g3_attestation_records_manual_acceptance_scope() -> None:
         "confirmed the 95.99 result out of band",
         "waives both a public confirmation artifact and another full benchmark run",
         "does not claim",
-        "G2, G4, or G5",
+        "G4 or G5",
     ):
         assert value in text
+
+
+def test_g2_is_not_an_active_release_gate() -> None:
+    for path in (README_EN, README_ZH, ROADMAP, RELEASE_READINESS, BENCHMARK_FACTS):
+        text = _read(path)
+        assert not re.search(r"\| G2 .* \|", text)
+    assert "G2 root-cause diagnosis is not a release gate" in _read(BENCHMARK_FACTS)
 
 
 def test_compatibility_matrix_separates_pipeline_components_and_evidence_levels() -> None:

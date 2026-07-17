@@ -19,7 +19,7 @@
 
 > 发布状态：**v0.1.0 仍处于 BLOCKED**，但 **G3 精度已 PASS**，
 > 验收 Overall 为 **95.99**。PaddleOCR 已在线下确认该结果，项目 Maintainer
-> 于 2026-07-17 决定无需再次全量运行。G2、G4、G5 仍为 BLOCKED。详见
+> 于 2026-07-17 决定无需再次全量运行。G4、G5 仍为 BLOCKED。详见
 > [G3 Maintainer 验收记录](docs/releases/0.1.0-g3-attestation.md)和
 > [OmniDocBench v1.6 事实表](docs/benchmarks/omnidocbench-v1.6.md)。
 
@@ -192,7 +192,7 @@ OmniDocBench checkout，说明推理/评分阶段，并拒绝不完整的发布 
 
 ## 已知限制
 
-- v0.1.0 尚未达到发布条件；G2、G4、G5 为 BLOCKED，G3 已 PASS。
+- v0.1.0 尚未达到发布条件；G4、G5 为 BLOCKED，G3 已 PASS。
 - 项目只记录了一台 Windows AMD 机器的冒烟验证。
 - README 曾展示的 27 页性能结论没有仓库内原始 timing artifact，因此已撤回，
   不再作为公开性能结论。
@@ -201,8 +201,8 @@ OmniDocBench checkout，说明推理/评分阶段，并拒绝不完整的发布 
 
 ## Roadmap
 
-参见 [`ROADMAP.md`](ROADMAP.md)。近期重点是关闭 G2、完成由 artifact 支撑的
-G4 benchmark、收集可复现硬件报告，以及完成全新网络安装验证。
+参见 [`ROADMAP.md`](ROADMAP.md)。近期重点是完成由 artifact 支撑的 G4
+benchmark、收集可复现硬件报告，以及完成全新网络安装验证。
 
 ## 贡献、安全与许可证
 

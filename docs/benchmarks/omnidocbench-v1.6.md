@@ -78,7 +78,7 @@ confirms the score.
 | Repeat full run | Waived by the project maintainer |
 | Failed page | The single `peg-native` failure linked above |
 | Evidence class | Maintainer attestation; not an independently reproducible raw-score artifact |
-| Scope | G3 only; no effect on G2, G4, or G5 |
+| Scope | G3 only; no effect on G4 or G5 |
 
 ### Historical lightweight record
 
@@ -152,9 +152,10 @@ hardware/runtime provenance, and output-equivalence checks.
 |---|---|---|
 | G0 evidence integrity | PASS | Authenticated by the tracked r7 receipt |
 | G1 compatibility contract | PASS | Covered by committed CLI/API/output tests |
-| G2 root-cause diagnosis | BLOCKED | Same-boundary oracle evidence is incomplete |
 | G3 accuracy | PASS | Maintainer accepted the PaddleOCR-confirmed Overall 95.99 result and waived another full run |
 | G4 performance | BLOCKED | No artifact-backed benchmark on a G3-accepted manifest |
-| G5 launch | BLOCKED | Clean-network onboarding and G0-G4 release evidence remain incomplete |
+| G5 launch | BLOCKED | Clean-network onboarding and the remaining prerequisite evidence are incomplete |
+
+G2 root-cause diagnosis is not a release gate for this adaptation project.
 
 These statuses do not authorize a release, tag, or GitHub Release publication.
