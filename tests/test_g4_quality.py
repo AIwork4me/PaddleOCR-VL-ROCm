@@ -4,7 +4,7 @@ import hashlib
 
 import pytest
 
-from eval.g4_quality import decide_g4_quality
+from eval.g4_quality import build_quality_receipt, decide_g4_quality
 
 
 def digest(value: str) -> str:
@@ -148,3 +148,23 @@ def test_g4_quality_requires_at_least_one_scored_page() -> None:
     row["candidate_normalized_sha256"] = row["reference_normalized_sha256"]
     row["metrics"] = {}
     assert decide_g4_quality(sample_manifest, run)["g4_quality"] is False
+
+
+def test_g4_quality_receipt_binds_exact_inputs(tmp_path) -> None:
+    names = {
+        "sample_manifest",
+        "performance_artifact",
+        "quality_artifact",
+        "quality_decision",
+        "scorer_contract",
+        "subset_gt",
+    }
+    paths = {}
+    for name in names:
+        path = tmp_path / f"{name}.json"
+        path.write_text(name, encoding="utf-8")
+        paths[name] = path
+    receipt = build_quality_receipt(paths)
+    assert set(receipt["files"]) == names  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="exact evidence set"):
+        build_quality_receipt({"quality_artifact": paths["quality_artifact"]})

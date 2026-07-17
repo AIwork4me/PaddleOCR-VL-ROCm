@@ -5,7 +5,9 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Mapping
+from pathlib import Path
 
+from eval.artifact_utils import sha256_file
 from eval.g4_performance import EXPECTED_PAGES, validate_sample_manifest
 
 SCHEMA = 1
@@ -17,6 +19,14 @@ LOWER_IS_BETTER = {
 }
 HIGHER_IS_BETTER = {"cdm", "teds", "teds_structure_only"}
 METRICS = LOWER_IS_BETTER | HIGHER_IS_BETTER
+QUALITY_RECEIPT_FILES = {
+    "sample_manifest",
+    "performance_artifact",
+    "quality_artifact",
+    "quality_decision",
+    "scorer_contract",
+    "subset_gt",
+}
 
 
 def _hash(value: object, name: str) -> str:
@@ -173,3 +183,19 @@ def decide_g4_quality(
         "compared_metrics": compared_metrics,
         "regressions": regressions,
     }
+
+
+def build_quality_receipt(paths: Mapping[str, Path]) -> dict[str, object]:
+    """Bind the exact targeted quality evidence set without following symlinks."""
+    if set(paths) != QUALITY_RECEIPT_FILES:
+        raise ValueError("G4 quality receipt requires the exact evidence set")
+    files: dict[str, object] = {}
+    for name, path in sorted(paths.items()):
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(f"G4 quality receipt input is missing or unsafe: {name}")
+        files[name] = {
+            "path": path.name,
+            "bytes": path.stat().st_size,
+            "sha256": sha256_file(path),
+        }
+    return {"schema": SCHEMA, "files": files}

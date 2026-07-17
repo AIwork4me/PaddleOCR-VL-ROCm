@@ -16,8 +16,8 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from eval.artifact_utils import sha256_file
-from eval.g4_performance import build_receipt, validate_sample_manifest
-from eval.g4_quality import decide_g4_quality
+from eval.g4_performance import validate_sample_manifest
+from eval.g4_quality import build_quality_receipt, decide_g4_quality
 from eval.task5_comparison import normalize_scorer_markdown
 
 
@@ -306,7 +306,7 @@ def main() -> int:
     _write(decision_path, decision)
     _write(
         receipt_path,
-        build_receipt(
+        build_quality_receipt(
             {
                 "sample_manifest": args.manifest,
                 "performance_artifact": args.performance_artifact,
