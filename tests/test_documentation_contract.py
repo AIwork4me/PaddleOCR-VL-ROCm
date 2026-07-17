@@ -21,6 +21,7 @@ RELEASE_READINESS = ROOT / "docs" / "releases" / "0.1.0-readiness.md"
 G0_EVIDENCE = ROOT / "docs" / "releases" / "0.1.0-g0-evidence.md"
 G3_ATTESTATION = ROOT / "docs" / "releases" / "0.1.0-g3-attestation.md"
 WINDOWS_VALIDATION = ROOT / "docs" / "releases" / "0.1.0-windows-validation.md"
+G5_ATTESTATION = ROOT / "docs" / "releases" / "0.1.0-g5-attestation.md"
 
 OMNIDOCBENCH_V16_COMMIT = "147cd5ac9472002f5751221d390bf00abdbc0d2f"
 LAYOUT_HF = "https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx"
@@ -52,7 +53,7 @@ def _assert_quality_ci_contract(workflow: str) -> None:
     assert pytest_step["run"].startswith("python -m pytest -q -m")
 
 
-def test_bilingual_readmes_publish_accepted_g3_without_performance_claims() -> None:
+def test_bilingual_readmes_publish_accepted_release_gates() -> None:
     for path in (README_EN, README_ZH):
         text = _read(path)
         for accepted in ("95.99", "97.36", "94.09"):
@@ -62,7 +63,8 @@ def test_bilingual_readmes_publish_accepted_g3_without_performance_claims() -> N
         assert "docs/benchmarks/omnidocbench-v1.6.md" in text
         assert "docs/releases/0.1.0-g3-attestation.md" in text
         assert "G3" in text and "PASS" in text and "G4" in text
-        assert "BLOCKED" in text
+        assert "G5" in text and "PASS" in text
+        assert "0.1.0-g5-attestation.md" in text
 
 
 def test_bilingual_readmes_have_both_four_command_journeys() -> None:
@@ -193,10 +195,10 @@ def test_ci_contract_rejects_setup_python_fixed_to_313() -> None:
         _assert_quality_ci_contract(workflow)
 
 
-def test_release_readiness_fails_closed_until_all_gates_pass() -> None:
+def test_release_readiness_records_all_gates_passed() -> None:
     text = _read(RELEASE_READINESS)
 
-    assert "Status: BLOCKED" in text
+    assert "Status: READY" in text
     for gate in ("G0", "G1", "G3", "G4", "G5"):
         assert gate in text
     for evidence in (
@@ -208,9 +210,11 @@ def test_release_readiness_fails_closed_until_all_gates_pass() -> None:
         "34.82",
         "gh auth status",
         "does not authorize bypassing any evidence gate",
+        "0.1.0-g5-attestation.md",
+        "public-network",
     ):
         assert evidence in text
-    assert "Do not bump" in text
+    assert "All release gates pass" in text
 
 
 def test_g0_readiness_binds_independently_reviewed_r7_receipt() -> None:
@@ -254,9 +258,9 @@ def test_g0_readiness_binds_independently_reviewed_r7_receipt() -> None:
 
     assert "Audit date: 2026-07-17" in readiness
     assert re.search(r"\| G0 evidence integrity \| PASS \|", readiness)
-    assert "Status: BLOCKED" in readiness
+    assert "Status: READY" in readiness
     assert re.search(r"\| G4 .* \| PASS \|", readiness)
-    assert re.search(r"\| G5 .* \| BLOCKED \|", readiness)
+    assert re.search(r"\| G5 .* \| PASS \|", readiness)
     assert re.search(r"\| G3 accuracy acceptance \| PASS \|", readiness)
     assert not re.search(r"\| G2 .* \|", readiness)
     for text in (readiness, evidence_index):
@@ -300,6 +304,24 @@ def test_g3_attestation_records_manual_acceptance_scope() -> None:
         "waives both a public confirmation artifact and another full benchmark run",
         "does not claim",
         "G4 or G5",
+    ):
+        assert value in text
+
+
+def test_g5_attestation_records_network_waiver_without_false_success() -> None:
+    assert G5_ATTESTATION.is_file()
+    text = re.sub(r"\s+", " ", _read(G5_ATTESTATION))
+    for value in (
+        "G5 PASS",
+        "explicitly waived",
+        "does not call that attempt successful",
+        "verified cache",
+        "managed-server journey",
+        "already-running-server journey",
+        "44 blocks",
+        "wheel",
+        "source distribution",
+        "full test suite passed",
     ):
         assert value in text
 
@@ -353,7 +375,7 @@ def test_tracked_files_do_not_disclose_personal_workspace_paths() -> None:
 
 
 def test_windows_validation_distinguishes_cached_install_from_network_setup() -> None:
-    text = _read(WINDOWS_VALIDATION)
+    text = re.sub(r"\s+", " ", _read(WINDOWS_VALIDATION))
 
     for evidence in (
         "AMD Radeon(TM) 8060S Graphics",
@@ -363,8 +385,10 @@ def test_windows_validation_distinguishes_cached_install_from_network_setup() ->
         "44",
         "8123",
         "pre-verified local cache",
-        "release-assets.githubusercontent.com",
-        "not a clean network-download acceptance",
+        "9,437,184-byte partial file",
+        "explicitly waived empty-cache public-network transport",
+        "non-successful network attempt",
+        "No clean public-network download is claimed",
     ):
         assert evidence in text
 

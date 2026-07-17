@@ -18,12 +18,13 @@ Image
 
 [中文文档](README.zh-CN.md)
 
-> Release status: **v0.1.0 is BLOCKED**, but **G3 accuracy is PASS** at
+> Release status: **v0.1.0 is READY**; **G3 accuracy is PASS** at
 > **Overall 95.99**. PaddleOCR confirmed the result out of band, and the project
 > maintainer accepted it without another full run on 2026-07-17. **G4 is PASS**
-> at mean 6.33 seconds/page and P95 19.54; G5 remains blocked. See the
+> at mean 6.33 seconds/page and P95 19.54; **G5 is PASS** under the documented
+> public-network transport waiver. See the
 > [G3 maintainer attestation](docs/releases/0.1.0-g3-attestation.md) and
-> [OmniDocBench v1.6 fact sheet](docs/benchmarks/omnidocbench-v1.6.md).
+> [G5 maintainer attestation](docs/releases/0.1.0-g5-attestation.md).
 
 | Metric | PaddleOCR-VL (paper) | PaddleOCR-VL-ROCm (accepted) |
 |---:|---:|---:|
@@ -205,19 +206,19 @@ unverified artifact.
 
 ## Known limitations
 
-- v0.1.0 is not release-ready; G5 is blocked. G3 and G4 are PASS.
+- v0.1.0 is release-ready; G0, G1, G3, G4, and G5 are PASS.
 - Only one Windows AMD machine has project-recorded smoke validation.
 - G4 passes latency and a targeted GT accuracy projection. Raw historical
   output equivalence remains false on 8/27 frozen pages and is not claimed. See the
   [G4 diagnostic](docs/releases/0.1.0-g4-diagnostic.md).
 - Managed setup is Windows-only and has no stop/cleanup command.
-- Empty-cache public-network setup has not completed the release acceptance
-  path; verified-cache installation has.
+- Empty-cache public-network transport was explicitly waived for v0.1.0 and is
+  not claimed as successful; verified-cache installation passed.
 
 ## Roadmap
 
 See [`ROADMAP.md`](ROADMAP.md). Near-term priorities are reproducible hardware
-reports and complete clean-network onboarding.
+reports and improved offline/mirror onboarding.
 
 ## Contributing, security, and license
 

@@ -166,8 +166,9 @@ The fail-closed validator is `eval.g4_performance`.
 | G1 compatibility contract | PASS | Covered by committed CLI/API/output tests |
 | G3 accuracy | PASS | Maintainer accepted the PaddleOCR-confirmed Overall 95.99 result and waived another full run |
 | G4 performance | PASS | Mean 6.33 s, P95 19.54 s, 0/27 failures; targeted GT projection preserves Overall 95.99 while explicitly recording raw-output differences |
-| G5 launch | BLOCKED | Clean-network onboarding and the remaining prerequisite evidence are incomplete |
+| G5 launch | PASS | Verified-cache onboarding, both server journeys, fresh package installs, and final audits passed; the maintainer explicitly waived public-network transport |
 
 G2 root-cause diagnosis is not a release gate for this adaptation project.
 
-These statuses do not authorize a release, tag, or GitHub Release publication.
+These statuses establish release readiness; merge, tag, and GitHub Release
+publication remain separately audited operations.
