@@ -5,7 +5,11 @@ labels: [hardware]
 body:
   - type: input
     id: gpu
-    attributes: {label: GPU model}
+    attributes: {label: GPU or APU model}
+    validations: {required: true}
+  - type: input
+    id: memory
+    attributes: {label: Dedicated VRAM or shared memory}
     validations: {required: true}
   - type: input
     id: driver
@@ -16,8 +20,16 @@ body:
     attributes: {label: Windows version and build}
     validations: {required: true}
   - type: input
+    id: hip
+    attributes: {label: HIP runtime version}
+    validations: {required: true}
+  - type: input
+    id: python
+    attributes: {label: Python version}
+    validations: {required: true}
+  - type: input
     id: runtime
-    attributes: {label: llama.cpp version and commit}
+    attributes: {label: llama.cpp build and commit}
     validations: {required: true}
   - type: input
     id: model_hash
@@ -31,6 +43,6 @@ body:
     id: doctor
     attributes:
       label: Redacted doctor JSON
-      description: Paste paddleocr-vl-rocm doctor --json output after removing private paths or identifiers.
+      description: Paste paddleocr-vl-rocm doctor --json output after removing user paths, endpoint credentials, private identifiers, and document data. Never include tokens or unredacted logs.
     validations: {required: true}
 

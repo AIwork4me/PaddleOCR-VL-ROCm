@@ -5,6 +5,7 @@ import sys
 from enum import IntEnum
 from pathlib import Path
 
+from .constants import DEFAULT_VLM_MAX_WORKERS
 from .doctor import _redacted_url, checks_to_json, doctor_exit_code, render_checks, run_doctor
 from .pipeline import PaddleOCRVLROCm
 from .server import check_openai_compatible_server
@@ -58,7 +59,12 @@ def _add_inference_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--threshold", type=float, default=0.3)
-    parser.add_argument("--vlm-max-workers", type=int, default=8)
+    parser.add_argument(
+        "--vlm-max-workers",
+        type=int,
+        default=DEFAULT_VLM_MAX_WORKERS,
+        help=f"Maximum concurrent VLM requests (default: {DEFAULT_VLM_MAX_WORKERS}).",
+    )
     parser.add_argument("--skip-server-check", action="store_true")
 
 

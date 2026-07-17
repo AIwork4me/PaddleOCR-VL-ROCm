@@ -180,6 +180,7 @@ def test_non_310_ci_job_skips_without_explicit_external_interpreter(
 
 def test_complete_exact_scorer_dependency_contract_includes_pylatexenc() -> None:
     module = _load_module()
+    from eval import benchmark_contract
 
     assert module.DIRECT_DISTRIBUTIONS["pylatexenc"] == "2.10"
     assert {"apted", "evaluate", "lxml", "numpy", "pandas", "Pillow", "scipy"} <= set(
@@ -200,15 +201,17 @@ def test_complete_exact_scorer_dependency_contract_includes_pylatexenc() -> None
         )
     }
     assert lock == {name.lower(): version for name, version in module.DIRECT_DISTRIBUTIONS.items()}
-
-    checkout = tomllib.loads(Path("eval/.omnidocbench/pyproject.toml").read_text(encoding="utf-8"))
-    assert checkout["project"]["requires-python"] == ">=3.10,<3.12"
-    assert {
-        name.lower(): version
-        for name, version in (
-            dependency.split("==", 1) for dependency in checkout["project"]["dependencies"]
-        )
-    } == lock
+    assert benchmark_contract.OMNIDOCBENCH_V16_COMMIT == (
+        "147cd5ac9472002f5751221d390bf00abdbc0d2f"
+    )
+    assert set(benchmark_contract.SCORING_BLOBS) == {
+        "tools/generate_result_tables.ipynb",
+        "src/core/metrics.py",
+        "src/metrics/cal_metric.py",
+        "src/metrics/table_metric.py",
+        "src/metrics/cdm_metric.py",
+        "src/dataset/end2end_dataset.py",
+    }
     transitive = Path("eval/requirements-omnidocbench-v16-transitive.txt")
     assert transitive.is_file()
     transitive_lock = module._read_lock(transitive)

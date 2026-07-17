@@ -152,8 +152,9 @@ def _assert_json_close(actual, expected, path="$"):
 
 def test_native_replay_optionally_matches_committed_golden(tmp_path):
     golden = json.loads(GOLDEN_JSON.read_text(encoding="utf-8"))
-    input_path = Path(golden["input_path"])
-    recorded_root = input_path.parents[2]
+    display_input_path = str(golden["input_path"])
+    input_path = REPO / display_input_path
+    recorded_root = REPO
     meta = json.loads(RECORD_META.read_text(encoding="utf-8"))
     layout_model = recorded_root / meta["layout_model"]
     if not input_path.exists() or not layout_model.exists():
@@ -176,7 +177,7 @@ def test_native_replay_optionally_matches_committed_golden(tmp_path):
         seed=CONTRACT["defaults"]["seed"],
         threshold=CONTRACT["defaults"]["threshold"],
         compat_cache_path=COMPAT_CACHE,
-        display_input_path=str(input_path),
+        display_input_path=display_input_path,
         skip_server_check=True,
         vlm_max_workers=CONTRACT["defaults"]["vlm_max_workers"],
     )

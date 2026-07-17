@@ -1,5 +1,9 @@
 # OmniDocBench v1.6 Accuracy Root-Cause Report
 
+> Historical diagnostic record. Current public score, coverage, aggregation,
+> provenance, and gate interpretation lives in
+> [`docs/benchmarks/omnidocbench-v1.6.md`](benchmarks/omnidocbench-v1.6.md).
+
 - Date: 2026-07-12
 - Benchmark contract: OmniDocBench v1.6, commit `147cd5ac9472002f5751221d390bf00abdbc0d2f`
 - Status: DirectML-qualified lightweight traces captured; paired official trace diagnosis incomplete
@@ -54,11 +58,11 @@ boundary was established.
 
 The official side is the authentic per-sample scorer output at:
 
-`C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm\eval\.omnidocbench\result\paddleocr_official_local_llamacpp_gguf_v16_quick_match_*_result.json`
+`<repo>\eval\.omnidocbench\result\paddleocr_official_local_llamacpp_gguf_v16_quick_match_*_result.json`
 
 The lightweight side is the later, CDM-populated authentic scorer output at:
 
-`C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_*_result.json`
+`<omnidocbench-worktree>\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_*_result.json`
 
 Artifact SHA-256 values:
 
@@ -71,7 +75,7 @@ Artifact SHA-256 values:
 | reading order | `a82fe11b9463c17ea75460a405a3df24409c81987617d7abf178977f2253c2ad` | `11ae78bcdb059e573e4081be09e094763f8c936c69a55265fb8bfff1d34aa606` |
 
 An older file at
-`C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm\result\paddleocrvl_rocm_cdm_quick_match_display_formula_result.json`
+`<repo>\result\paddleocrvl_rocm_cdm_quick_match_display_formula_result.json`
 contains 2,352 zero CDM values and its companion metric reports page CDM zero.
 It is a genuine historical intermediate, but it is not paired with the later
 96.922 metric and is excluded. Mixing that file with the later metric would

@@ -5,7 +5,7 @@ param(
   [Parameter(Mandatory=$true)][string]$R7Root,
   [Parameter(Mandatory=$true)][ValidatePattern('^[a-z0-9][a-z0-9-]{0,63}$')][string]$AttemptId,
   [string]$PythonExe = ".\.venv\Scripts\python.exe",
-  [string]$ScorerPythonExe = "C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-scorer-v16-py310\Scripts\python.exe",
+  [Parameter(Mandatory=$true)][string]$ScorerPythonExe,
   [string]$ServerUrl = "http://127.0.0.1:8111/v1",
   [string]$ApiModelName = "PaddleOCR-VL-1.6-GGUF.gguf",
   [string]$DatasetDir = "data/omnidocbench/v16",

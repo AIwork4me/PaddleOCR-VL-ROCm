@@ -763,7 +763,13 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
 
 def test_rejects_historical_output_before_creating_it(tmp_path: Path) -> None:
     protected = ROOT / "results" / "omnidocbench" / "v16" / "new evidence"
-    completed = _run(SCRIPT, "-EvidenceRoot", str(protected))
+    completed = _run(
+        SCRIPT,
+        "-EvidenceRoot",
+        str(protected),
+        "-PythonExe",
+        sys.executable,
+    )
     assert completed.returncode != 0
     assert "protected historical path" in (completed.stdout + completed.stderr)
     assert not protected.exists()

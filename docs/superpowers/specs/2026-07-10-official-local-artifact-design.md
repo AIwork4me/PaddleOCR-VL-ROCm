@@ -17,7 +17,7 @@ adapter with two engines:
 That work also updated the documentation to mark official-engine scores as
 pending because this repository does not yet contain engine-identified official
 prediction or score artifacts. The companion
-`C:\Users\rocm\Desktop\omnidocbench-amd-windows` repository has strong official
+`<omnidocbench-worktree>` repository has strong official
 evidence, including a full `1651` page official run with `1650` successful pages
 and `1` failure, but those artifacts are not this repository's tracked evidence.
 

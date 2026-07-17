@@ -57,7 +57,7 @@ wsl --install -d Ubuntu-22.04
 ### Step 2 —（我来）在 WSL Linux 里搭 CDM 环境
 WSL 里跑（我可以从宿主用 `wsl.exe bash -c "..."` 驱动）。要点：
 1. apt 换国内源（USTC/TUNA），装 CDM 依赖：`texlive-lang-chinese texlive-lang-cjk texlive-latex-extra texlive-fonts-recommended texlive-science imagemagick ghostscript python3-venv git`
-2. **在 WSL 里全新 clone OmniDocBench**（**不要用**桌面那个 `C:\Users\rocm\Desktop\OmniDocBench` —— 它被我打了 Windows 专用的补丁 `_win_q`/`>NUL`/路径-flatten，在 Linux 下会反向出问题）。用 gitclone 镜像：`git clone https://gitclone.com/github.com/opendatalab/OmniDocBench.git`
+2. **在 WSL 里全新 clone OmniDocBench**（**不要用**桌面那个 `<omnidocbench-worktree>` —— 它被我打了 Windows 专用的补丁 `_win_q`/`>NUL`/路径-flatten，在 Linux 下会反向出问题）。用 gitclone 镜像：`git clone https://gitclone.com/github.com/opendatalab/OmniDocBench.git`
 3. 建 Linux venv（python3.10），装 OmniDocBench 依赖（**不锁版本**，同 Windows 那次的清单：`apted beautifulsoup4 evaluate func-timeout Levenshtein loguru lxml numpy pandas Pillow pylatexenc PyYAML scipy tabulate tqdm nltk matplotlib`，pip 走清华源）
 
 ### Step 3 —（我来）在 WSL 里跑 CDM 评测
@@ -82,7 +82,7 @@ end2end_eval:
 跑完读 `result/.../..._metric_result.json` 的 `display_formula.CDM` → **公式 CDM 分数**；`Overall` 见 run_summary。
 
 ### Step 4 —（可选）#3 官方 PP-StructureV3 表格对照
-用参考项目 `C:\Users\rocm\Desktop\paddleocr_vl_onnx\.venv-pd`（PaddlePaddle 原生）跑官方管线，在同一批 v1.6 表格页产出表格 HTML，与我们 `predictions/paddleocrvl_rocm/*.md` 里的表格逐字段 diff，定位那 1.7pt 结构差。可在 WSL 或 Windows 做。
+用参考项目 `<user-home>\Desktop\paddleocr_vl_onnx\.venv-pd`（PaddlePaddle 原生）跑官方管线，在同一批 v1.6 表格页产出表格 HTML，与我们 `predictions/paddleocrvl_rocm/*.md` 里的表格逐字段 diff，定位那 1.7pt 结构差。可在 WSL 或 Windows 做。
 
 ---
 
@@ -95,12 +95,12 @@ end2end_eval:
   - ImageMagick：`C:/Program Files/ImageMagick-7.1.2-Q16-HDRI/magick.exe`
   - Ghostscript：TeX Live 自带 `C:/texlive/2026/tlpkg/tlgs/bin/gswin64c.exe`（需 `GS_LIB` 指向 tlgs 全部子目录才能被 ImageMagick 调用）
   - **Windows 跑 pdf_validation 必须 `PYTHONUTF8=1`**（OmniDocBench 读 manifest 没指定 utf-8，中文 Windows 默认 GBK 会崩）
-- **llama-server**（评测时已停，释放了 GPU）：重启后如需重测某些页，`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Users\rocm\Desktop\paddleocr_vl_onnx\scripts\05_start_llama_server.ps1" -Ngl 99`（端口 8111，模型 `PaddleOCR-VL-1.6-GGUF.gguf`，backend `llama-cpp-server`）。
-- 桌面 `C:\Users\rocm\Desktop\OmniDocBench` 是 **被我打了 Windows 补丁**的副本（`src/metrics/cdm/modules/latex2bbox_color.py`：`_win_q` 双引号、`>NUL`、path-flatten）。WSL 里**另起干净 clone**。
+- **llama-server**（评测时已停，释放了 GPU）：重启后如需重测某些页，`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "<user-home>\Desktop\paddleocr_vl_onnx\scripts\05_start_llama_server.ps1" -Ngl 99`（端口 8111，模型 `PaddleOCR-VL-1.6-GGUF.gguf`，backend `llama-cpp-server`）。
+- 桌面 `<omnidocbench-worktree>` 是 **被我打了 Windows 补丁**的副本（`src/metrics/cdm/modules/latex2bbox_color.py`：`_win_q` 双引号、`>NUL`、path-flatten）。WSL 里**另起干净 clone**。
 - `eval/.omnidocbench` 是指向桌面 OmniDocBench 的 **junction**；`predictions/paddleocrvl_rocm_cdm`/`_hard` 是指向预测目录的 junction（用来生成不同 save_name）。
 
 ## 6. 文件地图
-- 本项目：`C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm`
+- 本项目：`<repo>`
 - 设计/计划：`docs/superpowers/specs/2026-06-25-engineering-quality-upgrade-design.md`、`docs/superpowers/plans/2026-06-25-engineering-quality-refactor.md`、`…-omnidocbench-eval.md`
 - 进度账本（最权威）：`.superpowers/sdd/progress.md`（gitignored scratch）
 - 本地评测 config（gitignored）：`eval/configs/run_v16_local.yaml`（Edit_dist 口径）、`run_v16_cdm_local.yaml`（含 CDM，Windows 跑过但 CDM=0）、`run_v16_hard_local.yaml`（Hard 子集）

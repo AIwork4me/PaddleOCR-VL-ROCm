@@ -16,7 +16,14 @@ import eval.task5_manifest as task5_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "run_task5_paired_v16.ps1"
-POWERSHELL = Path(os.environ["WINDIR"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+PYTHON_EXE = Path(sys.executable).resolve()
+pytestmark = pytest.mark.skipif(
+    os.name != "nt",
+    reason="The Task 5 runner and its executable contract are Windows-only.",
+)
+POWERSHELL = Path(os.environ.get("WINDIR", r"C:\Windows")) / (
+    "System32/WindowsPowerShell/v1.0/powershell.exe"
+)
 
 
 def _text() -> str:
@@ -301,7 +308,7 @@ $ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$
 foreach($name in @('Read-Json','Test-ByteEqual','New-TemporaryCandidatePointer','Validate-LocalSelection','Publish-RootSelection','Resume-SealedAttemptSelection')){{
  $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true);Invoke-Expression $fn.Extent.Text
 }}
-$Task5Root='{task5_root}';$AttemptId='{attempt_id}';$AttemptRoot='{attempt_root}';$StageStatePath='{attempt_root / "stage-state.json"}';$PythonExe='{ROOT / ".venv/Scripts/python.exe"}'
+$Task5Root='{task5_root}';$AttemptId='{attempt_id}';$AttemptRoot='{attempt_root}';$StageStatePath='{attempt_root / "stage-state.json"}';$PythonExe='{PYTHON_EXE}'
 function Invoke-DecisionTool([string[]]$Arguments){{$bootstrap=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{bootstrap_b64}'));& $PythonExe -c $bootstrap @Arguments;if($LASTEXITCODE -ne 0){{throw 'decision tool failed'}}}}
 Resume-SealedAttemptSelection
 """,
@@ -337,7 +344,7 @@ $ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$
 foreach($name in @('Read-Json','Test-ByteEqual','New-TemporaryCandidatePointer','Validate-LocalSelection','Publish-RootSelection','Get-AttemptReceiptPaths','Complete-Receipt')){{
  $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true);Invoke-Expression $fn.Extent.Text
 }}
-$Task5Root='{task5_root}';$AttemptId='{attempt_id}';$AttemptRoot='{attempt_root}';$StageStatePath='{attempt_root / "stage-state.json"}';$CompactRoot='{attempt_root / "compact"}';$PythonExe='{ROOT / ".venv/Scripts/python.exe"}'
+$Task5Root='{task5_root}';$AttemptId='{attempt_id}';$AttemptRoot='{attempt_root}';$StageStatePath='{attempt_root / "stage-state.json"}';$CompactRoot='{attempt_root / "compact"}';$PythonExe='{PYTHON_EXE}'
 function Read-State{{Read-Json $StageStatePath}};function Assert-RecordedStagesIntegrity{{param($State)}}
 function Invoke-DecisionTool([string[]]$Arguments){{$bootstrap=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{bootstrap_b64}'));& $PythonExe -c $bootstrap @Arguments;if($LASTEXITCODE -ne 0){{throw 'decision tool failed'}}}}
 Complete-Receipt
@@ -646,9 +653,9 @@ def _run_full_stage_stub(
             "-AttemptId",
             attempt_id,
             "-PythonExe",
-            str(ROOT / ".venv/Scripts/python.exe"),
+            str(PYTHON_EXE),
             "-ScorerPythonExe",
-            str(ROOT / ".venv/Scripts/python.exe"),
+            str(PYTHON_EXE),
             "-DatasetDir",
             str(repo / "dataset"),
             "-LayoutModel",
@@ -909,7 +916,7 @@ $AttemptRoot='{tmp_path}'
 $CommandRoot='{command_root}'
 $CommandTimeoutSeconds=5
 $TerminationGraceSeconds=2
-$python='{ROOT / ".venv/Scripts/python.exe"}'
+$python='{PYTHON_EXE}'
 $code='import json; print(json.dumps({{"space value":"quoted ok"}}))'
 $captured=Invoke-LoggedNative 'Probe' 'quoted' $python @('-c',$code) -Capture
 if($captured -ne '{{"space value": "quoted ok"}}'){{throw "capture mismatch: $captured"}}
@@ -1041,7 +1048,7 @@ def _native_integrity_probe(
         "Invoke-LoggedNative",
     )
     imports = ",".join(f"'{name}'" for name in function_names)
-    native_executable = executable or str(ROOT / ".venv/Scripts/python.exe")
+    native_executable = executable or str(PYTHON_EXE)
     native_arguments = argument_list or ["-c", code]
     powershell_arguments = ",".join(
         "'" + value.replace("'", "''") + "'" for value in native_arguments
@@ -1463,7 +1470,7 @@ foreach($name in @('Get-Sha256','Get-StringSha256','ConvertTo-NativeArgument','I
   $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true)
   Invoke-Expression $fn.Extent.Text
 }}
-$PythonExe='{ROOT / ".venv/Scripts/python.exe"}'
+$PythonExe='{PYTHON_EXE}'
 $RepoRoot='{ROOT}'
 $AttemptRoot='{attempt}'
 Assert-CommandLogIntegrity '{jsonl}'
@@ -1579,7 +1586,7 @@ foreach($name in @('Get-Sha256','Get-StringSha256','ConvertTo-NativeArgument','I
 }}
 function Get-OutputMap([string[]]$Roots){{return @{{}}}}
 function Get-OutputMapSha([object]$Map){{return 'ok'}}
-$PythonExe='{ROOT / ".venv/Scripts/python.exe"}'
+$PythonExe='{PYTHON_EXE}'
 $RepoRoot='{ROOT}'
 $AttemptRoot='{attempt}';$CommandRoot='{commands}';$ManifestPath='{manifest}'
 $state='{json.dumps(state, separators=(",", ":"))}' | ConvertFrom-Json
@@ -1613,7 +1620,7 @@ $ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$
 foreach($name in @('Get-Sha256','Get-StringSha256','ConvertTo-NativeArgument','Initialize-NativeJobRunner','Invoke-DirectPython','Assert-CommandLogIntegrity','Invoke-DurableStage')){{
  $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true);Invoke-Expression $fn.Extent.Text
 }}
-$PythonExe='{ROOT / ".venv/Scripts/python.exe"}';$RepoRoot='{ROOT}';$AttemptRoot='{attempt}';$CommandRoot='{commands}';$StageStatePath='{attempt / "state.json"}'
+$PythonExe='{PYTHON_EXE}';$RepoRoot='{ROOT}';$AttemptRoot='{attempt}';$CommandRoot='{commands}';$StageStatePath='{attempt / "state.json"}'
 $script:state=[pscustomobject]@{{status='active';stages=[pscustomobject]@{{}}}}
 function Read-State{{return $script:state}};function Assert-RecordedStagesIntegrity{{param($s)}};function Assert-StageStartIntegrity{{param($s,$n)}}
 function Get-OutputMap{{param($r);return [ordered]@{{x='y'}}}};function Get-OutputMapSha{{param($m);return 'ok'}};function Write-AtomicJson{{param($p,$v)}}
@@ -1720,7 +1727,7 @@ $ast=[System.Management.Automation.Language.Parser]::ParseFile('{SCRIPT}',[ref]$
 foreach($name in @('Get-Sha256','Get-StringSha256','ConvertTo-NativeArgument','Initialize-NativeJobRunner','Invoke-DirectPython','ConvertTo-CanonicalJson','Read-StrictJson','Get-GitCommit','Assert-StageStartIntegrity')){{
  $fn=$ast.Find({{param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}},$true); Invoke-Expression $fn.Extent.Text
 }}
-$PythonExe='{ROOT / ".venv/Scripts/python.exe"}';$RepoRoot='{ROOT}';$ManifestPath='{manifest_path}';$Task5Root='{manifest_path.parent}'
+$PythonExe='{PYTHON_EXE}';$RepoRoot='{ROOT}';$ManifestPath='{manifest_path}';$Task5Root='{manifest_path.parent}'
 function Get-EnvironmentContract{{return ('{environment_json}' | ConvertFrom-Json)}}
 function Invoke-LoggedNative([string]$StageName,[string]$Name,[string]$Executable,[string[]]$Arguments){{
  $bootstrap=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{bootstrap_b64}'))

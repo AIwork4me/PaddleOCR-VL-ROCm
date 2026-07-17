@@ -373,9 +373,13 @@ def test_lightweight_trace_capture_is_opt_in_and_fingerprint_only(tmp_path, monk
     mod.run_lightweight_folder(img_dir=img_dir, out_dir=observed, trace_dir=trace_dir)
 
     assert (baseline / "page.md").read_bytes() == (observed / "page.md").read_bytes()
-    assert (baseline / "_run_stats.json").read_bytes() == (
-        observed / "_run_stats.json"
-    ).read_bytes()
+    baseline_stats = json.loads((baseline / "_run_stats.json").read_text(encoding="utf-8"))
+    observed_stats = json.loads((observed / "_run_stats.json").read_text(encoding="utf-8"))
+    for stats in (baseline_stats, observed_stats):
+        stats.pop("timing")
+        for page in stats["stats"]:
+            page.pop("seconds")
+    assert baseline_stats == observed_stats
     assert not (tmp_path / "disabled-traces").exists()
     raw = (trace_dir / "page.jsonl").read_text(encoding="utf-8")
     event = json.loads(raw)

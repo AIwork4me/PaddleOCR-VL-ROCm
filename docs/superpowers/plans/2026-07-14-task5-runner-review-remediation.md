@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Work only in `C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm\.worktrees\top-tier-quality` on `codex/top-tier-quality`.
+- Work only in `<repo>\.worktrees\top-tier-quality` on `codex/top-tier-quality`.
 - Never read, modify, or stage `eval/.omnidocbench/` during implementation or tests.
 - Never modify the real external r7 evidence root; runtime tests use temporary stub roots only.
 - OmniDocBench remains exactly v1.6; Formula is CDM, Table is TEDS, and Lightweight coverage is exactly 1,651/1,651/0/0/null.

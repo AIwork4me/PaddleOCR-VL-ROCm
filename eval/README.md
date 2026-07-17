@@ -303,3 +303,8 @@ the failed page and treats the missing output as empty for scoring.
 Any second or different failure is rejected. G3 accuracy and G4 performance remain pending.
 CI validates this integration offline and never downloads datasets/models or
 contacts a server.
+
+Public score, coverage, aggregation, provenance, and gate claims are maintained
+in [`docs/benchmarks/omnidocbench-v1.6.md`](../docs/benchmarks/omnidocbench-v1.6.md).
+This guide explains how to run the tooling; it is not an independent source of
+current release numbers.

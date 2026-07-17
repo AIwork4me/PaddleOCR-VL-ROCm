@@ -4,8 +4,8 @@
         "system": {
             "platform": "Windows-10-10.0.26200-SP0",
             "python_version": "3.11.15 | packaged by Anaconda, Inc. | (main, Mar 11 2026, 17:12:15) [MSC v.1942 64 bit (AMD64)]",
-            "python_executable": "C:\\Users\\rocm\\Desktop\\omnidocbench-amd-windows\\.venv\\Scripts\\python.exe",
-            "python_prefix": "C:\\Users\\rocm\\Desktop\\omnidocbench-amd-windows\\.venv",
+            "python_executable": "<omnidocbench-worktree>\\.venv\\Scripts\\python.exe",
+            "python_prefix": "<omnidocbench-worktree>\\.venv",
             "conda_env": "",
             "conda_prefix": "",
             "libc": "",
@@ -87,7 +87,7 @@
                 "output": "Invalid drive specification."
             },
             "identify": {
-                "path": "C:\\Users\\rocm\\AppData\\Local\\Microsoft\\WindowsApps\\identify.EXE",
+                "path": "<windows-apps>\\identify.EXE",
                 "returncode": 0,
                 "output": "Version: ImageMagick 7.1.2-24 Q16-HDRI x64 271b6bc:20260526 https://imagemagick.org | Copyright: (C) 1999 ImageMagick Studio LLC | License: https://imagemagick.org/license/ | Features: Channel-masks(64-bit) Cipher DPC HDRI OpenCL OpenMP(2.0) | Delegates (built-in): bzlib cairo freetype gslib heic jng jp2 jpeg jxl lcms lqr lzma openexr pangocairo png ps raqm raw rsvg tiff webp xml zip zlib"
             },

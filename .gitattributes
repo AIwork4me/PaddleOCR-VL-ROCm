@@ -2,3 +2,5 @@
 
 # Force LF line endings for cross-platform hash consistency
 tests/fixtures/**/*.json text eol=lf
+docs/releases/0.1.0-g0-evidence.md text eol=lf
+results/omnidocbench/**/*.json text eol=lf

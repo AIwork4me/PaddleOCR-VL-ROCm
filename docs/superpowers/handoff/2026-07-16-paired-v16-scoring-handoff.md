@@ -26,7 +26,7 @@ The exclusion is intentionally narrow:
 
 Worktree:
 
-`C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm\.worktrees\top-tier-quality`
+`<repo>\.worktrees\top-tier-quality`
 
 Base commit:
 
@@ -62,7 +62,7 @@ Result: `18 passed`.
 
 Primary evidence root:
 
-`C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-15-paired-raw-e418dc7`
+`<evidence-root>\v16-2026-07-15-paired-raw-e418dc7`
 
 Important immutable inputs and hashes:
 
@@ -170,7 +170,7 @@ Validated OmniDocBench v1.6 commit:
 
 Use only this locked scorer interpreter:
 
-`C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-scorer-v16-py310\Scripts\python.exe`
+`<scorer-python>\Scripts\python.exe`
 
 It matches the locked scorer-Python SHA above and has Python `3.10.20`.
 
@@ -232,11 +232,11 @@ Not started yet, and must run **sequentially** because OmniDocBench shares its
 Run from the worktree. Set variables once:
 
 ```powershell
-$WT = 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm\.worktrees\top-tier-quality'
+$WT = '<repo>\.worktrees\top-tier-quality'
 $PY = "$WT\.venv\Scripts\python.exe"
-$SCORER = 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-scorer-v16-py310\Scripts\python.exe'
-$RAW = 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-15-paired-raw-e418dc7'
-$DATASET = 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm\data\omnidocbench\v16'
+$SCORER = '<scorer-python>\Scripts\python.exe'
+$RAW = '<evidence-root>\v16-2026-07-15-paired-raw-e418dc7'
+$DATASET = '<repo>\data\omnidocbench\v16'
 Set-Location $WT
 ```
 

@@ -1,4 +1,4 @@
-﻿# Formula CDM ROCm Hard-Case Analysis - 2026-07-11
+# Formula CDM ROCm Hard-Case Analysis - 2026-07-11
 
 ## Status
 
@@ -10,7 +10,7 @@ Local Windows + AMD + llama.cpp/GGUF only. No Linux vLLM/BF16 reference path.
 
 ## Evidence
 
-- Source per-sample file: `C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_display_formula_per_sample_CDM.json`
+- Source per-sample file: `<omnidocbench-worktree>\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_display_formula_per_sample_CDM.json`
 - Checked-in scalar summary: `docs/formula-cdm-rocm-hardcase-summary-2026-07-11.json`
 - Total samples: 2352
 - Samples with CDM < 0.8: 93
@@ -60,7 +60,7 @@ for the exact final revision chain.
 
 Commands and results are recorded here after execution:
 
-- `python scripts/analyze_formula_cdm_cases.py --per-sample-cdm C:\Users\rocm\Desktop\omnidocbench-amd-windows\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_display_formula_per_sample_CDM.json --threshold 0.8 --out docs\formula-cdm-rocm-hardcase-summary-2026-07-11.json` - PASS; produced the checked-in scalar summary with `count=2352`, `below_threshold_count=93`, and `zero_count=17`.
+- `python scripts/analyze_formula_cdm_cases.py --per-sample-cdm <omnidocbench-worktree>\eval-infra\01-omnidocbench\OmniDocBench\result\paddleocrvl_rocm_cdm_quick_match_display_formula_per_sample_CDM.json --threshold 0.8 --out docs\formula-cdm-rocm-hardcase-summary-2026-07-11.json` - PASS; produced the checked-in scalar summary with `count=2352`, `below_threshold_count=93`, and `zero_count=17`.
 - `python -m pytest tests/test_formula_cdm_case_analysis.py -q` - PASS; 3 tests passed.
 - `python -m pytest -q` - PASS; 61 tests passed.
 - PowerShell summary schema/count check - PASS; verified `count=2352`, `below_threshold_count=93`, `zero_count=17` and scalar `page`/`sample_id`/`cdm` fields.

@@ -1,5 +1,5 @@
 {
-  "input_path": "C:\\Users\\rocm\\Desktop\\PaddleOCR-VL-ROCm\\examples\\input\\japan_demo.png",
+  "input_path": "examples/input/japan_demo.png",
   "page_index": null,
   "page_count": null,
   "width": 1224,

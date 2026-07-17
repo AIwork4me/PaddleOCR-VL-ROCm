@@ -12,6 +12,7 @@ from PIL import Image
 from .constants import (
     DEFAULT_MAX_PIXELS,
     DEFAULT_MIN_PIXELS,
+    DEFAULT_VLM_MAX_WORKERS,
     NON_MERGE_LABELS,
 )
 from .content import _normalize_vlm_result, _truncate_repetitive_content
@@ -56,7 +57,7 @@ def run_light_parser(
     compat_cache_path: Path | None = None,
     display_input_path: str | None = None,
     vlm_repeats: int = 1,
-    vlm_max_workers: int = 200,
+    vlm_max_workers: int = DEFAULT_VLM_MAX_WORKERS,
     layout_model: PPDocLayoutV3Onnx | None = None,
     skip_server_check: bool = False,
     vlm_trace_events: list[dict[str, Any]] | None = None,

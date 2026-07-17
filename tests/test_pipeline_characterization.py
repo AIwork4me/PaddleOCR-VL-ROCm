@@ -173,7 +173,7 @@ def test_pipeline_matches_golden(tmp_path, image, _require_fixtures):
         seed=1,
         threshold=0.3,
         compat_cache_path=COMPAT,
-        display_input_path=str(image),
+        display_input_path=image.relative_to(REPO).as_posix(),
         skip_server_check=True,
         **layout_kwargs,
     )
@@ -182,11 +182,17 @@ def test_pipeline_matches_golden(tmp_path, image, _require_fixtures):
     _assert_json_close(actual, expected)
 
 
-def test_vlm_max_workers_default_has_been_increased():
+def test_public_vlm_worker_defaults_share_one_constant():
     import inspect
 
+    from paddleocr_vl_rocm.cli import build_parser
+    from paddleocr_vl_rocm.constants import DEFAULT_VLM_MAX_WORKERS
     from paddleocr_vl_rocm.pipeline import PaddleOCRVLROCm
+    from paddleocr_vl_rocm.pipeline_core import run_light_parser
 
-    sig = inspect.signature(PaddleOCRVLROCm.__init__)
-    default = sig.parameters["vlm_max_workers"].default
-    assert default >= 8, f"vlm_max_workers default is {default}, expected >= 8"
+    api_default = inspect.signature(PaddleOCRVLROCm.__init__).parameters["vlm_max_workers"].default
+    core_default = inspect.signature(run_light_parser).parameters["vlm_max_workers"].default
+    cli_default = build_parser().parse_args(["--input", "input.png"]).vlm_max_workers
+
+    assert DEFAULT_VLM_MAX_WORKERS == 8
+    assert api_default == core_default == cli_default == DEFAULT_VLM_MAX_WORKERS

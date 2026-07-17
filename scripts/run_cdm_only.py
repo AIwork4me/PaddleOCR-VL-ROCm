@@ -6,9 +6,11 @@ import json
 import os
 import shutil
 import sys
+from pathlib import Path
 
-sys.path.insert(0, "eval/.omnidocbench")
-os.chdir(r"C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "eval" / ".omnidocbench"))
+os.chdir(REPO_ROOT)
 
 from concurrent.futures import ThreadPoolExecutor, as_completed  # noqa: E402
 

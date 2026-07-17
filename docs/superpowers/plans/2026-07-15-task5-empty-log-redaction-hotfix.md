@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Work only in `C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm\.worktrees\top-tier-quality` on `codex/top-tier-quality`.
+- Work only in `<repo>\.worktrees\top-tier-quality` on `codex/top-tier-quality`.
 - Preserve `task5-20260715-paired-a1` byte-for-byte as `invalid`; never edit, delete, move, repair, or reuse it.
 - Do not manually edit Task 5 stage state, manifest, receipt, candidate, compact evidence, or root pointer.
 - The fix modifies only `scripts/run_task5_paired_v16.ps1` and `tests/test_run_task5_paired_v16_script.py`.
@@ -36,7 +36,7 @@
 Run:
 
 ```powershell
-$A1 = 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-14-official-r7-score-recovery-py310\task5\attempts\task5-20260715-paired-a1'
+$A1 = '<evidence-root>\v16-2026-07-14-official-r7-score-recovery-py310\task5\attempts\task5-20260715-paired-a1'
 Get-ChildItem -LiteralPath $A1 -Recurse -File | Sort-Object FullName | ForEach-Object {
   [pscustomobject]@{ Path=$_.FullName.Substring($A1.Length); Bytes=$_.Length; Sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
 } | ConvertTo-Json -Depth 4
@@ -167,7 +167,7 @@ Return any Critical or Important finding to Task 1 TDD. Repeat review until Crit
 ### Task 3: Resume the authorized real paired run as a2
 
 **Files:**
-- Generate external evidence only under `C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-14-official-r7-score-recovery-py310\task5\attempts\task5-20260715-paired-a2`.
+- Generate external evidence only under `<evidence-root>\v16-2026-07-14-official-r7-score-recovery-py310\task5\attempts\task5-20260715-paired-a2`.
 - Do not modify repository files during inference/scoring.
 
 **Interfaces:**
@@ -183,15 +183,15 @@ Confirm HEAD/status, `/v1/models`, no competing evaluation clients, the exact a1
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_task5_paired_v16.ps1 `
   -Stage Preflight `
-  -R7Root 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-evidence\v16-2026-07-14-official-r7-score-recovery-py310' `
+  -R7Root '<evidence-root>\v16-2026-07-14-official-r7-score-recovery-py310' `
   -AttemptId 'task5-20260715-paired-a2' `
   -PythonExe '.\.venv\Scripts\python.exe' `
-  -ScorerPythonExe 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm-scorer-v16-py310\Scripts\python.exe' `
+  -ScorerPythonExe '<scorer-python>\Scripts\python.exe' `
   -ServerUrl 'http://127.0.0.1:8111/v1' `
   -ApiModelName 'PaddleOCR-VL-1.6-GGUF.gguf' `
-  -DatasetDir 'C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm\data\omnidocbench\v16' `
-  -LayoutModel 'C:\Users\rocm\AppData\Local\Temp\paddleocr-vl-rocm-release-gate-20260712-afaf890\models\PP-DocLayoutV3-onnx' `
-  -RuntimeConfig 'C:\Users\rocm\AppData\Local\Temp\paddleocr-vl-rocm-release-gate-20260712-afaf890\config.json' `
+  -DatasetDir '<repo>\data\omnidocbench\v16' `
+  -LayoutModel '<temp>\paddleocr-vl-rocm-release-gate-20260712-afaf890\models\PP-DocLayoutV3-onnx' `
+  -RuntimeConfig '<temp>\paddleocr-vl-rocm-release-gate-20260712-afaf890\config.json' `
   -G0Receipt '.\docs\releases\0.1.0-g0-evidence.md'
 ```
 

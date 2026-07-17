@@ -1,5 +1,6 @@
 import hashlib
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,8 @@ README_EN = ROOT / "README.md"
 README_ZH = ROOT / "README.zh-CN.md"
 EVAL_README = ROOT / "eval" / "README.md"
 EVIDENCE_README = ROOT / "results" / "omnidocbench" / "v16" / "README.md"
+BENCHMARK_FACTS = ROOT / "docs" / "benchmarks" / "omnidocbench-v1.6.md"
+COMPATIBILITY = ROOT / "docs" / "compatibility" / "windows-amd.md"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 RELEASE_READINESS = ROOT / "docs" / "releases" / "0.1.0-readiness.md"
 G0_EVIDENCE = ROOT / "docs" / "releases" / "0.1.0-g0-evidence.md"
@@ -47,24 +50,25 @@ def _assert_quality_ci_contract(workflow: str) -> None:
     assert pytest_step["run"].startswith("python -m pytest -q -m")
 
 
-def test_bilingual_readmes_lock_verified_historical_claims() -> None:
+def test_bilingual_readmes_withdraw_untracked_release_claims() -> None:
     for path in (README_EN, README_ZH):
         text = _read(path)
-        for value in (
-            "95.99",
-            "97.36",
-            "94.09",
-        ):
-            assert value in text, f"{path.name} must contain {value}"
-        assert "96.15" not in text
-        assert "96.13" not in text
+        for withdrawn in ("95.99", "97.36", "94.09", "602.0", "357.2", "1.7x"):
+            assert withdrawn not in text
+        assert "docs/benchmarks/omnidocbench-v1.6.md" in text
+        assert "G3" in text and "G4" in text
+        assert "BLOCKED" in text
 
 
 def test_bilingual_readmes_have_both_four_command_journeys() -> None:
     for path in (README_EN, README_ZH):
         text = _read(path)
         for command in (
-            "pip install -e .[download]",
+            "git clone https://github.com/AIwork4me/PaddleOCR-VL-ROCm.git",
+            "cd PaddleOCR-VL-ROCm",
+            "py -3.11 -m venv .venv",
+            r".venv\Scripts\Activate.ps1",
+            'pip install -e ".[download]"',
             "paddleocr-vl-rocm setup --auto",
             "paddleocr-vl-rocm doctor",
             "paddleocr-vl-rocm run examples/input/magazine.png",
@@ -96,13 +100,12 @@ def test_layout_download_sources_are_language_specific() -> None:
         assert "AlexTransformer/PP-DocLayoutV3-onnx" not in text
 
 
-def test_tracked_evidence_index_uses_official_notebook_rounding() -> None:
+def test_tracked_evidence_index_delegates_numbers_to_fact_sheet() -> None:
     text = _read(EVIDENCE_README)
 
-    assert "95.9480" in text
-    assert "95.7803" in text
-    assert "95.9475" not in text
-    assert "95.7657" not in text
+    assert "docs/benchmarks/omnidocbench-v1.6.md" in text
+    assert "Do not construct a public score by mixing values" in text
+    assert "95.99" not in text
 
 
 def test_readmes_label_demo_and_benchmarks_as_non_release_evidence() -> None:
@@ -120,24 +123,22 @@ def test_readmes_label_demo_and_benchmarks_as_non_release_evidence() -> None:
 def test_bilingual_readmes_document_the_single_page_exception_without_score_inflation() -> None:
     issue = "https://github.com/PaddlePaddle/PaddleOCR/issues/18248"
     filename = "newspaper_The Times UK_0801@magazinesclubnew_page_031.png"
-    english = _read(README_EN)
-    chinese = _read(README_ZH)
+    facts = _read(BENCHMARK_FACTS)
 
-    for text in (english, chinese):
-        assert issue in text
-        assert filename in text
-        assert "peg-native" in text
-    assert "1,650" in english and "1,651" not in english
-    assert "1,650" in chinese and "1,651" not in chinese
-    assert "1,650 页评分（1 页对称排除）" in chinese
-    assert "PaddleOCR issue #18248" in chinese
-    assert "PaddlePaddle maintainer confirmed" not in english
+    assert issue in facts
+    assert filename in facts
+    assert "peg-native" in facts
+    assert "formal scoring denominator is **all 1,651 ground-truth pages**" in facts
+    assert "ok=1650" in facts and "fail=1" in facts
+    assert "0 scoring exclusions" in facts
+    assert "1,650-page score" in facts
+    assert "PaddlePaddle maintainer confirmed" not in facts
 
     evaluation = re.sub(r"\s+", " ", _read(EVAL_README))
     assert "no prediction file" in evaluation
     assert "treats the missing output as empty for scoring" in evaluation
     assert "failed page is an empty prediction" not in evaluation
-    assert "PaddlePaddle 维护者已确认" not in chinese
+    assert "PaddlePaddle 维护者已确认" not in _read(README_ZH)
 
 
 def test_offline_ci_covers_supported_python_matrix_and_quality_gates() -> None:
@@ -156,6 +157,10 @@ def test_offline_ci_covers_supported_python_matrix_and_quality_gates() -> None:
         "mypy src",
         "python -m pytest -q",
         "python -m build",
+        "permissions:",
+        "contents: read",
+        "timeout-minutes: 20",
+        "cancel-in-progress: true",
     ):
         assert value in workflow
     for forbidden in ("download_omnidocbench", "setup --auto", "run --server-url"):
@@ -242,14 +247,75 @@ def test_g0_readiness_binds_independently_reviewed_r7_receipt() -> None:
     ):
         assert value in normalized_receipt
 
-    assert "Audit date: 2026-07-14" in readiness
+    assert "Audit date: 2026-07-17" in readiness
     assert re.search(r"\| G0 evidence integrity \| PASS \|", readiness)
     assert "Status: BLOCKED" in readiness
     for gate in ("G2", "G3", "G4", "G5"):
         assert re.search(rf"\| {gate} .* \| BLOCKED \|", readiness)
     for text in (readiness, evidence_index):
         assert "0.1.0-g0-evidence.md" in text
-        assert receipt_sha256 in text
+    assert receipt_sha256 in readiness
+
+
+def test_benchmark_fact_sheet_is_the_only_active_public_score_table() -> None:
+    facts = _read(BENCHMARK_FACTS)
+    for value in (
+        "95.9480",
+        "95.743",
+        "96.13",
+        "count=1651",
+        "ok=1650",
+        "fail=1",
+        "fallback=0",
+        "limit_pages=null",
+        "0 scoring exclusions",
+        "G4 is **BLOCKED**",
+    ):
+        assert value in facts
+    assert "Overall 95.99 / Formula CDM 97.36 row" in facts
+    assert "no tracked raw timing artifact" in facts.lower()
+    assert "d529cb4" in facts and "50ce802" in facts
+
+
+def test_compatibility_matrix_separates_pipeline_components_and_evidence_levels() -> None:
+    text = _read(COMPATIBILITY)
+    for value in (
+        "Fully tested",
+        "Community verified",
+        "Expected but unverified",
+        "Unsupported",
+        "DirectML layout",
+        "Local HIP VLM",
+        "Managed runtime",
+        "External server",
+        "AMD Radeon(TM) 8060S Graphics",
+        "driver version",
+        "HIP runtime version",
+        "rocm.docs.amd.com",
+    ):
+        assert value in text
+
+
+def test_tracked_files_do_not_disclose_personal_workspace_paths() -> None:
+    raw_personal_root = b"C:" + b"\\Users\\" + b"rocm"
+    json_personal_root = b"C:" + b"\\\\Users\\\\" + b"rocm"
+    completed = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        pytest.skip("git metadata is unavailable")
+    for relative in completed.stdout.decode("utf-8").split("\0"):
+        if not relative:
+            continue
+        path = ROOT / relative
+        if not path.is_file():
+            continue
+        raw = path.read_bytes()
+        assert raw_personal_root not in raw, relative
+        assert json_personal_root not in raw, relative
 
 
 def test_windows_validation_distinguishes_cached_install_from_network_setup() -> None:
