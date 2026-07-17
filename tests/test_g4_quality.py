@@ -84,6 +84,17 @@ def artifact(sample_manifest: dict[str, object]) -> dict[str, object]:
         "scorer_config_sha256": digest("config"),
         "performance_artifact_sha256": digest("performance"),
         "normalization": "task5-scorer-markdown-v1",
+        "accepted_accuracy": {
+            "text_percent": 96.52,
+            "formula_percent": 97.36,
+            "table_percent": 94.09,
+            "overall": 95.99,
+        },
+        "denominator_evidence": {
+            "text": {"pages": 1557, "sha256": digest("text-pages")},
+            "formula": {"pages": 313, "sha256": digest("formula-pages")},
+            "table": {"pages": 458, "sha256": digest("table-pages")},
+        },
         "samples": rows,
     }
 
@@ -116,8 +127,19 @@ def test_g4_quality_rejects_each_metric_regression(
         metric: {"reference": reference, "candidate": candidate}
     }
     decision = decide_g4_quality(sample_manifest, run)
-    assert decision["g4_quality"] is False
     assert decision["regressions"][0]["metric"] == metric  # type: ignore[index]
+    assert decision["checks"]["zero_metric_regressions"] is False  # type: ignore[index]
+
+
+def test_g4_quality_rejects_regression_that_changes_published_accuracy() -> None:
+    sample_manifest = manifest()
+    run = artifact(sample_manifest)
+    run["samples"][0]["metrics"] = {  # type: ignore[index]
+        "text_edit": {"reference": 0.0, "candidate": 1.0}
+    }
+    decision = decide_g4_quality(sample_manifest, run)
+    assert decision["g4_quality"] is False
+    assert decision["checks"]["published_components_preserved"] is False  # type: ignore[index]
 
 
 def test_g4_quality_rejects_unscored_difference() -> None:

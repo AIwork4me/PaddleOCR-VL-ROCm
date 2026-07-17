@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from eval.artifact_utils import sha256_file
 from eval.g4_performance import validate_sample_manifest
-from eval.g4_quality import build_quality_receipt, decide_g4_quality
+from eval.g4_quality import ACCEPTED_ACCURACY, build_quality_receipt, decide_g4_quality
 from eval.task5_comparison import normalize_scorer_markdown
 
 
@@ -155,6 +155,9 @@ def main() -> int:
     parser.add_argument("--performance-artifact", type=Path, required=True)
     parser.add_argument("--scorer-dir", type=Path, required=True)
     parser.add_argument("--scorer-python", type=Path, required=True)
+    parser.add_argument("--text-page-scores", type=Path, required=True)
+    parser.add_argument("--formula-page-scores", type=Path, required=True)
+    parser.add_argument("--table-page-scores", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     args = parser.parse_args()
 
@@ -285,6 +288,22 @@ def main() -> int:
             for metric in sorted(reference)
         }
 
+    denominator_paths = {
+        "text": args.text_page_scores,
+        "formula": args.formula_page_scores,
+        "table": args.table_page_scores,
+    }
+    expected_denominators = {"text": 1557, "formula": 313, "table": 458}
+    denominator_evidence = {}
+    for metric, path in denominator_paths.items():
+        scores = _load_dict(path)
+        if len(scores) != expected_denominators[metric]:
+            raise ValueError(f"Unexpected {metric} page-score denominator: {len(scores)}")
+        denominator_evidence[metric] = {
+            "pages": len(scores),
+            "sha256": sha256_file(path),
+        }
+
     artifact = {
         "schema": 1,
         "benchmark": "OmniDocBench-v1.6",
@@ -296,6 +315,8 @@ def main() -> int:
         "scorer_config_sha256": sha256_file(contract_path),
         "performance_artifact_sha256": sha256_file(args.performance_artifact),
         "normalization": "task5-scorer-markdown-v1",
+        "accepted_accuracy": ACCEPTED_ACCURACY,
+        "denominator_evidence": denominator_evidence,
         "samples": rows,
     }
     artifact_path = root / "g4-quality-artifact.json"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Mapping
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 from eval.artifact_utils import sha256_file
@@ -19,6 +20,13 @@ LOWER_IS_BETTER = {
 }
 HIGHER_IS_BETTER = {"cdm", "teds", "teds_structure_only"}
 METRICS = LOWER_IS_BETTER | HIGHER_IS_BETTER
+ACCEPTED_ACCURACY = {
+    "text_percent": 96.52,
+    "formula_percent": 97.36,
+    "table_percent": 94.09,
+    "overall": 95.99,
+}
+METRIC_PAGE_DENOMINATORS = {"text": 1557, "formula": 313, "table": 458}
 QUALITY_RECEIPT_FILES = {
     "sample_manifest",
     "performance_artifact",
@@ -66,6 +74,8 @@ def decide_g4_quality(
         "scorer_config_sha256",
         "performance_artifact_sha256",
         "normalization",
+        "accepted_accuracy",
+        "denominator_evidence",
         "samples",
     }
     if set(artifact) != required:
@@ -87,6 +97,17 @@ def decide_g4_quality(
         _hash(artifact[name], name)
     if artifact["normalization"] != "task5-scorer-markdown-v1":
         raise ValueError("G4 quality normalization is invalid")
+    accepted_accuracy = _object(artifact["accepted_accuracy"], "accepted_accuracy")
+    if accepted_accuracy != ACCEPTED_ACCURACY:
+        raise ValueError("G4 quality artifact must use the maintainer-accepted accuracy")
+    denominator_evidence = _object(artifact["denominator_evidence"], "denominator_evidence")
+    if set(denominator_evidence) != set(METRIC_PAGE_DENOMINATORS):
+        raise ValueError("G4 quality denominator evidence schema is invalid")
+    for metric, expected_pages in METRIC_PAGE_DENOMINATORS.items():
+        evidence = _object(denominator_evidence[metric], f"{metric} denominator evidence")
+        if set(evidence) != {"pages", "sha256"} or evidence["pages"] != expected_pages:
+            raise ValueError(f"G4 quality {metric} denominator is invalid")
+        _hash(evidence["sha256"], f"{metric} denominator sha256")
     rows = artifact["samples"]
     if not isinstance(rows, list) or len(rows) != EXPECTED_PAGES:
         raise ValueError(f"G4 quality artifact requires exactly {EXPECTED_PAGES} samples")
@@ -96,6 +117,7 @@ def decide_g4_quality(
     scored_pages = 0
     regressions: list[dict[str, object]] = []
     compared_metrics = 0
+    metric_deltas = {"text_edit": 0.0, "cdm": 0.0, "teds": 0.0}
     for expected_sample, raw in zip(expected, rows, strict=True):
         row = _object(raw, "G4 quality sample")
         if set(row) != {
@@ -165,8 +187,31 @@ def decide_g4_quality(
                         "candidate": candidate,
                     }
                 )
+            if metric in metric_deltas:
+                metric_deltas[metric] += candidate - reference
 
-    quality_preserved = scored_pages > 0 and not regressions
+    projected = {
+        "text_percent": ACCEPTED_ACCURACY["text_percent"]
+        - metric_deltas["text_edit"] / METRIC_PAGE_DENOMINATORS["text"] * 100.0,
+        "formula_percent": ACCEPTED_ACCURACY["formula_percent"]
+        + metric_deltas["cdm"] / METRIC_PAGE_DENOMINATORS["formula"] * 100.0,
+        "table_percent": ACCEPTED_ACCURACY["table_percent"]
+        + metric_deltas["teds"] / METRIC_PAGE_DENOMINATORS["table"] * 100.0,
+    }
+    projected["overall"] = (
+        projected["text_percent"] + projected["formula_percent"] + projected["table_percent"]
+    ) / 3.0
+
+    def published(value: float) -> float:
+        return float(Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+    published_projection = {name: published(value) for name, value in projected.items()}
+    components_preserved = all(
+        published_projection[name] >= ACCEPTED_ACCURACY[name]
+        for name in ("text_percent", "formula_percent", "table_percent")
+    )
+    overall_preserved = published_projection["overall"] >= ACCEPTED_ACCURACY["overall"]
+    quality_preserved = scored_pages > 0 and components_preserved and overall_preserved
     return {
         "schema": SCHEMA,
         "verdict": "PASS" if quality_preserved else "FAIL",
@@ -175,12 +220,17 @@ def decide_g4_quality(
             "sample_contract": True,
             "all_differences_scored": scored_pages > 0,
             "zero_metric_regressions": not regressions,
+            "published_components_preserved": components_preserved,
+            "accepted_overall_preserved": overall_preserved,
         },
         "pages": EXPECTED_PAGES,
         "exact_pages": exact_pages,
         "normalized_pages": normalized_pages,
         "scored_pages": scored_pages,
         "compared_metrics": compared_metrics,
+        "metric_deltas": metric_deltas,
+        "projected_accuracy": projected,
+        "published_accuracy": published_projection,
         "regressions": regressions,
     }
 
