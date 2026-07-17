@@ -207,16 +207,18 @@ unverified artifact.
 
 - v0.1.0 is not release-ready; G4 and G5 are blocked. G3 is PASS.
 - Only one Windows AMD machine has project-recorded smoke validation.
-- The 27-page timing claim previously shown here has no tracked raw timing
-  artifact and is therefore withdrawn as a public performance conclusion.
+- Fresh G4 diagnostics pass latency (mean 6.33 seconds/page, P95 19.54), but
+  historical output equivalence fails on 8/27 frozen pages, so G4 remains
+  blocked. See the
+  [G4 diagnostic](docs/releases/0.1.0-g4-diagnostic.md).
 - Managed setup is Windows-only and has no stop/cleanup command.
 - Empty-cache public-network setup has not completed the release acceptance
   path; verified-cache installation has.
 
 ## Roadmap
 
-See [`ROADMAP.md`](ROADMAP.md). Near-term priorities are an artifact-backed G4
-benchmark, reproducible hardware reports, and complete clean-network
+See [`ROADMAP.md`](ROADMAP.md). Near-term priorities are resolving G4 output
+equivalence, reproducible hardware reports, and complete clean-network
 onboarding.
 
 ## Contributing, security, and license

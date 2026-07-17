@@ -142,9 +142,16 @@ The numerical speedup is therefore withdrawn from the README and is not a
 release-gate result. The history is preserved in commits `d529cb4` and
 `50ce802`; neither commit message is benchmark evidence.
 
-G4 requires a new artifact-backed benchmark on the exact G3-accepted manifest,
-including per-page timings, mean, P50, P95, throughput, stage boundaries,
-hardware/runtime provenance, and output-equivalence checks.
+Fresh artifact-backed diagnostics now exist on the exact G3-accepted model and
+pipeline. GPU offload passes both numerical limits (mean 6.33 seconds/page,
+P95 19.54 seconds/page), but G4 remains blocked because 8 of 27 output hashes
+differ from the historical G3 baseline. A repeated identical GPU run also
+changed one page. See the
+[G4 diagnostic](../releases/0.1.0-g4-diagnostic.md).
+
+G4 acceptance still requires per-page timings, mean, P50, P95, throughput,
+stage boundaries, hardware/runtime provenance, and a passing
+output-equivalence check.
 The sample contract is frozen in
 [`eval/g4-v1.6-samples.json`](../../eval/g4-v1.6-samples.json): 27 pages,
 three deterministic samples from each of nine primary document categories.
@@ -157,7 +164,7 @@ The fail-closed validator is `eval.g4_performance`.
 | G0 evidence integrity | PASS | Authenticated by the tracked r7 receipt |
 | G1 compatibility contract | PASS | Covered by committed CLI/API/output tests |
 | G3 accuracy | PASS | Maintainer accepted the PaddleOCR-confirmed Overall 95.99 result and waived another full run |
-| G4 performance | BLOCKED | No artifact-backed benchmark on a G3-accepted manifest |
+| G4 performance | BLOCKED | GPU latency passes (mean 6.33 s, P95 19.54 s), but historical output equivalence fails on 8/27 frozen pages |
 | G5 launch | BLOCKED | Clean-network onboarding and the remaining prerequisite evidence are incomplete |
 
 G2 root-cause diagnosis is not a release gate for this adaptation project.

@@ -194,15 +194,16 @@ OmniDocBench checkout，说明推理/评分阶段，并拒绝不完整的发布 
 
 - v0.1.0 尚未达到发布条件；G4、G5 为 BLOCKED，G3 已 PASS。
 - 项目只记录了一台 Windows AMD 机器的冒烟验证。
-- README 曾展示的 27 页性能结论没有仓库内原始 timing artifact，因此已撤回，
-  不再作为公开性能结论。
+- 最新 G4 诊断的性能已达标（均值 6.33 秒/页、P95 19.54 秒），但与历史
+  G3 基线相比仍有 8/27 页输出哈希不同，因此 G4 仍为 BLOCKED。详见
+  [G4 诊断](docs/releases/0.1.0-g4-diagnostic.md)。
 - 托管安装仅支持 Windows，且没有 stop/cleanup 命令。
 - 空缓存公网安装尚未通过发布验收；已通过的是预校验缓存安装。
 
 ## Roadmap
 
-参见 [`ROADMAP.md`](ROADMAP.md)。近期重点是完成由 artifact 支撑的 G4
-benchmark、收集可复现硬件报告，以及完成全新网络安装验证。
+参见 [`ROADMAP.md`](ROADMAP.md)。近期重点是解决 G4 输出等价性、收集
+可复现硬件报告，以及完成全新网络安装验证。
 
 ## 贡献、安全与许可证
 
