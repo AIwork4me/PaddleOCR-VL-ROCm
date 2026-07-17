@@ -4,7 +4,9 @@ All notable changes will be documented here.
 
 ## Unreleased
 
-- No changes yet.
+- Closed the remaining v0.1.0 G5 evidence items with a clean-worktree full
+  check, Twine validation of both released distributions, and authenticated
+  publication evidence.
 
 ## 0.1.0 - 2026-07-17
 

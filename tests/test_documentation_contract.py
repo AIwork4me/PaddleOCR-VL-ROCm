@@ -22,6 +22,8 @@ G0_EVIDENCE = ROOT / "docs" / "releases" / "0.1.0-g0-evidence.md"
 G3_ATTESTATION = ROOT / "docs" / "releases" / "0.1.0-g3-attestation.md"
 WINDOWS_VALIDATION = ROOT / "docs" / "releases" / "0.1.0-windows-validation.md"
 G5_ATTESTATION = ROOT / "docs" / "releases" / "0.1.0-g5-attestation.md"
+G5_CLOSEOUT = ROOT / "docs" / "releases" / "0.1.0-g5-closeout.md"
+PUBLICATION_HANDOFF = ROOT / "docs" / "releases" / "0.1.0-handoff.md"
 
 OMNIDOCBENCH_V16_COMMIT = "147cd5ac9472002f5751221d390bf00abdbc0d2f"
 LAYOUT_HF = "https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx"
@@ -324,6 +326,28 @@ def test_g5_attestation_records_network_waiver_without_false_success() -> None:
         "full test suite passed",
     ):
         assert value in text
+
+
+def test_g5_closeout_closes_only_unwaived_evidence_items() -> None:
+    assert G5_CLOSEOUT.is_file()
+    closeout = re.sub(r"\s+", " ", _read(G5_CLOSEOUT))
+    handoff = re.sub(r"\s+", " ", _read(PUBLICATION_HANDOFF))
+    for value in (
+        "Status: **CLOSED**",
+        "does not claim that path succeeded",
+        "afc9b65cb0c2f8d8effb1a4d22b8323bed1640ec",
+        "exit code 0 in 875.3 seconds",
+        "full pytest: PASS",
+        "Twine 6.2.0",
+        "6/6 PASS",
+        "not a draft",
+        "not a prerelease",
+        "G5 has no remaining unwaived validation or publication item",
+    ):
+        assert value in closeout
+    assert "Closeout status: **CLOSED**" in handoff
+    assert "0.1.0-g5-closeout.md" in handoff
+    assert "explicitly waived" in handoff
 
 
 def test_g2_is_not_an_active_release_gate() -> None:
