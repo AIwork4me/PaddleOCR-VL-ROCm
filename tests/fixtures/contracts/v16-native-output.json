@@ -18,7 +18,7 @@
   },
   "markdown_suffix": ".md",
   "json_suffix": "_res.json",
-  "markdown_sha256": "37678009c0010f2f969b74ae26dc6e1ae1d43b39856bbea66b3702551a8b828b",
+  "markdown_sha256": "a585b37adc9a8c4095d56d0c153cb4d07d04c1793d34a193b41b4065f77dec14",
   "defaults": {
     "api_model_name": "PaddleOCR-VL-1.6-GGUF.gguf",
     "vlm_backend": "llama-cpp-server",
