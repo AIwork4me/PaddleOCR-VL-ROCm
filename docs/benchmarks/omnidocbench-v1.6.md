@@ -145,6 +145,10 @@ release-gate result. The history is preserved in commits `d529cb4` and
 G4 requires a new artifact-backed benchmark on the exact G3-accepted manifest,
 including per-page timings, mean, P50, P95, throughput, stage boundaries,
 hardware/runtime provenance, and output-equivalence checks.
+The sample contract is frozen in
+[`eval/g4-v1.6-samples.json`](../../eval/g4-v1.6-samples.json): 27 pages,
+three deterministic samples from each of nine primary document categories.
+The fail-closed validator is `eval.g4_performance`.
 
 ## Gate status
 
