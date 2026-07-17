@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import tomllib
 import yaml
 
 from eval.release_contract import KNOWN_V16_OFFICIAL_FAILURE
@@ -24,6 +25,9 @@ WINDOWS_VALIDATION = ROOT / "docs" / "releases" / "0.1.0-windows-validation.md"
 G5_ATTESTATION = ROOT / "docs" / "releases" / "0.1.0-g5-attestation.md"
 G5_CLOSEOUT = ROOT / "docs" / "releases" / "0.1.0-g5-closeout.md"
 PUBLICATION_HANDOFF = ROOT / "docs" / "releases" / "0.1.0-handoff.md"
+PATCH_RELEASE = ROOT / "docs" / "releases" / "0.1.1-release.md"
+CHANGELOG = ROOT / "CHANGELOG.md"
+PYPROJECT = ROOT / "pyproject.toml"
 
 OMNIDOCBENCH_V16_COMMIT = "147cd5ac9472002f5751221d390bf00abdbc0d2f"
 LAYOUT_HF = "https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx"
@@ -67,6 +71,29 @@ def test_bilingual_readmes_publish_accepted_release_gates() -> None:
         assert "G3" in text and "PASS" in text and "G4" in text
         assert "G5" in text and "PASS" in text
         assert "0.1.0-g5-attestation.md" in text
+
+
+def test_patch_release_aligns_version_docs_without_rewriting_v010() -> None:
+    metadata = tomllib.loads(_read(PYPROJECT))["project"]
+    english = _read(README_EN)
+    chinese = _read(README_ZH)
+    changelog = _read(CHANGELOG)
+    contract = re.sub(r"\s+", " ", _read(PATCH_RELEASE))
+
+    assert metadata["version"] == "0.1.1"
+    assert "v0.1.1 is READY" in english
+    assert "v0.1.1 已就绪" in chinese
+    assert "## 0.1.1 - 2026-07-17" in changelog
+    for value in (
+        "Status: **READY**",
+        "evidence-alignment patch release",
+        "no inference, scoring, runtime, model, resource-manifest, or public API",
+        "v0.1.0 tag and Release remain unchanged",
+        "afc9b65cb0c2f8d8effb1a4d22b8323bed1640ec",
+        "Overall 95.99",
+        "does not claim a successful empty-cache public-network",
+    ):
+        assert value in contract
 
 
 def test_bilingual_readmes_have_both_four_command_journeys() -> None:
