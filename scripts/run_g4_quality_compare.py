@@ -72,6 +72,7 @@ def _run_scorer(
             "OMNIDOCBENCH_MATCH_WORKERS": "1",
             "OMNIDOCBENCH_TEDS_WORKERS": "1",
             "OMNIDOCBENCH_CDM_WORKERS": "1",
+            "PYTHONUTF8": "1",
         }
     )
     result = subprocess.run(
