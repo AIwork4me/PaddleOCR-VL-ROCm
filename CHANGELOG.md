@@ -4,9 +4,17 @@ All notable changes will be documented here.
 
 ## Unreleased
 
+- No changes yet.
+
+## 0.1.1 - 2026-07-17
+
+- Published the v0.1.0 G5 post-publication closeout in an immutable patch
+  release without moving or rewriting the existing v0.1.0 tag.
 - Closed the remaining v0.1.0 G5 evidence items with a clean-worktree full
   check, Twine validation of both released distributions, and authenticated
   publication evidence.
+- No inference, scoring, runtime, model, resource-manifest, or public API
+  behavior changed.
 
 ## 0.1.0 - 2026-07-17
 

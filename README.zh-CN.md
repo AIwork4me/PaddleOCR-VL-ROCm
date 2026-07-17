@@ -17,12 +17,13 @@
 
 [English documentation](README.md)
 
-> 发布状态：**v0.1.0 已就绪（READY）**；**G3 精度已 PASS**，
+> 发布状态：**v0.1.1 已就绪（READY）**；**G3 精度已 PASS**，
 > 验收 Overall 为 **95.99**。PaddleOCR 已在线下确认该结果，项目 Maintainer
 > 于 2026-07-17 决定无需再次全量运行。**G4 已 PASS**（均值 6.33 秒/页、
 > P95 19.54 秒），**G5 已在记录公网传输豁免后 PASS**。详见
 > [G3 Maintainer 验收记录](docs/releases/0.1.0-g3-attestation.md)和
-> [G5 Maintainer 验收记录](docs/releases/0.1.0-g5-attestation.md)。
+> [G5 Maintainer 验收记录](docs/releases/0.1.0-g5-attestation.md)，以及
+> [v0.1.1 补丁发布契约](docs/releases/0.1.1-release.md)。
 
 | 指标 | PaddleOCR-VL（论文） | PaddleOCR-VL-ROCm（已验收） |
 |---:|---:|---:|
@@ -193,13 +194,13 @@ OmniDocBench checkout，说明推理/评分阶段，并拒绝不完整的发布 
 
 ## 已知限制
 
-- v0.1.0 已达到发布条件；G0、G1、G3、G4、G5 均为 PASS。
+- v0.1.1 已包含完整 G5 closeout；G0、G1、G3、G4、G5 均为 PASS。
 - 项目只记录了一台 Windows AMD 机器的冒烟验证。
 - G4 性能和定向 GT 精度投影均已通过；与历史 G3 基线相比仍有 8/27 页
   输出哈希不同，因此不声明原始输出等价。详见
   [G4 诊断](docs/releases/0.1.0-g4-diagnostic.md)。
 - 托管安装仅支持 Windows，且没有 stop/cleanup 命令。
-- v0.1.0 已明确豁免空缓存公网传输，且不声明该路径成功；预校验缓存安装已通过。
+- 空缓存公网传输仍为明确豁免，且不声明该路径成功；预校验缓存安装已通过。
 
 ## Roadmap
 
