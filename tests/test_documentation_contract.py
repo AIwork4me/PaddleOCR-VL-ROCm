@@ -47,19 +47,12 @@ def test_bilingual_readmes_lock_verified_historical_claims() -> None:
     for path in (README_EN, README_ZH):
         text = _read(path)
         for value in (
-            "95.7803",
-            "95.9480",
-            "96.502",
-            "96.922",
-            "94.239",
-            "94.322",
-            OMNIDOCBENCH_V16_COMMIT,
-            "b9884",
-            "86961efd5",
+            "95.99",
+            "97.36",
+            "94.09",
         ):
             assert value in text, f"{path.name} must contain {value}"
-        assert "95.7657" not in text
-        assert "95.9475" not in text
+        assert "96.15" not in text
         assert "96.13" not in text
 
 
@@ -113,10 +106,10 @@ def test_readmes_label_demo_and_benchmarks_as_non_release_evidence() -> None:
     chinese = _read(README_ZH)
 
     assert "compatibility demo" in english
-    assert "historical evidence" in english
+    assert "not release evidence" in english
     assert "g3" in english and "g4" in english
     assert "兼容性演示" in chinese
-    assert "历史证据" in chinese
+    assert "不是发布证据" in chinese
     assert "G3" in chinese and "G4" in chinese
 
 
@@ -130,12 +123,10 @@ def test_bilingual_readmes_document_the_single_page_exception_without_score_infl
         assert issue in text
         assert filename in text
         assert "peg-native" in text
-    assert "1,650" in english and "1,651" in english
-    assert "1,650" in chinese and "1,651" in chinese
-    assert "all 1,651 ground-truth pages" in english
-    assert "empty prediction" in english
-    assert "全部 1,651 个 GT 页面" in chinese
-    assert "空预测" in chinese
+    assert "1,650" in english and "1,651" not in english
+    assert "1,650" in chinese and "1,651" not in chinese
+    assert "1,650 页评分（1 页对称排除）" in chinese
+    assert "PaddleOCR issue #18248" in chinese
     assert "PaddlePaddle maintainer confirmed" not in english
 
     evaluation = re.sub(r"\s+", " ", _read(EVAL_README))

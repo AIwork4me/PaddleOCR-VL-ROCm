@@ -95,9 +95,7 @@ def test_rejects_any_expansion_of_known_failure(overrides, message) -> None:
 
 def test_rejects_known_exception_for_non_paired_engine() -> None:
     with pytest.raises(ValueError, match="official or lightweight"):
-        validate_release_run_stats(
-            _stats(engine="other"), version="v16", engine="other"
-        )
+        validate_release_run_stats(_stats(engine="other"), version="v16", engine="other")
 
 
 def test_accepts_exact_known_v16_lightweight_symmetric_failure() -> None:

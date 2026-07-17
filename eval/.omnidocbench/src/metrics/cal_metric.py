@@ -399,9 +399,9 @@ def _strip_cdm_math_wrappers(text):
     text = str(text or '').strip()
     text = text.lstrip("$$").rstrip("$$").strip()
     text = text.lstrip("$").rstrip("$").strip()
-    if text.startswith('\[') and text.endswith('\]'):
+    if text.startswith('\\[') and text.endswith('\\]'):
         text = text[2:-2].strip()
-    if text.startswith('\(') and text.endswith('\)'):
+    if text.startswith('\\(') and text.endswith('\\)'):
         text = text[2:-2].strip()
     return strip_formula_tags(text).strip()
 

@@ -25,7 +25,7 @@
     "max_new_tokens": 4096,
     "seed": 1,
     "threshold": 0.3,
-    "vlm_max_workers": 1
+    "vlm_max_workers": 8
   },
   "model_settings": {
     "use_doc_preprocessor": false,

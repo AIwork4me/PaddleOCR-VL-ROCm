@@ -183,8 +183,10 @@ def test_pipeline_matches_golden(tmp_path, image, _require_fixtures):
 
 
 def test_vlm_max_workers_default_has_been_increased():
-    from paddleocr_vl_rocm.pipeline import PaddleOCRVLROCm
     import inspect
+
+    from paddleocr_vl_rocm.pipeline import PaddleOCRVLROCm
+
     sig = inspect.signature(PaddleOCRVLROCm.__init__)
     default = sig.parameters["vlm_max_workers"].default
     assert default >= 8, f"vlm_max_workers default is {default}, expected >= 8"

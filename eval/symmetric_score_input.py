@@ -41,7 +41,9 @@ def _apply_path_repair(
     repaired = {
         item.get("image"): item
         for item in repair_details
-        if isinstance(item, dict) and item.get("status") == "ok" and isinstance(item.get("image"), str)
+        if isinstance(item, dict)
+        and item.get("status") == "ok"
+        and isinstance(item.get("image"), str)
     }
     if not repaired:
         raise ValueError("Repair stats must contain successful pages")
@@ -99,9 +101,7 @@ def prepare_score_input(
     repair_sha256: str | None = None
     if repair_stats_path is not None:
         repair_stats_path = Path(repair_stats_path)
-        effective, repaired_pages = _apply_path_repair(
-            source, _load_stats(repair_stats_path)
-        )
+        effective, repaired_pages = _apply_path_repair(source, _load_stats(repair_stats_path))
         repair_sha256 = _sha256(repair_stats_path)
 
     approved = validate_release_run_stats(effective, version="v16", engine=engine)

@@ -169,9 +169,7 @@ def test_finish_profiling_is_idempotent_and_uses_resolved_prefix(tmp_path, monke
     assert model.session.end_calls == 1
 
 
-def test_finish_profiling_does_not_end_session_twice_after_missing_path(
-    tmp_path, monkeypatch
-):
+def test_finish_profiling_does_not_end_session_twice_after_missing_path(tmp_path, monkeypatch):
     (tmp_path / "inference.onnx").touch()
     missing_profile = tmp_path / "profiles" / "missing.json"
 

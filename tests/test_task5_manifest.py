@@ -41,13 +41,9 @@ EXPECTED_AUTHORIZED_OUTPUT_DIGESTS = {
         "30c3965b3fa0e922e0ac6a9eddf28f480d9179c08ba56ee42f7b2c0aa499c0fc"
     ),
 }
-PRODUCTION_OUTPUT_DIGESTS = getattr(
-    task5_manifest, "APPROVED_G0_OUTPUT_SHA256", None
-)
+PRODUCTION_OUTPUT_DIGESTS = getattr(task5_manifest, "APPROVED_G0_OUTPUT_SHA256", None)
 TEST_OUTPUT_DIGESTS = {
-    relative: hashlib.sha256(
-        (json.dumps({"output": relative}) + "\n").encode()
-    ).hexdigest()
+    relative: hashlib.sha256((json.dumps({"output": relative}) + "\n").encode()).hexdigest()
     for relative in OFFICIAL_OUTPUTS
 }
 
@@ -122,9 +118,7 @@ def run_manifest_cli(
         )
     elif command == "validate":
         assert manifest_path is not None
-        arguments.extend(
-            ["--manifest", str(manifest_path), "--task5-root", str(r7 / "task5")]
-        )
+        arguments.extend(["--manifest", str(manifest_path), "--task5-root", str(r7 / "task5")])
     else:
         arguments.extend(["--r7-root", str(r7), "--receipt", str(G0_RECEIPT)])
     return subprocess.run(arguments, text=True, capture_output=True, check=False, cwd=ROOT)
@@ -181,9 +175,7 @@ def test_rebuilt_identity_cannot_authorize_replaced_official_output(
     manifest, r7, _ = valid_manifest(tmp_path)
     output = r7 / OFFICIAL_OUTPUTS[0]
     output.write_bytes(b"replacement")
-    manifest["g0"]["official_outputs"][OFFICIAL_OUTPUTS[0]] = (
-        task5_manifest.file_identity(output)
-    )
+    manifest["g0"]["official_outputs"][OFFICIAL_OUTPUTS[0]] = task5_manifest.file_identity(output)
     with pytest.raises(ValueError, match="approved SHA-256"):
         validate_task5_manifest(manifest, task5_root=r7 / "task5")
 
@@ -213,9 +205,7 @@ def test_build_sorts_inputs_and_copies_json_values(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("section", ["environment", "contracts"])
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
-def test_build_rejects_nonfinite_json_numbers(
-    tmp_path: Path, section: str, value: float
-) -> None:
+def test_build_rejects_nonfinite_json_numbers(tmp_path: Path, section: str, value: float) -> None:
     r7, receipt = make_sealed_r7(tmp_path)
     dataset = tmp_path / "dataset.json"
     dataset.write_text("{}", encoding="utf-8")
@@ -368,9 +358,7 @@ def test_atomic_write_fails_closed_on_parent_identity_drift(
         calls += 1
         return (str(parent), calls)
 
-    monkeypatch.setattr(
-        task5_manifest, "_parent_identity", drifting_identity, raising=False
-    )
+    monkeypatch.setattr(task5_manifest, "_parent_identity", drifting_identity, raising=False)
     with pytest.raises(ValueError, match="parent.*changed"):
         task5_manifest.atomic_write_json(tmp_path / "manifest.json", {"safe": True})
     assert calls >= 2

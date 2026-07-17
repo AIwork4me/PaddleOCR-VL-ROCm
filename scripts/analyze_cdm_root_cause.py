@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Formula CDM root cause analysis."""
 
 from __future__ import annotations
@@ -9,7 +9,6 @@ import json
 import statistics
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
 
 CATEGORIES = {
     "EMPTY_PRED": "Empty/missing prediction from model",
@@ -23,13 +22,16 @@ CATEGORIES = {
     "OTHER": "Other / uncategorized",
 }
 
+
 def load_json(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
 
 def build_key(entry):
     img = entry.get("img_id", entry.get("image_name", ""))
     gt_pos = str(entry.get("gt_position", ""))
     return f"{img}_{gt_pos}"
+
 
 def categorize_pair(pair):
     roc_pred = pair["roc_pred"]
@@ -53,6 +55,7 @@ def categorize_pair(pair):
     if pair["roc_edit"] > 0.1:
         return "CONTENT_DIFF"
     return "NOTATION_STYLE"
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -84,22 +87,24 @@ def main():
         g = gguf_by_key[key]
         r_cdm = r.get("metric", {}).get("CDM", 0.0)
         g_cdm = g.get("metric", {}).get("CDM", 0.0)
-        pairs.append({
-            "img_id": r.get("img_id", ""),
-            "gt_position": r.get("gt_position", ""),
-            "gt": r.get("gt", ""),
-            "roc_pred": r.get("pred", ""),
-            "gguf_pred": g.get("pred", ""),
-            "roc_cdm": r_cdm,
-            "gguf_cdm": g_cdm,
-            "cdm_diff": g_cdm - r_cdm,
-            "roc_edit": r.get("edit", 0.0),
-            "gguf_edit": g.get("edit", 0.0),
-            "roc_gt_tokens": r.get("metric", {}).get("gt_tokens", 0),
-            "roc_pred_tokens": r.get("metric", {}).get("pred_tokens", 0),
-            "gguf_gt_tokens": g.get("metric", {}).get("gt_tokens", 0),
-            "gguf_pred_tokens": g.get("metric", {}).get("pred_tokens", 0),
-        })
+        pairs.append(
+            {
+                "img_id": r.get("img_id", ""),
+                "gt_position": r.get("gt_position", ""),
+                "gt": r.get("gt", ""),
+                "roc_pred": r.get("pred", ""),
+                "gguf_pred": g.get("pred", ""),
+                "roc_cdm": r_cdm,
+                "gguf_cdm": g_cdm,
+                "cdm_diff": g_cdm - r_cdm,
+                "roc_edit": r.get("edit", 0.0),
+                "gguf_edit": g.get("edit", 0.0),
+                "roc_gt_tokens": r.get("metric", {}).get("gt_tokens", 0),
+                "roc_pred_tokens": r.get("metric", {}).get("pred_tokens", 0),
+                "gguf_gt_tokens": g.get("metric", {}).get("gt_tokens", 0),
+                "gguf_pred_tokens": g.get("metric", {}).get("pred_tokens", 0),
+            }
+        )
 
     # Categorize
     cats = defaultdict(list)
@@ -118,7 +123,9 @@ def main():
     summary = {
         "overall": {
             "gguf_cdm_mean": round(statistics.mean(gguf_cdms), 6) if gguf_cdms else 0,
-            "roc_nonzero_cdm_mean": round(statistics.mean(roc_cdms_nonzero), 6) if roc_cdms_nonzero else 0,
+            "roc_nonzero_cdm_mean": round(statistics.mean(roc_cdms_nonzero), 6)
+            if roc_cdms_nonzero
+            else 0,
             "roc_zero_cdm_count": sum(1 for p in pairs if p["roc_cdm"] == 0.0),
             "cdm_gap": round(statistics.mean(gguf_cdms), 6) if gguf_cdms else 0,
             "total_common_pairs": len(pairs),
@@ -159,23 +166,40 @@ def main():
 
     if args.out_worst:
         with open(args.out_worst, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "img_id", "gt_position", "roc_cdm", "gguf_cdm", "cdm_diff",
-                "roc_edit", "gguf_edit", "gt", "roc_pred",
-            ])
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "img_id",
+                    "gt_position",
+                    "roc_cdm",
+                    "gguf_cdm",
+                    "cdm_diff",
+                    "roc_edit",
+                    "gguf_edit",
+                    "gt",
+                    "roc_pred",
+                ],
+            )
             writer.writeheader()
             for p in summary["worst_cases"]:
-                writer.writerow({
-                    "img_id": p["img_id"], "gt_position": str(p["gt_position"]),
-                    "roc_cdm": p["roc_cdm"], "gguf_cdm": p["gguf_cdm"],
-                    "cdm_diff": p["cdm_diff"], "roc_edit": p["roc_edit"],
-                    "gguf_edit": p["gguf_edit"], "gt": p["gt"],
-                    "roc_pred": p["roc_pred"],
-                })
+                writer.writerow(
+                    {
+                        "img_id": p["img_id"],
+                        "gt_position": str(p["gt_position"]),
+                        "roc_cdm": p["roc_cdm"],
+                        "gguf_cdm": p["gguf_cdm"],
+                        "cdm_diff": p["cdm_diff"],
+                        "roc_edit": p["roc_edit"],
+                        "gguf_edit": p["gguf_edit"],
+                        "gt": p["gt"],
+                        "roc_pred": p["roc_pred"],
+                    }
+                )
         print(f"Worst CSV written to {args.out_worst}")
 
     print(output)
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

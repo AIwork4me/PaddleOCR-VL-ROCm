@@ -7,8 +7,7 @@ from eval.symmetric_score_input import prepare_score_input
 
 def _stats(engine: str, failed: list[dict[str, str]]) -> dict[str, object]:
     successful = [
-        {"image": f"page-{index:04d}.png", "status": "ok"}
-        for index in range(1651 - len(failed))
+        {"image": f"page-{index:04d}.png", "status": "ok"} for index in range(1651 - len(failed))
     ]
     return {
         "count": 1651,
@@ -38,7 +37,9 @@ def test_prepares_immutable_official_score_input_from_path_repair(tmp_path: Path
     }
     source = tmp_path / "official-source"
     original = _stats("official", path_failures + [peg_failure])
-    _write_markdown_set(source, [item["image"] for item in original["stats"] if item["status"] == "ok"])
+    _write_markdown_set(
+        source, [item["image"] for item in original["stats"] if item["status"] == "ok"]
+    )
     (source / "_run_stats.json").write_text(json.dumps(original), encoding="utf-8")
 
     repair = _stats("official", [])

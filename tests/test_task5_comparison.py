@@ -141,9 +141,7 @@ def test_events_pair_by_page_and_block_index_not_position() -> None:
     first = _event(page="a", block_index=0)
     second = _event(page="b", block_index=1)
 
-    report = compare_boundary_documents(
-        official=[first, second], lightweight=[second, first]
-    )
+    report = compare_boundary_documents(official=[first, second], lightweight=[second, first])
 
     assert report["verdict"] == "PASS"
 
@@ -200,9 +198,7 @@ def test_page_level_unknown_cannot_mask_proven_page_postprocess_difference() -> 
         "boundaries": {name: unobservable() for name in BOUNDARIES},
         "page_postprocess": observation("official markdown"),
     }
-    lightweight = _event(
-        page="a", page_postprocess=observation("lightweight markdown")
-    )
+    lightweight = _event(page="a", page_postprocess=observation("lightweight markdown"))
 
     report = compare_boundary_documents([page_record], [lightweight])
 
@@ -329,9 +325,7 @@ def test_canonical_trace_directories_require_exactly_1650_nonempty_paired_pages(
     assert complete_report["paired_pages"] == 1650
 
     approved_event = json.dumps(_event(page=APPROVED_STEM), sort_keys=True) + "\n"
-    (lightweight / f"{APPROVED_STEM}.jsonl").write_text(
-        approved_event, encoding="utf-8"
-    )
+    (lightweight / f"{APPROVED_STEM}.jsonl").write_text(approved_event, encoding="utf-8")
     lightweight_only_exclusion = compare_canonical_traces(official, lightweight)
 
     assert lightweight_only_exclusion["verdict"] == "PASS"
@@ -404,10 +398,12 @@ def test_evidence_hash_covers_page_postprocess_fingerprint() -> None:
 
 def test_normalize_strips_br_separators():
     from eval.task5_comparison import normalize_scorer_markdown
+
     text = "block1\n<br>\nblock2"
     assert normalize_scorer_markdown(text) == "block1\n\nblock2"
 
 
 def test_normalize_does_not_touch_inline_br():
     from eval.task5_comparison import normalize_scorer_markdown
+
     assert normalize_scorer_markdown("line1<br>line2") == "line1<br>line2"

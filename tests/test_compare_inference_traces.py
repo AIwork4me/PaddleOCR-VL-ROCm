@@ -203,7 +203,9 @@ def test_cli_retains_legacy_flat_trace_compatibility(tmp_path, monkeypatch, caps
     reference = tmp_path / "reference.jsonl"
     candidate = tmp_path / "candidate.jsonl"
     reference.write_text(json.dumps(_event()) + "\n", encoding="utf-8")
-    candidate.write_text(json.dumps(_event(final_result_sha256="different")) + "\n", encoding="utf-8")
+    candidate.write_text(
+        json.dumps(_event(final_result_sha256="different")) + "\n", encoding="utf-8"
+    )
     monkeypatch.setattr(sys, "argv", ["compare", str(reference), str(candidate)])
 
     compare_script.main()

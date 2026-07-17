@@ -16,7 +16,10 @@ SCRIPT = ROOT / "scripts" / "run_release_evidence_v16.ps1"
 
 def test_release_runner_isolates_and_orders_stages() -> None:
     text = SCRIPT.read_text(encoding="utf-8")
-    assert 'ValidateSet("Preflight", "Official", "OfficialScore", "Lightweight", "Decide", "All")' in text
+    assert (
+        'ValidateSet("Preflight", "Official", "OfficialScore", "Lightweight", "Decide", "All")'
+        in text
+    )
     assert '"-m", "eval.release_evidence", "manifest"' in text
     assert text.index('"Preflight"') < text.index('"Official"')
     assert '"-m", "eval.release_contract"' in text
@@ -306,10 +309,7 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
         encoding="utf-8",
     )
     stub = directory / "python.cmd"
-    command = (
-        "@echo off\n"
-        f'"{sys.executable}" "{program}" %*\n'
-    )
+    command = f'@echo off\n"{sys.executable}" "{program}" %*\n'
     stub.write_text(command, encoding="utf-8")
     scorer = directory / "scorer-venv" / "Scripts" / "python.cmd"
     scorer.parent.mkdir(parents=True, exist_ok=True)
@@ -317,7 +317,9 @@ def _stub_python(directory: Path, *, fail_on: str = "") -> Path:
     return stub
 
 
-def _run(script: Path, *arguments: str, env: dict[str, str] | None = None, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
+def _run(
+    script: Path, *arguments: str, env: dict[str, str] | None = None, cwd: Path = ROOT
+) -> subprocess.CompletedProcess[str]:
     values = list(arguments)
     run_env = env.copy() if env else None
     if env and env.get("STUB_REPORTED_EXE") and "-PythonExe" not in values:
@@ -366,16 +368,35 @@ def _clean_repo(tmp_path: Path) -> tuple[Path, Path]:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("# anchor\n", encoding="utf-8")
     (repo / "src/paddleocr_vl_rocm/assets/runtime-manifest.json").write_text(
-        json.dumps({"resources": [
-            {"name": "paddleocr-vl-main-gguf", "destination": "models/PaddleOCR-VL-1.6-GGUF.gguf"},
-            {"name": "paddleocr-vl-mmproj", "destination": "models/PaddleOCR-VL-1.6-GGUF-mmproj.gguf"},
-        ]}),
+        json.dumps(
+            {
+                "resources": [
+                    {
+                        "name": "paddleocr-vl-main-gguf",
+                        "destination": "models/PaddleOCR-VL-1.6-GGUF.gguf",
+                    },
+                    {
+                        "name": "paddleocr-vl-mmproj",
+                        "destination": "models/PaddleOCR-VL-1.6-GGUF-mmproj.gguf",
+                    },
+                ]
+            }
+        ),
         encoding="utf-8",
     )
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
     subprocess.run(["git", "add", "."], cwd=repo, check=True)
     subprocess.run(
-        ["git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-qm", "fixture"],
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
         cwd=repo,
         check=True,
     )
@@ -402,7 +423,12 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     main.write_bytes(b"main")
     mmproj.write_bytes(b"mmproj")
     config = tmp_path / "active config.json"
-    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
+    config.write_text(
+        json.dumps(
+            {"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}
+        ),
+        encoding="utf-8",
+    )
     scorer_package = tmp_path / "scorer-package.py"
     scorer_package.write_text("VERSION = 1\n", encoding="utf-8")
     env = os.environ.copy()
@@ -414,26 +440,56 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     )
     env["STUB_MISSING_PACKAGE"] = "1"
     missing_package = _run(
-        script, "-Stage", "Preflight", "-EvidenceRoot", str(evidence),
-        "-DatasetDir", str(dataset), "-LayoutModel", str(layout),
-        "-RuntimeConfig", str(config), env=env, cwd=tmp_path,
+        script,
+        "-Stage",
+        "Preflight",
+        "-EvidenceRoot",
+        str(evidence),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
+        env=env,
+        cwd=tmp_path,
     )
     assert missing_package.returncode != 0
     env.pop("STUB_MISSING_PACKAGE")
     env["STUB_WRONG_VERSION"] = "1"
     wrong_version = _run(
-        script, "-Stage", "Preflight", "-EvidenceRoot", str(evidence),
-        "-DatasetDir", str(dataset), "-LayoutModel", str(layout),
-        "-RuntimeConfig", str(config), env=env, cwd=tmp_path,
+        script,
+        "-Stage",
+        "Preflight",
+        "-EvidenceRoot",
+        str(evidence),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
+        env=env,
+        cwd=tmp_path,
     )
     assert wrong_version.returncode != 0
     assert "dependency version mismatch" in (wrong_version.stdout + wrong_version.stderr)
     env.pop("STUB_WRONG_VERSION")
     env["STUB_WRONG_ORIGIN"] = "1"
     wrong_origin = _run(
-        script, "-Stage", "Preflight", "-EvidenceRoot", str(evidence),
-        "-DatasetDir", str(dataset), "-LayoutModel", str(layout),
-        "-RuntimeConfig", str(config), env=env, cwd=tmp_path,
+        script,
+        "-Stage",
+        "Preflight",
+        "-EvidenceRoot",
+        str(evidence),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
+        env=env,
+        cwd=tmp_path,
     )
     assert wrong_origin.returncode != 0
     assert "module origins are outside this worktree" in (wrong_origin.stdout + wrong_origin.stderr)
@@ -441,11 +497,16 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
 
     completed = _run(
         script,
-        "-Stage", "All",
-        "-EvidenceRoot", str(evidence),
-        "-DatasetDir", str(dataset),
-        "-LayoutModel", str(layout),
-        "-RuntimeConfig", str(config),
+        "-Stage",
+        "All",
+        "-EvidenceRoot",
+        str(evidence),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
         env=env,
         cwd=tmp_path,
     )
@@ -456,21 +517,31 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     assert f"layout_model={layout / 'inference.onnx'}" in arguments
     assert "check_server.py" in "\n".join(arguments)
     assert "eval.run_eval" not in arguments
-    records = [json.loads(line) for line in (evidence / "logs" / "commands.jsonl").read_text().splitlines()]
+    records = [
+        json.loads(line) for line in (evidence / "logs" / "commands.jsonl").read_text().splitlines()
+    ]
     assert records[-1]["exit_code"] == 23
     assert records[-1]["arguments"][-1] == "<redacted-url>"
     assert "http://" not in json.dumps(records)
     assert str(tmp_path) not in json.dumps(records)
-    assert json.loads((evidence / "logs" / "stages" / "preflight.json").read_text())["status"] == "failed"
+    assert (
+        json.loads((evidence / "logs" / "stages" / "preflight.json").read_text())["status"]
+        == "failed"
+    )
 
     _stub_python(tools)
     retried = _run(
         script,
-        "-Stage", "Preflight",
-        "-EvidenceRoot", str(evidence),
-        "-DatasetDir", str(dataset),
-        "-LayoutModel", str(layout),
-        "-RuntimeConfig", str(config),
+        "-Stage",
+        "Preflight",
+        "-EvidenceRoot",
+        str(evidence),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
         env=env,
         cwd=tmp_path,
     )
@@ -480,11 +551,16 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     before = argument_log.read_text().count("check_server.py")
     skipped = _run(
         script,
-        "-Stage", "Preflight",
-        "-EvidenceRoot", str(evidence),
-        "-DatasetDir", str(dataset),
-        "-LayoutModel", str(layout),
-        "-RuntimeConfig", str(config),
+        "-Stage",
+        "Preflight",
+        "-EvidenceRoot",
+        str(evidence),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
         env=env,
         cwd=tmp_path,
     )
@@ -493,11 +569,16 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     scorer_package.write_text("VERSION = 2\n", encoding="utf-8")
     package_mutation = _run(
         script,
-        "-Stage", "Preflight",
-        "-EvidenceRoot", str(evidence),
-        "-DatasetDir", str(dataset),
-        "-LayoutModel", str(layout),
-        "-RuntimeConfig", str(config),
+        "-Stage",
+        "Preflight",
+        "-EvidenceRoot",
+        str(evidence),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
         env=env,
         cwd=tmp_path,
     )
@@ -508,44 +589,103 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     scorer_package.write_text("VERSION = 1\n", encoding="utf-8")
     doctor_before = argument_log.read_text().count("doctor")
     missing_official = _run(
-        script, "-Stage", "Lightweight", *(
-            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
-            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
-        ), env=env, cwd=tmp_path,
+        script,
+        "-Stage",
+        "Lightweight",
+        *(
+            "-EvidenceRoot",
+            str(evidence),
+            "-DatasetDir",
+            str(dataset),
+            "-LayoutModel",
+            str(layout),
+            "-RuntimeConfig",
+            str(config),
+        ),
+        env=env,
+        cwd=tmp_path,
     )
     assert missing_official.returncode != 0
-    assert "Missing completed predecessor: Official" in (missing_official.stdout + missing_official.stderr)
+    assert "Missing completed predecessor: Official" in (
+        missing_official.stdout + missing_official.stderr
+    )
     assert argument_log.read_text().count("doctor") == doctor_before
     official = _run(
-        script, "-Stage", "Official", *(
-            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
-            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
-        ), env=env, cwd=tmp_path,
+        script,
+        "-Stage",
+        "Official",
+        *(
+            "-EvidenceRoot",
+            str(evidence),
+            "-DatasetDir",
+            str(dataset),
+            "-LayoutModel",
+            str(layout),
+            "-RuntimeConfig",
+            str(config),
+        ),
+        env=env,
+        cwd=tmp_path,
     )
     assert official.returncode == 0, official.stderr
     lightweight_run = _run(
-        script, "-Stage", "Lightweight", *(
-            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
-            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
-        ), env=env, cwd=tmp_path,
+        script,
+        "-Stage",
+        "Lightweight",
+        *(
+            "-EvidenceRoot",
+            str(evidence),
+            "-DatasetDir",
+            str(dataset),
+            "-LayoutModel",
+            str(layout),
+            "-RuntimeConfig",
+            str(config),
+        ),
+        env=env,
+        cwd=tmp_path,
     )
     assert lightweight_run.returncode == 0, lightweight_run.stderr
     assert argument_log.read_text().count("doctor") > doctor_before
     changed_url = _run(
-        script, "-Stage", "Preflight", *(
-            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
-            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
-            "-ServerUrl", "http://127.0.0.1:9999/v1",
-        ), env=env, cwd=tmp_path,
+        script,
+        "-Stage",
+        "Preflight",
+        *(
+            "-EvidenceRoot",
+            str(evidence),
+            "-DatasetDir",
+            str(dataset),
+            "-LayoutModel",
+            str(layout),
+            "-RuntimeConfig",
+            str(config),
+            "-ServerUrl",
+            "http://127.0.0.1:9999/v1",
+        ),
+        env=env,
+        cwd=tmp_path,
     )
     assert changed_url.returncode != 0
     assert "invocation fingerprint mismatch" in (changed_url.stdout + changed_url.stderr)
     changed_model = _run(
-        script, "-Stage", "Preflight", *(
-            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
-            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
-            "-ApiModelName", "different-model.gguf",
-        ), env=env, cwd=tmp_path,
+        script,
+        "-Stage",
+        "Preflight",
+        *(
+            "-EvidenceRoot",
+            str(evidence),
+            "-DatasetDir",
+            str(dataset),
+            "-LayoutModel",
+            str(layout),
+            "-RuntimeConfig",
+            str(config),
+            "-ApiModelName",
+            "different-model.gguf",
+        ),
+        env=env,
+        cwd=tmp_path,
     )
     assert changed_model.returncode != 0
     assert "invocation fingerprint mismatch" in (changed_model.stdout + changed_model.stderr)
@@ -555,31 +695,66 @@ def test_failed_preflight_preserves_space_arguments_and_stops_official(tmp_path:
     changed_env = env.copy()
     changed_env["STUB_REPORTED_EXE"] = str(other_python)
     changed_interpreter = _run(
-        script, "-Stage", "Preflight", *(
-            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
-            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
-        ), env=changed_env, cwd=tmp_path,
+        script,
+        "-Stage",
+        "Preflight",
+        *(
+            "-EvidenceRoot",
+            str(evidence),
+            "-DatasetDir",
+            str(dataset),
+            "-LayoutModel",
+            str(layout),
+            "-RuntimeConfig",
+            str(config),
+        ),
+        env=changed_env,
+        cwd=tmp_path,
     )
     assert changed_interpreter.returncode != 0
     assert "Resume refused" in (changed_interpreter.stdout + changed_interpreter.stderr)
     changed_environment = env.copy()
     changed_environment["STUB_ENV_HASH"] = "b" * 64
     environment_resume = _run(
-        script, "-Stage", "Preflight", *(
-            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
-            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
-        ), env=changed_environment, cwd=tmp_path,
+        script,
+        "-Stage",
+        "Preflight",
+        *(
+            "-EvidenceRoot",
+            str(evidence),
+            "-DatasetDir",
+            str(dataset),
+            "-LayoutModel",
+            str(layout),
+            "-RuntimeConfig",
+            str(config),
+        ),
+        env=changed_environment,
+        cwd=tmp_path,
     )
     assert environment_resume.returncode != 0
-    assert "invocation fingerprint mismatch" in (environment_resume.stdout + environment_resume.stderr)
+    assert "invocation fingerprint mismatch" in (
+        environment_resume.stdout + environment_resume.stderr
+    )
     record = tmp_path / "paddleocr-dist-info" / "RECORD"
     original_record = record.read_bytes()
     record.write_bytes(b"mutated")
     record_resume = _run(
-        script, "-Stage", "Preflight", *(
-            "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
-            "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
-        ), env=env, cwd=tmp_path,
+        script,
+        "-Stage",
+        "Preflight",
+        *(
+            "-EvidenceRoot",
+            str(evidence),
+            "-DatasetDir",
+            str(dataset),
+            "-LayoutModel",
+            str(layout),
+            "-RuntimeConfig",
+            str(config),
+        ),
+        env=env,
+        cwd=tmp_path,
     )
     assert record_resume.returncode != 0
     assert "Resume refused" in (record_resume.stdout + record_resume.stderr)
@@ -621,7 +796,12 @@ def test_resume_rejects_changed_immutable_input(tmp_path: Path) -> None:
     main.write_bytes(b"main")
     mmproj.write_bytes(b"mm")
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
+    config.write_text(
+        json.dumps(
+            {"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}
+        ),
+        encoding="utf-8",
+    )
     tools = tmp_path / "tools"
     tools.mkdir()
     argument_log = tmp_path / "args.log"
@@ -631,12 +811,18 @@ def test_resume_rejects_changed_immutable_input(tmp_path: Path) -> None:
 
     first = _run(
         script,
-        "-Stage", "Preflight",
-        "-EvidenceRoot", str(evidence),
-        "-DatasetDir", str(dataset),
-        "-LayoutModel", str(layout),
-        "-RuntimeConfig", str(config),
-        "-ServerUrl", "http://127.0.0.1:1/v1",
+        "-Stage",
+        "Preflight",
+        "-EvidenceRoot",
+        str(evidence),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
+        "-ServerUrl",
+        "http://127.0.0.1:1/v1",
         env=env,
         cwd=tmp_path,
     )
@@ -646,11 +832,16 @@ def test_resume_rejects_changed_immutable_input(tmp_path: Path) -> None:
 
     resumed = _run(
         script,
-        "-Stage", "Preflight",
-        "-EvidenceRoot", str(evidence),
-        "-DatasetDir", str(dataset),
-        "-LayoutModel", str(layout),
-        "-RuntimeConfig", str(config),
+        "-Stage",
+        "Preflight",
+        "-EvidenceRoot",
+        str(evidence),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
         env=env,
         cwd=tmp_path,
     )
@@ -707,17 +898,31 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     (dataset / "OmniDocBench.json").write_text("{}", encoding="utf-8")
     (layout / "inference.onnx").write_bytes(b"model")
     (layout / "inference.yml").write_text("config", encoding="utf-8")
-    main, mmproj = tmp_path / "PaddleOCR-VL-1.6-GGUF.gguf", tmp_path / "PaddleOCR-VL-1.6-GGUF-mmproj.gguf"
+    main, mmproj = (
+        tmp_path / "PaddleOCR-VL-1.6-GGUF.gguf",
+        tmp_path / "PaddleOCR-VL-1.6-GGUF-mmproj.gguf",
+    )
     main.write_bytes(b"main")
     mmproj.write_bytes(b"mm")
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
+    config.write_text(
+        json.dumps(
+            {"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}
+        ),
+        encoding="utf-8",
+    )
     evidence = tmp_path / "evidence"
     env = os.environ.copy()
     env.update(STUB_ARG_LOG=str(argument_log), STUB_REPORTED_EXE=str(stub_python))
     common = (
-        "-EvidenceRoot", str(evidence), "-DatasetDir", str(dataset),
-        "-LayoutModel", str(layout), "-RuntimeConfig", str(config),
+        "-EvidenceRoot",
+        str(evidence),
+        "-DatasetDir",
+        str(dataset),
+        "-LayoutModel",
+        str(layout),
+        "-RuntimeConfig",
+        str(config),
     )
     stale = evidence / "official" / "partial.txt"
     stale.parent.mkdir(parents=True)
@@ -730,23 +935,46 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     assert json.loads((evidence / "decision.json").read_text()) == {}
     args = argument_log.read_text(encoding="utf-8").splitlines()
     lightweight = next(
-        i for i in range(len(args) - 8)
-        if args[i] == "eval.run_eval" and "infer" in args[i : i + 6] and "lightweight" in args[i : i + 12]
+        i
+        for i in range(len(args) - 8)
+        if args[i] == "eval.run_eval"
+        and "infer" in args[i : i + 6]
+        and "lightweight" in args[i : i + 12]
     )
     lightweight_args = args[lightweight : lightweight + 24]
-    assert ["--server-url", "http://127.0.0.1:8111/v1"] == lightweight_args[lightweight_args.index("--server-url") : lightweight_args.index("--server-url") + 2]
-    assert ["--api-model-name", "PaddleOCR-VL-1.6-GGUF.gguf"] == lightweight_args[lightweight_args.index("--api-model-name") : lightweight_args.index("--api-model-name") + 2]
-    assert ["--layout-model", str(layout)] == lightweight_args[lightweight_args.index("--layout-model") : lightweight_args.index("--layout-model") + 2]
+    assert ["--server-url", "http://127.0.0.1:8111/v1"] == lightweight_args[
+        lightweight_args.index("--server-url") : lightweight_args.index("--server-url") + 2
+    ]
+    assert ["--api-model-name", "PaddleOCR-VL-1.6-GGUF.gguf"] == lightweight_args[
+        lightweight_args.index("--api-model-name") : lightweight_args.index("--api-model-name") + 2
+    ]
+    assert ["--layout-model", str(layout)] == lightweight_args[
+        lightweight_args.index("--layout-model") : lightweight_args.index("--layout-model") + 2
+    ]
     decide_state = json.loads((evidence / "logs" / "stages" / "decide.json").read_text())
     assert decide_state["status"] == "completed"
     assert decide_state["output_sha256"]["decision.json"]
-    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(tmp_path / "wrong-layout")}), encoding="utf-8")
+    config.write_text(
+        json.dumps(
+            {
+                "main_gguf": str(main),
+                "mmproj": str(mmproj),
+                "layout_model_dir": str(tmp_path / "wrong-layout"),
+            }
+        ),
+        encoding="utf-8",
+    )
     infer_before = argument_log.read_text().count("eval.run_eval")
     mismatch = _run(script, "-Stage", "Lightweight", *common, env=env, cwd=tmp_path)
     assert mismatch.returncode != 0
     assert "layout_model_dir does not match" in (mismatch.stdout + mismatch.stderr)
     assert argument_log.read_text().count("eval.run_eval") == infer_before
-    config.write_text(json.dumps({"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}), encoding="utf-8")
+    config.write_text(
+        json.dumps(
+            {"main_gguf": str(main), "mmproj": str(mmproj), "layout_model_dir": str(layout)}
+        ),
+        encoding="utf-8",
+    )
     extra = evidence / "official" / "unexpected.txt"
     extra.write_text("unexpected", encoding="utf-8")
     added = _run(script, "-Stage", "Official", *common, env=env, cwd=tmp_path)
@@ -762,7 +990,9 @@ def test_all_persists_decision_and_detects_changed_completed_output(tmp_path: Pa
     decisions_before = argument_log.read_text().splitlines().count("decide")
     predecessor_tampered = _run(script, "-Stage", "Decide", *common, env=env, cwd=tmp_path)
     assert predecessor_tampered.returncode != 0
-    assert "Predecessor command log hash mismatch" in (predecessor_tampered.stdout + predecessor_tampered.stderr)
+    assert "Predecessor command log hash mismatch" in (
+        predecessor_tampered.stdout + predecessor_tampered.stderr
+    )
     assert argument_log.read_text().splitlines().count("decide") == decisions_before
     command_log.write_bytes(original_log)
     command_log.unlink()
@@ -848,9 +1078,7 @@ def test_failed_score_retry_preserves_inference_and_both_scores_gate_official(
     (result_dir / "metric-cdm.json").unlink()
     blocked = _run(script, "-Stage", "Lightweight", *common, env=env, cwd=tmp_path)
     assert blocked.returncode != 0
-    assert "Predecessor output hash/set mismatch: Official" in (
-        blocked.stdout + blocked.stderr
-    )
+    assert "Predecessor output hash/set mismatch: Official" in (blocked.stdout + blocked.stderr)
 
 
 def test_score_only_recovery_binds_assets_then_continues_lightweight_and_decide(
@@ -984,13 +1212,24 @@ def test_score_only_recovery_rejects_source_output_overlap(tmp_path: Path) -> No
 
 def test_standalone_stage_requires_preflight_before_native_commands(tmp_path: Path) -> None:
     _, script = _clean_repo(tmp_path)
-    completed = _run(script, "-Stage", "Official", "-EvidenceRoot", str(tmp_path / "evidence"), "-PythonExe", sys.executable, cwd=tmp_path)
+    completed = _run(
+        script,
+        "-Stage",
+        "Official",
+        "-EvidenceRoot",
+        str(tmp_path / "evidence"),
+        "-PythonExe",
+        sys.executable,
+        cwd=tmp_path,
+    )
     assert completed.returncode != 0
     assert "Missing completed predecessor: Preflight" in (completed.stdout + completed.stderr)
     assert not (tmp_path / "evidence").exists()
 
 
-def test_release_evidence_module_imports_without_pythonpath_from_foreign_cwd(tmp_path: Path) -> None:
+def test_release_evidence_module_imports_without_pythonpath_from_foreign_cwd(
+    tmp_path: Path,
+) -> None:
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
     command = f"Push-Location '{ROOT}'; & '{sys.executable}' -m eval.release_evidence --help"
@@ -1062,8 +1301,10 @@ def test_clean_gate_rejects_untracked_file_from_foreign_cwd(tmp_path: Path) -> N
     (repo / "unexpected.txt").write_text("dirty", encoding="utf-8")
     completed = _run(
         script,
-        "-EvidenceRoot", str(tmp_path / "external evidence"),
-        "-PythonExe", sys.executable,
+        "-EvidenceRoot",
+        str(tmp_path / "external evidence"),
+        "-PythonExe",
+        sys.executable,
         cwd=tmp_path,
     )
     assert completed.returncode != 0

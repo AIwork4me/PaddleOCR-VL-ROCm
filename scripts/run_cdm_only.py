@@ -1,14 +1,20 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """CDM-only computation with ThreadPoolExecutor (avoids Windows spawn issues)."""
 
-import sys, os, json, copy, shutil
+import copy
+import json
+import os
+import shutil
+import sys
+
 sys.path.insert(0, "eval/.omnidocbench")
 os.chdir(r"C:\Users\rocm\Desktop\PaddleOCR-VL-ROCm")
 
-from src.metrics.cdm_metric import CDM
-from src.metrics.cal_metric import _strip_cdm_math_wrappers
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed  # noqa: E402
+
+from src.metrics.cal_metric import _strip_cdm_math_wrappers  # noqa: E402
+from src.metrics.cdm_metric import CDM  # noqa: E402
+from tqdm import tqdm  # noqa: E402
 
 INPUT = "result/paddleocrvl_rocm_cdm_quick_match_display_formula_result.json"
 OUTPUT_RESULT = "result/paddleocrvl_rocm_cdm_quick_match_display_formula_result.json"
@@ -24,6 +30,7 @@ print(f"[cdm-only] loaded {len(samples)} samples")
 if os.path.isdir(OUTPUT_ROOT):
     shutil.rmtree(OUTPUT_ROOT, ignore_errors=True)
 os.makedirs(OUTPUT_ROOT, exist_ok=True)
+
 
 def process_one(idx_sample):
     idx, sample = idx_sample
@@ -82,6 +89,7 @@ def process_one(idx_sample):
             "error": f"{type(exc).__name__}: {exc}",
         }
 
+
 if __name__ == "__main__":
     worker_args = list(enumerate(samples))
     per_sample_score = {}
@@ -98,7 +106,9 @@ if __name__ == "__main__":
     else:
         with ThreadPoolExecutor(max_workers=WORKERS) as executor:
             futures = {executor.submit(process_one, a): a[0] for a in worker_args}
-            for future in tqdm(as_completed(futures), total=len(worker_args), ascii=True, ncols=140, desc="CDM"):
+            for future in tqdm(
+                as_completed(futures), total=len(worker_args), ascii=True, ncols=140, desc="CDM"
+            ):
                 r = future.result()
                 cdm_samples[r["idx"]] = r["sample"]
                 per_sample_score[r["sample_key"]] = r["cdm_score"]
@@ -113,4 +123,7 @@ if __name__ == "__main__":
     scores = [v for v in per_sample_score.values() if isinstance(v, (int, float))]
     nonzero = [s for s in scores if s > 0]
     mean_cdm = sum(nonzero) / len(nonzero) if nonzero else 0
-    print(f"\n[cdm-only] DONE! total={len(scores)} nonzero={len(nonzero)} zero={len(scores)-len(nonzero)} exceptions={exception_count} mean={mean_cdm:.4f}")
+    print(
+        f"\n[cdm-only] DONE! total={len(scores)} nonzero={len(nonzero)} "
+        f"zero={len(scores) - len(nonzero)} exceptions={exception_count} mean={mean_cdm:.4f}"
+    )

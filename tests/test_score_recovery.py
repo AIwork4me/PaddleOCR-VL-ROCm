@@ -98,9 +98,7 @@ def test_source_state_identity_is_authenticated(tmp_path: Path) -> None:
     root = _bundle(tmp_path)
 
     with pytest.raises(ValueError, match="Source state hash mismatch"):
-        authenticate_inference_bundle(
-            root, expected_manifest_sha256=_sha(root / "manifest.json")
-        )
+        authenticate_inference_bundle(root, expected_manifest_sha256=_sha(root / "manifest.json"))
 
 
 @pytest.mark.parametrize("target", ["prediction", "stats", "errors", "commands"])

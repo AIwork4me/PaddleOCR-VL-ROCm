@@ -731,9 +731,7 @@ def test_stage_eval_passes_rendered_config_for_selected_predictions_without_cdm(
     eval_config = captured["config"]["end2end_eval"]
     assert captured["config_path"] != Path(args.config).resolve()
     assert eval_config["dataset"]["prediction"]["data_path"] == str(predictions.resolve())
-    assert eval_config["dataset"]["ground_truth"]["data_path"] == str(
-        dataset_manifest.resolve()
-    )
+    assert eval_config["dataset"]["ground_truth"]["data_path"] == str(dataset_manifest.resolve())
     assert eval_config["metrics"]["display_formula"]["metric"] == ["Edit_dist"]
 
 
@@ -768,9 +766,7 @@ def test_render_eval_config_uses_authenticated_unicode_dataset_manifest(tmp_path
     )
 
     eval_config = yaml.safe_load(rendered.read_text(encoding="utf-8"))["end2end_eval"]
-    assert eval_config["dataset"]["ground_truth"]["data_path"] == str(
-        dataset_manifest.resolve()
-    )
+    assert eval_config["dataset"]["ground_truth"]["data_path"] == str(dataset_manifest.resolve())
 
 
 def test_stage_eval_passes_rendered_config_with_cdm_when_requested(tmp_path, monkeypatch):

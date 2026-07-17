@@ -58,7 +58,7 @@ def _add_inference_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--threshold", type=float, default=0.3)
-    parser.add_argument("--vlm-max-workers", type=int, default=1)
+    parser.add_argument("--vlm-max-workers", type=int, default=8)
     parser.add_argument("--skip-server-check", action="store_true")
 
 

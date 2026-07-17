@@ -124,9 +124,7 @@ def test_attestation_fails_closed_on_invalid_runtime_stats(
     stats = _valid_directml_stats()
     stats.update(stats_update)
 
-    report = attest_directml_profile(
-        _write_profile(tmp_path, ["DmlExecutionProvider"]), stats
-    )
+    report = attest_directml_profile(_write_profile(tmp_path, ["DmlExecutionProvider"]), stats)
 
     assert report["verdict"] == expected
 

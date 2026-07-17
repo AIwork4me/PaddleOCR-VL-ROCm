@@ -382,10 +382,7 @@ def test_lightweight_trace_capture_is_opt_in_and_fingerprint_only(tmp_path, monk
     assert event["page"] == "page"
     assert event["block_index"] == 0
     assert set(event["boundaries"]) == set(BOUNDARIES)
-    assert all(
-        set(value) <= {"status", "fingerprint"}
-        for value in event["boundaries"].values()
-    )
+    assert all(set(value) <= {"status", "fingerprint"} for value in event["boundaries"].values())
     for secret in ("crop-secret", "prompt-secret", "payload-secret", "raw-secret", "final-secret"):
         assert secret not in raw
 
@@ -509,9 +506,7 @@ def test_official_does_not_infer_request_order_prompt_or_none_fields():
 def test_official_empty_authenticated_block_list_is_not_zero_evidence():
     mod = _load_adapter()
 
-    events = mod._official_page_trace_events(
-        "page", {"res": {"parsing_res_list": []}}, "markdown"
-    )
+    events = mod._official_page_trace_events("page", {"res": {"parsing_res_list": []}}, "markdown")
 
     assert len(events) == 1
     assert events[0]["block_index"] is None
@@ -578,8 +573,7 @@ def test_crop_pixels_and_prehashed_image_sha256_use_one_representation():
 
     assert same_official["boundaries"]["crop_pixels"] == lightweight["boundaries"]["crop_pixels"]
     assert (
-        different_official["boundaries"]["crop_pixels"]
-        != lightweight["boundaries"]["crop_pixels"]
+        different_official["boundaries"]["crop_pixels"] != lightweight["boundaries"]["crop_pixels"]
     )
 
 
@@ -610,7 +604,11 @@ def test_trace_write_failure_removes_partial_temporary_trace(tmp_path, monkeypat
             return FakeResult()
 
     monkeypatch.setattr(mod, "PaddleOCRVLROCm", FakePipeline, raising=False)
-    monkeypatch.setattr(mod.os, "replace", lambda source, destination: (_ for _ in ()).throw(OSError("replace failed")))
+    monkeypatch.setattr(
+        mod.os,
+        "replace",
+        lambda source, destination: (_ for _ in ()).throw(OSError("replace failed")),
+    )
 
     with pytest.raises(SystemExit):
         mod.run_lightweight_folder(img_dir=img_dir, out_dir=out_dir, trace_dir=trace_dir)
@@ -669,6 +667,7 @@ def test_nonempty_trace_directory_is_rejected_before_pipeline_initialization(
     (trace_dir / "old-page.jsonl").write_text("old run", encoding="utf-8")
 
     if engine == "lightweight":
+
         class ForbiddenPipeline:
             def __init__(self, **kwargs):
                 raise AssertionError("pipeline initialized before trace-dir validation")
@@ -683,6 +682,7 @@ def test_nonempty_trace_directory_is_rejected_before_pipeline_initialization(
                 limit_pages=1,
             )
     else:
+
         class ForbiddenOfficial:
             def __init__(self, **kwargs):
                 raise AssertionError("pipeline initialized before trace-dir validation")
@@ -714,6 +714,7 @@ def test_duplicate_image_stems_fail_before_inference(tmp_path, monkeypatch, engi
     (img_dir / "page.jpg").write_bytes(b"image")
 
     if engine == "lightweight":
+
         class ForbiddenPipeline:
             def __init__(self, **kwargs):
                 raise AssertionError("inference initialized before stem validation")
@@ -723,11 +724,14 @@ def test_duplicate_image_stems_fail_before_inference(tmp_path, monkeypatch, engi
         def call():
             return mod.run_lightweight_folder(img_dir=img_dir, out_dir=tmp_path / "out")
     else:
+
         class ForbiddenOfficial:
             def __init__(self, **kwargs):
                 raise AssertionError("inference initialized before stem validation")
 
-        monkeypatch.setitem(sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=ForbiddenOfficial))
+        monkeypatch.setitem(
+            sys.modules, "paddleocr", types.SimpleNamespace(PaddleOCRVL=ForbiddenOfficial)
+        )
 
         def call():
             return mod.run_official_folder(
@@ -746,9 +750,7 @@ def test_official_page_trace_without_authenticated_blocks_is_page_level_unknown(
 
     events = mod._official_page_trace_events("page", {"markdown": "body"}, "body\r\n")
 
-    assert events == [
-        mod.unobservable_page_trace("page", "body\r\n")
-    ]
+    assert events == [mod.unobservable_page_trace("page", "body\r\n")]
     event = events[0]
     assert event["block_index"] is None
     assert event["block_structure"] == {"status": "unobservable"}

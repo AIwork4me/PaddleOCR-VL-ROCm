@@ -15,9 +15,7 @@ from typing import Any
 from eval.artifact_utils import sha256_file
 
 TASK5_SCHEMA = 1
-APPROVED_G0_RECEIPT_SHA256 = (
-    "d0b7fcbe389e03439b5ba65126008fa5ee828a59e358ae0347c5bb6a51648a04"
-)
+APPROVED_G0_RECEIPT_SHA256 = "d0b7fcbe389e03439b5ba65126008fa5ee828a59e358ae0347c5bb6a51648a04"
 OFFICIAL_OUTPUTS = (
     "results/official/metric.json",
     "results/official/metric-cdm.json",
@@ -162,9 +160,7 @@ def _parent_identity(parent: Path) -> tuple[str, int, int]:
     return str(resolved), metadata.st_dev, metadata.st_ino
 
 
-def _assert_parent_unchanged(
-    parent: Path, expected: tuple[str, int, int]
-) -> None:
+def _assert_parent_unchanged(parent: Path, expected: tuple[str, int, int]) -> None:
     if _parent_identity(parent) != expected:
         raise ValueError("Atomic write parent identity changed")
 
@@ -229,9 +225,7 @@ def build_task5_manifest(
     }
 
 
-def validate_task5_manifest(
-    manifest: Mapping[str, object], *, task5_root: Path
-) -> None:
+def validate_task5_manifest(manifest: Mapping[str, object], *, task5_root: Path) -> None:
     if set(manifest) != TOP_LEVEL_KEYS:
         raise ValueError("Task 5 manifest has incorrect top-level keys")
     if (
@@ -355,9 +349,7 @@ def _validate_identity(
         raise ValueError(f"Evidence {label} byte size has changed")
 
 
-def _copy_json_object(
-    value: Mapping[str, object], *, label: str
-) -> dict[str, object]:
+def _copy_json_object(value: Mapping[str, object], *, label: str) -> dict[str, object]:
     copied = _copy_json_value(value, label=label)
     if not isinstance(copied, dict):
         raise ValueError(f"{label} must be a JSON object")
@@ -424,9 +416,7 @@ def _unique_inputs(values: list[tuple[str, Path]]) -> dict[str, Path]:
     return inputs
 
 
-def _reject_output_identity_collision(
-    output: Path, manifest: Mapping[str, object]
-) -> None:
+def _reject_output_identity_collision(output: Path, manifest: Mapping[str, object]) -> None:
     if not output.exists() and not output.is_symlink():
         return
     g0 = _require_mapping(manifest["g0"], label="g0")
@@ -441,8 +431,7 @@ def _reject_output_identity_collision(
     )
     inputs = _require_mapping(manifest["inputs"], label="inputs")
     identities.extend(
-        _require_mapping(identity, label=f"input {name!r}")
-        for name, identity in inputs.items()
+        _require_mapping(identity, label=f"input {name!r}") for name, identity in inputs.items()
     )
     for identity in identities:
         recorded = _identity_path(identity, label="recorded evidence")

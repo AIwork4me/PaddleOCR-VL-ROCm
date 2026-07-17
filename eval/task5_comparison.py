@@ -54,9 +54,7 @@ def compare_prediction_dirs(
     if approved_excluded_stem != APPROVED_EXCLUDED_STEM:
         raise ValueError(f"approved_excluded_stem must be {APPROVED_EXCLUDED_STEM!r}")
     official_exclusion_present = (official_dir / f"{APPROVED_EXCLUDED_STEM}.md").is_file()
-    lightweight_exclusion_present = (
-        lightweight_dir / f"{APPROVED_EXCLUDED_STEM}.md"
-    ).is_file()
+    lightweight_exclusion_present = (lightweight_dir / f"{APPROVED_EXCLUDED_STEM}.md").is_file()
     official = _markdown_files(official_dir, approved_excluded_stem)
     lightweight = _markdown_files(lightweight_dir, approved_excluded_stem)
     common = sorted(official.keys() & lightweight.keys())
@@ -94,9 +92,7 @@ def compare_prediction_dirs(
     structural_differences = len(official_only) + len(lightweight_only)
     verdict = (
         "PASS"
-        if len(common) == EXPECTED_PAIRED_PAGES
-        and different == 0
-        and structural_differences == 0
+        if len(common) == EXPECTED_PAIRED_PAGES and different == 0 and structural_differences == 0
         else "FAIL"
     )
     total_details = different + structural_differences
@@ -298,24 +294,28 @@ def compare_boundary_documents(
             counts[first_difference] += 1
             if len(details) < DETAIL_LIMIT:
                 details.append(
-                {
-                    "page": page,
-                    "block_index": block_index,
-                    "relation": "different",
-                    "boundary": first_difference,
-                })
+                    {
+                        "page": page,
+                        "block_index": block_index,
+                        "relation": "different",
+                        "boundary": first_difference,
+                    }
+                )
         elif event_unobservable:
             unobservable_records += 1
             if len(details) < DETAIL_LIMIT:
                 details.append(
-                {
-                    "page": page,
-                    "block_index": block_index,
-                    "relation": "unobservable",
-                    "boundaries": [
-                        item["boundary"] for item in relations if item["relation"] == "unobservable"
-                    ],
-                })
+                    {
+                        "page": page,
+                        "block_index": block_index,
+                        "relation": "unobservable",
+                        "boundaries": [
+                            item["boundary"]
+                            for item in relations
+                            if item["relation"] == "unobservable"
+                        ],
+                    }
+                )
 
     verdict = "FAIL" if different_records else "UNKNOWN" if unobservable_records else "PASS"
     ordered_counts = {"event_structure": counts["event_structure"]}
@@ -419,9 +419,7 @@ def _validate_observation(value: Mapping[str, str]) -> None:
         raise ValueError("Boundary observation must be an object")
     status = value.get("status")
     if status == "observable":
-        if set(value) != {"status", "fingerprint"} or not isinstance(
-            value.get("fingerprint"), str
-        ):
+        if set(value) != {"status", "fingerprint"} or not isinstance(value.get("fingerprint"), str):
             raise ValueError("Observable boundary requires only status and fingerprint")
     elif status == "unobservable":
         if set(value) != {"status"}:
@@ -458,9 +456,7 @@ def _validate_event(event: dict[str, object]) -> tuple[str, int | None]:
     return page, block_index
 
 
-def _page_postprocesses(
-    events: list[dict[str, object]], side: str
-) -> dict[str, Mapping[str, str]]:
+def _page_postprocesses(events: list[dict[str, object]], side: str) -> dict[str, Mapping[str, str]]:
     page_values: dict[str, Mapping[str, str]] = {}
     for event in events:
         page = event["page"]
@@ -537,10 +533,7 @@ def _safe_event(event: dict[str, object] | None) -> dict[str, object] | None:
     safe = {
         "page": event["page"],
         "block_index": event["block_index"],
-        "boundaries": {
-            name: dict(value)
-            for name, value in event["boundaries"].items()
-        },
+        "boundaries": {name: dict(value) for name, value in event["boundaries"].items()},
     }
     for name in ("block_structure", "page_postprocess"):
         if name in event:
@@ -556,8 +549,4 @@ def _page_evidence(
     if page in page_records:
         safe = _safe_event(page_records[page])
         return [safe] if safe is not None else []
-    return [
-        _safe_event(event)
-        for key, event in sorted(events.items())
-        if key[0] == page
-    ]
+    return [_safe_event(event) for key, event in sorted(events.items()) if key[0] == page]
