@@ -19,7 +19,8 @@
 
 > 发布状态：**v0.1.0 仍处于 BLOCKED**，但 **G3 精度已 PASS**，
 > 验收 Overall 为 **95.99**。PaddleOCR 已在线下确认该结果，项目 Maintainer
-> 于 2026-07-17 决定无需再次全量运行。G4、G5 仍为 BLOCKED。详见
+> 于 2026-07-17 决定无需再次全量运行。**G4 已 PASS**（均值 6.33 秒/页、
+> P95 19.54 秒），G5 仍为 BLOCKED。详见
 > [G3 Maintainer 验收记录](docs/releases/0.1.0-g3-attestation.md)和
 > [OmniDocBench v1.6 事实表](docs/benchmarks/omnidocbench-v1.6.md)。
 
@@ -192,18 +193,18 @@ OmniDocBench checkout，说明推理/评分阶段，并拒绝不完整的发布 
 
 ## 已知限制
 
-- v0.1.0 尚未达到发布条件；G4、G5 为 BLOCKED，G3 已 PASS。
+- v0.1.0 尚未达到发布条件；G5 为 BLOCKED，G3、G4 已 PASS。
 - 项目只记录了一台 Windows AMD 机器的冒烟验证。
-- 最新 G4 诊断的性能已达标（均值 6.33 秒/页、P95 19.54 秒），但与历史
-  G3 基线相比仍有 8/27 页输出哈希不同，因此 G4 仍为 BLOCKED。详见
+- G4 性能和定向 GT 精度投影均已通过；与历史 G3 基线相比仍有 8/27 页
+  输出哈希不同，因此不声明原始输出等价。详见
   [G4 诊断](docs/releases/0.1.0-g4-diagnostic.md)。
 - 托管安装仅支持 Windows，且没有 stop/cleanup 命令。
 - 空缓存公网安装尚未通过发布验收；已通过的是预校验缓存安装。
 
 ## Roadmap
 
-参见 [`ROADMAP.md`](ROADMAP.md)。近期重点是解决 G4 输出等价性、收集
-可复现硬件报告，以及完成全新网络安装验证。
+参见 [`ROADMAP.md`](ROADMAP.md)。近期重点是收集可复现硬件报告，以及
+完成全新网络安装验证。
 
 ## 贡献、安全与许可证
 

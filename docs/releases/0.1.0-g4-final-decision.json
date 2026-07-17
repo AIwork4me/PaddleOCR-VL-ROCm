@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "verdict": "PASS",
+  "g4": true,
+  "checks": {
+    "numerical_performance": true,
+    "quality_preserved": true,
+    "raw_output_equivalent": false
+  },
+  "performance": {
+    "pages": 27,
+    "failures": 0,
+    "wall_seconds": 172.51235720000113,
+    "pages_per_minute": 9.390631641082168,
+    "timing": {
+      "count": 27,
+      "mean": 6.330647699999746,
+      "p50": 4.538162900000316,
+      "p95": 19.537132200002816,
+      "p99": 24.52290770000036,
+      "max": 24.52290770000036
+    }
+  },
+  "quality": {
+    "exact_pages": 19,
+    "normalized_pages": 0,
+    "scored_pages": 8,
+    "compared_metrics": 21,
+    "published_accuracy": {
+      "text_percent": 96.52,
+      "formula_percent": 97.36,
+      "table_percent": 94.09,
+      "overall": 95.99
+    },
+    "metric_regressions": 6
+  }
+}

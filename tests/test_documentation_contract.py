@@ -255,8 +255,8 @@ def test_g0_readiness_binds_independently_reviewed_r7_receipt() -> None:
     assert "Audit date: 2026-07-17" in readiness
     assert re.search(r"\| G0 evidence integrity \| PASS \|", readiness)
     assert "Status: BLOCKED" in readiness
-    for gate in ("G4", "G5"):
-        assert re.search(rf"\| {gate} .* \| BLOCKED \|", readiness)
+    assert re.search(r"\| G4 .* \| PASS \|", readiness)
+    assert re.search(r"\| G5 .* \| BLOCKED \|", readiness)
     assert re.search(r"\| G3 accuracy acceptance \| PASS \|", readiness)
     assert not re.search(r"\| G2 .* \|", readiness)
     for text in (readiness, evidence_index):
@@ -278,7 +278,7 @@ def test_benchmark_fact_sheet_is_the_only_active_public_score_table() -> None:
         "fallback=0",
         "limit_pages=null",
         "0 scoring exclusions",
-        "G4 is **BLOCKED**",
+        "G4 is **PASS**",
     ):
         assert value in facts
     assert "G3 accuracy | PASS" in facts

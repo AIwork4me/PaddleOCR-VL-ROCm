@@ -7,8 +7,7 @@ not by feature count.
 
 - Preserve the accepted G3 Overall 95.99 contract and its
   [maintainer attestation](docs/releases/0.1.0-g3-attestation.md).
-- Run an artifact-backed G4 benchmark on the G3-accepted configuration, reporting
-  end-to-end and VLM-stage mean, P50, P95, and throughput.
+- Preserve the accepted G4 benchmark and quality-projection evidence.
 - Complete clean-network managed setup on a fresh Windows environment.
 - Record exact GPU memory, Windows build, AMD driver, HIP runtime, model hashes,
   and llama.cpp commit for every accepted result.

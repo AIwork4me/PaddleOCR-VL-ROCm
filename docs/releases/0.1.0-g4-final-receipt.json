@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "files": {
+    "final_decision": {
+      "path": "g4-final-decision.json",
+      "bytes": 816,
+      "sha256": "698cbcf73e52d1dc840e49619e8c4f16f87839cc9fc825a7e8e078423ea2d0e5"
+    },
+    "performance_artifact": {
+      "path": "g4-run-artifact.json",
+      "bytes": 17681,
+      "sha256": "8a6e4ca865460737cd3934248071abad09bb4ca11b65377812fe7cd1304e36d2"
+    },
+    "performance_decision": {
+      "path": "g4-decision.json",
+      "bytes": 527,
+      "sha256": "25c76848ea8b12134010aa017a77f061edb761f22951607b3f01bbb060fe6a91"
+    },
+    "performance_receipt": {
+      "path": "g4-receipt.json",
+      "bytes": 563,
+      "sha256": "17a16791e8195ac8dc843648eae28d57e44841fc07a2a19e83f96858b3a9a348"
+    },
+    "quality_artifact": {
+      "path": "g4-quality-artifact.json",
+      "bytes": 19396,
+      "sha256": "7accb7f156ee453dc8fa976cf6faf33f5f274de9a5c795005fb07c2274006c51"
+    },
+    "quality_decision": {
+      "path": "g4-quality-decision.json",
+      "bytes": 2119,
+      "sha256": "73041fce358284cf1a3948113f1912d581f5854baeb6ac6983026b333ced4b12"
+    },
+    "quality_receipt": {
+      "path": "g4-quality-receipt.json",
+      "bytes": 1142,
+      "sha256": "85b415d833f185da96de5961019f3c21c7a108303f15f4f3e96081537795ab0d"
+    },
+    "sample_manifest": {
+      "path": "g4-v1.6-samples.json",
+      "bytes": 5134,
+      "sha256": "ae3e29039d8e4088a7887fa08c17795a83da2ec39ac761a4643d1fbf8d2690f3"
+    }
+  }
+}

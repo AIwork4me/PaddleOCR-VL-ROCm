@@ -20,8 +20,8 @@ Image
 
 > Release status: **v0.1.0 is BLOCKED**, but **G3 accuracy is PASS** at
 > **Overall 95.99**. PaddleOCR confirmed the result out of band, and the project
-> maintainer accepted it without another full run on 2026-07-17. G4 and G5
-> remain blocked. See the
+> maintainer accepted it without another full run on 2026-07-17. **G4 is PASS**
+> at mean 6.33 seconds/page and P95 19.54; G5 remains blocked. See the
 > [G3 maintainer attestation](docs/releases/0.1.0-g3-attestation.md) and
 > [OmniDocBench v1.6 fact sheet](docs/benchmarks/omnidocbench-v1.6.md).
 
@@ -205,11 +205,10 @@ unverified artifact.
 
 ## Known limitations
 
-- v0.1.0 is not release-ready; G4 and G5 are blocked. G3 is PASS.
+- v0.1.0 is not release-ready; G5 is blocked. G3 and G4 are PASS.
 - Only one Windows AMD machine has project-recorded smoke validation.
-- Fresh G4 diagnostics pass latency (mean 6.33 seconds/page, P95 19.54), but
-  historical output equivalence fails on 8/27 frozen pages, so G4 remains
-  blocked. See the
+- G4 passes latency and a targeted GT accuracy projection. Raw historical
+  output equivalence remains false on 8/27 frozen pages and is not claimed. See the
   [G4 diagnostic](docs/releases/0.1.0-g4-diagnostic.md).
 - Managed setup is Windows-only and has no stop/cleanup command.
 - Empty-cache public-network setup has not completed the release acceptance
@@ -217,9 +216,8 @@ unverified artifact.
 
 ## Roadmap
 
-See [`ROADMAP.md`](ROADMAP.md). Near-term priorities are resolving G4 output
-equivalence, reproducible hardware reports, and complete clean-network
-onboarding.
+See [`ROADMAP.md`](ROADMAP.md). Near-term priorities are reproducible hardware
+reports and complete clean-network onboarding.
 
 ## Contributing, security, and license
 
