@@ -1,5 +1,7 @@
 # PaddleOCR-VL-ROCm
 
+![PaddleOCR-VL-ROCm converts documents to Markdown and JSON locally on Windows AMD GPUs](docs/assets/paddleocr-vl-rocm-readme-hero.png.jpg)
+
 Run PaddleOCR-VL 1.6 locally on Windows AMD GPUs and convert document images
 into Markdown and structured JSON.
 

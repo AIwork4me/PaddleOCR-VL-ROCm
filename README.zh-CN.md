@@ -1,5 +1,7 @@
 # PaddleOCR-VL-ROCm
 
+![PaddleOCR-VL-ROCm 在 Windows AMD GPU 上将文档转换为 Markdown 和 JSON](docs/assets/paddleocr-vl-rocm-readme-hero.png.jpg)
+
 在 Windows AMD GPU 上本地运行 PaddleOCR-VL 1.6，将文档图片转换为 Markdown
 和结构化 JSON。
 
