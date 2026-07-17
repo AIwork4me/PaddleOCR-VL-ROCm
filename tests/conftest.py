@@ -1,11 +1,13 @@
-"""CI-aware pytest configuration: skip GPU/network/integration tests in CI.
-
-Tests are classified by filename pattern, so no test file modifications needed.
-"""
+from __future__ import annotations
 
 import os
 
 import pytest
+
+"""CI-aware pytest configuration: skip GPU/network/integration tests in CI.
+
+Tests are classified by filename pattern, so no test file modifications needed.
+"""
 
 # Tests that directly import onnxruntime or do ONNX/DirectML inference
 _GPU_TESTS = {
