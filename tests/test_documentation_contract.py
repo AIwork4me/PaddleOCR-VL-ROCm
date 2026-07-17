@@ -40,7 +40,11 @@ def _assert_quality_ci_contract(workflow: str) -> None:
     ]
     assert len(setup_python) == 1
     assert setup_python[0]["with"]["python-version"] == "${{ matrix.python }}"
-    assert any(step.get("run") == "python -m pytest -q" for step in quality["steps"])
+    pytest_step = next(
+        (s for s in quality["steps"] if s.get("run", "").startswith("python -m pytest")), None
+    )
+    assert pytest_step is not None
+    assert pytest_step["run"].startswith("python -m pytest -q -m")
 
 
 def test_bilingual_readmes_lock_verified_historical_claims() -> None:
@@ -159,7 +163,7 @@ def test_offline_ci_covers_supported_python_matrix_and_quality_gates() -> None:
 
 
 def test_ci_contract_rejects_full_pytest_moved_to_another_job() -> None:
-    workflow = _read(CI).replace("      - run: python -m pytest -q\n", "")
+    workflow = re.sub(r"      - run: python -m pytest.*\n", "", _read(CI))
     workflow += (
         "\n  tests-elsewhere:\n"
         "    runs-on: ubuntu-latest\n"

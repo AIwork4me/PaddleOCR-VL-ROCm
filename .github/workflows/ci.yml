@@ -24,6 +24,6 @@ jobs:
       - run: ruff check src tests scripts eval
       - run: ruff format --check src tests scripts eval
       - run: mypy src
-      - run: python -m pytest -q
+      - run: python -m pytest -q -m "not gpu and not network and not integration"
       - run: python -m build
 

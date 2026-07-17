@@ -74,7 +74,12 @@ disable_error_code = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q --strict-markers"
+markers = [
+    "gpu: tests that need onnxruntime / DirectML / GPU",
+    "network: tests that make HTTP requests",
+    "integration: tests that run external scripts or subprocess",
+]
 
 [project.scripts]
 paddleocr-vl-rocm = "paddleocr_vl_rocm.cli:main"
