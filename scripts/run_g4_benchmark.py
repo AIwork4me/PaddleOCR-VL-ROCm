@@ -67,6 +67,10 @@ def main() -> int:
     parser.add_argument("--llama-server", type=Path, required=True)
     parser.add_argument("--gpu", required=True)
     parser.add_argument("--driver", required=True)
+    parser.add_argument("--n-gpu-layers", type=int, required=True)
+    parser.add_argument("--server-slots", type=int, default=8)
+    parser.add_argument("--server-threads", type=int, default=8)
+    parser.add_argument("--context-size", type=int, default=32768)
     parser.add_argument("--output-root", type=Path, required=True)
     args = parser.parse_args()
 
@@ -143,7 +147,22 @@ def main() -> int:
             "llama_server_sha256": sha256_file(args.llama_server),
             "layout_sha256": sha256_file(args.layout_model / "inference.onnx"),
         },
-        "config": {"cache": False, "warmup_pages": 1, "vlm_max_workers": 8},
+        "config": {
+            "cache": False,
+            "warmup_pages": 1,
+            "vlm_max_workers": 8,
+            "n_gpu_layers": args.n_gpu_layers,
+            "server_slots": args.server_slots,
+            "server_threads": args.server_threads,
+            "context_size": args.context_size,
+            "temperature": 0.0,
+            "seed": 1,
+            "top_k": 1,
+            "top_p": 1.0,
+            "min_p": 0.0,
+            "repeat_penalty": 1.0,
+            "flash_attention": True,
+        },
         "wall_seconds": wall_seconds,
         "samples": records,
     }

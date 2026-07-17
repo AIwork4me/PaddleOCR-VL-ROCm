@@ -139,11 +139,38 @@ def decide_g4(manifest: Mapping[str, object], artifact: Mapping[str, object]) ->
             raise ValueError(f"G4 environment requires {key}")
     for key in ("model_sha256", "mmproj_sha256", "llama_server_sha256", "layout_sha256"):
         _hash(runtime.get(key), key)
-    if config.get("cache") is not False or config.get("warmup_pages") != 1:
+    required_config = {
+        "cache",
+        "warmup_pages",
+        "vlm_max_workers",
+        "n_gpu_layers",
+        "server_slots",
+        "server_threads",
+        "context_size",
+        "temperature",
+        "seed",
+        "top_k",
+        "top_p",
+        "min_p",
+        "repeat_penalty",
+        "flash_attention",
+    }
+    if set(config) != required_config:
+        raise ValueError("G4 run config schema is invalid")
+    if config["cache"] is not False or config["warmup_pages"] != 1:
         raise ValueError("G4 requires cache disabled and exactly one warm-up page")
-    workers = config.get("vlm_max_workers")
+    workers = config["vlm_max_workers"]
     if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
         raise ValueError("G4 requires a positive vlm_max_workers")
+    for key in ("n_gpu_layers", "server_slots", "server_threads", "context_size", "seed", "top_k"):
+        value = config[key]
+        minimum = 0 if key in {"n_gpu_layers", "seed"} else 1
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+            raise ValueError(f"G4 requires {key} to be an integer >= {minimum}")
+    for key in ("temperature", "top_p", "min_p", "repeat_penalty"):
+        _finite_number(config[key], key)
+    if config["flash_attention"] is not True:
+        raise ValueError("G4 requires flash attention")
     wall_seconds = _finite_number(artifact["wall_seconds"], "wall_seconds")
     rows = artifact["samples"]
     if not isinstance(rows, list) or len(rows) != EXPECTED_PAGES:
