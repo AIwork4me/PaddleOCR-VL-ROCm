@@ -45,6 +45,7 @@ dev = [
   "PyYAML==6.0.2",
   "tomli==2.2.1; python_version < '3.11'",
 ]
+platform = ["omnidocbench-rocm>=0.2.0"]
 download = ["huggingface_hub>=0.25.0"]
 gpu = ["onnxruntime-directml>=1.18.0; platform_system == 'Windows'"]
 # Note: OmniDocBench's own dependencies (including CDM's Node.js, ImageMagick 7,

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "model_id": "paddleocr-vl-1.6",
+  "model_version": "0.1.1",
+  "platforms": ["linux-rocm", "windows-hip"],
+  "badge": {"linux-rocm": "community", "windows-hip": "community"},
+  "eval_date": "2026-07-17",
+  "omnidocbench_version": "v1.6",
+  "overall": 95.77,
+  "submetrics": {
+    "text_edit_dist": 0.0344,
+    "table_teds_percent": 94.24,
+    "table_teds_structure_only_percent": 96.13,
+    "formula_cdm_percent": 96.50,
+    "reading_order_edit_dist": 0.1295
+  },
+  "hardware": {
+    "gpu": "AMD Ryzen AI MAX+ 395 (Strix Halo)",
+    "vram": "Shared",
+    "inference_backend": "llama.cpp HIP",
+    "layout_backend": "ONNX Runtime DirectML"
+  },
+  "official_reference": {
+    "source": "PaddleOCR-VL official evaluation (out-of-band confirmation)",
+    "source_url": "https://github.com/PaddlePaddle/PaddleOCR",
+    "vlm_engine_overall": 95.99,
+    "delta_pp": -0.22
+  },
+  "artifacts": {
+    "provenance": "results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_provenance.json",
+    "run_summary": "results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_quick_match_run_summary_cdm.json",
+    "metric_result": "results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_quick_match_metric_result_cdm.json",
+    "alignment_diagnostics": "results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_alignment_diagnostics.json"
+  }
+}

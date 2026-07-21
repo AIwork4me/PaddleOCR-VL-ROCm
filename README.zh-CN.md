@@ -71,7 +71,7 @@ PaddleOCR-VL 通常依赖在 Windows AMD 环境中较难部署的 VLM 服务栈�
 证据和限制详见[兼容性矩阵](docs/compatibility/windows-amd.md)和
 [benchmark 事实表](docs/benchmarks/omnidocbench-v1.6.md)。
 
-## 五分钟快速开始
+## Install（安装）
 
 推荐环境：Windows 11、Python 3.11、PowerShell、受当前 AMD HIP SDK 支持的
 AMD GPU，以及至少 5 GiB 可用磁盘空间。
@@ -108,7 +108,7 @@ paddleocr-vl-rocm setup --auto --root D:\PaddleOCR-VL-ROCm
 项目目前没有托管的 `stop` 或 `clean` 命令。删除托管根目录前，请先停止由你
 启动的 `llama-server.exe` 进程；不要在未检查内容时删除共享的 `--root`。
 
-## 使用已有 server
+## Demo（演示） + Evaluation（评测）
 
 如需保留自己的 llama.cpp、vLLM 或其他 OpenAI-compatible endpoint：
 
@@ -167,7 +167,7 @@ JSON 包含来源路径、页面尺寸、有序 block、标签、边界框、识
 元数据。坐标和标签属于版本化兼容性契约；修改布局或序列化逻辑时，应与仓库内
 golden fixtures 对比。
 
-## 复现评测
+## Reproducibility（复现评测）
 
 下载数据或运行评分前，请先阅读 [`eval/README.md`](eval/README.md)。其中固定了
 OmniDocBench checkout，说明推理/评分阶段，并拒绝不完整的发布 artifact。
@@ -193,7 +193,7 @@ OmniDocBench checkout，说明推理/评分阶段，并拒绝不完整的发布 
 - **诊断信息敏感：**公开 Doctor JSON 或日志前，删除用户名、本地路径、token、
   私有文档和 endpoint 凭据。
 
-## 已知限制
+## Known Gaps（已知限制）
 
 - v0.1.1 已包含完整 G5 closeout；G0、G1、G3、G4、G5 均为 PASS。
 - 项目只记录了一台 Windows AMD 机器的冒烟验证。
