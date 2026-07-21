@@ -77,7 +77,7 @@ See the [compatibility matrix](docs/compatibility/windows-amd.md) and
 [benchmark fact sheet](docs/benchmarks/omnidocbench-v1.6.md) for evidence and
 limitations.
 
-## Five-minute Quick Start
+## Install
 
 Recommended: Windows 11, Python 3.11, PowerShell, an AMD GPU supported by the
 current AMD HIP SDK, and at least 5 GiB free disk space.
@@ -116,7 +116,17 @@ The project currently has no managed `stop` or `clean` command. Stop the
 `llama-server.exe` process you started before removing the managed root. Do not
 delete a shared `--root` until you have checked its contents.
 
-## Existing server
+## Demo (smoke test)
+
+The `smoke` backend needs no GPU — verify the contract end-to-end:
+
+```bash
+python adapter/run_adapter.py --img-dir examples --out-dir /tmp/out --platform linux-rocm --backend lightweight
+```
+
+## Evaluation
+
+OmniDocBench-ROCm platform evaluation uses `omnidocbench-rocm`:
 
 To keep your own llama.cpp, vLLM, or other OpenAI-compatible endpoint:
 
@@ -178,7 +188,7 @@ labels, bounding boxes, recognition content, and provider metadata. Treat
 coordinates and labels as a versioned compatibility contract; compare against
 the tracked golden fixtures when changing layout or serialization.
 
-## Reproduce evaluation
+## Reproducibility (Reproduce evaluation)
 
 Read [`eval/README.md`](eval/README.md) before downloading data or running a
 score. It pins the OmniDocBench checkout, documents inference/scoring stages,
@@ -206,7 +216,7 @@ unverified artifact.
 - **Sensitive diagnostics:** redact user names, local paths, tokens, private
   documents, and endpoint credentials before posting Doctor JSON or logs.
 
-## Known limitations
+## Known Gaps
 
 - v0.1.1 carries the completed G5 closeout; G0, G1, G3, G4, and G5 are PASS.
 - Only one Windows AMD machine has project-recorded smoke validation.
