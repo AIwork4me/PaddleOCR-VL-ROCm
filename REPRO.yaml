@@ -1,0 +1,24 @@
+schema_version: 1
+model_id: paddleocr-vl-1.6
+platform: linux-rocm
+backend: llama-cpp-server
+overall: 95.77
+tolerance: 0.5
+command: "python adapter/run_adapter.py --platform linux-rocm --backend llama-cpp-server --server-url http://127.0.0.1:8080/v1 --img-dir /root/datasets/OmniDocBench_data/images --out-dir /tmp/paddleocr-predictions"
+weights:
+  model: "PaddlePaddle/PaddleOCR-VL"
+  revision: "not_recorded"
+  sha256: "not_recorded"
+environment:
+  type: docker
+  image: "not_recorded"
+  rocm: "7.2"
+hardware:
+  gpu: "AMD gfx1100"
+  vram_mb: 49152
+dataset:
+  name: "OmniDocBench"
+  version: "v1.6"
+  revision: "2b161d0"
+  gt_sha256: "a45cd84b04ad8b793e775089640e6b681209abea33ead54c1828ddca35fae496"
+git_commit: "not_recorded (fill from `git log -1 --format=%H` in PaddleOCR-VL-ROCm)"
