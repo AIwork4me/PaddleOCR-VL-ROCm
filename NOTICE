@@ -1,0 +1,35 @@
+PaddleOCR-VL-ROCm
+Copyright 2026 AIwork4me
+
+This NOTICE fulfills the distribution conditions of the licenses below.
+
+------------------------------------------------------------------------------
+1. Original packaging, tooling, and integration code
+------------------------------------------------------------------------------
+Copyright 2026 AIwork4me. Licensed under the MIT License (see LICENSE).
+
+------------------------------------------------------------------------------
+2. PaddleOCR-VL model weights
+------------------------------------------------------------------------------
+The PaddleOCR-VL model weights (PaddlePaddle/PaddleOCR-VL;
+PaddleOCR-VL-1.6-GGUF.gguf) are NOT covered by this repository's MIT code
+license. Their license terms are set by the upstream PaddleOCR project
+(https://github.com/PaddlePaddle/PaddleOCR). The weight revision + sha256 were
+NOT recorded in REPRO.yaml at migration time (weights.revision/sha256 =
+not_recorded); downstream users MUST obtain and verify the weights + their
+license from upstream. The weights are NOT assumed to be open-source-ai/open
+(ADR-0010) until independently verified.
+
+------------------------------------------------------------------------------
+3. Upstream code dependencies
+------------------------------------------------------------------------------
+This repo integrates/wraps upstream components (PaddleOCR, ONNX Runtime,
+llama.cpp, PP-DocLayoutV3). Each retains its own upstream license. See each
+upstream project for terms.
+
+------------------------------------------------------------------------------
+4. Non-affiliation
+------------------------------------------------------------------------------
+PaddleOCR-VL-ROCm is an independent community adaptation. It is NOT affiliated
+with, endorsed by, or sponsored by PaddlePaddle / Baidu. "PaddleOCR" and
+"PaddleOCR-VL" are trademarks of their respective owners.

@@ -1,0 +1,60 @@
+# rocmdoc.yaml — PaddleOCR-VL-ROCm CAPABILITY manifest (ADR-0009).
+# Declares capability, NOT a benchmark result. Validate + align:
+#   omnidocbench-rocm manifest rocmdoc.yaml --card model_card_v2.json
+schema_version: 1
+project:
+  name: PaddleOCR-VL-ROCm
+  repo: AIwork4me/PaddleOCR-VL-ROCm
+  homepage: https://github.com/AIwork4me/PaddleOCR-VL-ROCm
+  description: AMD ROCm/HIP adaptation of PaddleOCR-VL for OmniDocBench v1.6.
+upstream:
+  name: PaddlePaddle/PaddleOCR-VL
+  repo: https://github.com/PaddlePaddle/PaddleOCR
+  revision: not_recorded
+  url: https://github.com/PaddlePaddle/PaddleOCR
+model:
+  id: paddleocr-vl-1.6
+  version: "0.1.1"
+  task: document-parsing
+  arch: VLM
+licenses:
+  # §15.5: repo code license (MIT) does NOT represent the model weight license.
+  code:
+    category: open-source-ai
+    spdx: MIT
+    name: MIT (packaging/tooling/integration code only)
+    commercial_use: permitted
+  weights:
+    category: unknown
+    name: PaddleOCR-VL model weights license (not verified; REPRO weights.sha256 = not_recorded)
+    commercial_use: unknown — pending verification; never assumed open-source-ai (ADR-0010)
+    geographic_restrictions: unknown
+    acceptable_use_restrictions: "see PaddleOCR upstream weight license"
+interfaces:
+  - standard-cli
+  - adapter-script
+  - api-server
+implementations:
+  # The measured result is a MIXED pipeline on Strix Halo (Windows-HIP):
+  # layout=PP-DocLayoutV3 via ONNX Runtime DirectML, VLM=llama.cpp HIP. The
+  # DirectML layout component is NOT ROCm (§15.1). Recorded as one mixed result.
+  - platform: windows-hip
+    backend: llama-cpp
+    precision: bf16
+    interface: standard-cli
+    status: supported
+    topology: managed-local-server
+    note: "PRIMARY (measured). Mixed pipeline: llama.cpp HIP VLM + ONNX DirectML layout. Overall 95.77 (submitted). localhost server (managed-local)."
+  - platform: windows-hip
+    backend: onnx-directml
+    precision: fp32
+    interface: adapter-script
+    status: supported
+    topology: embedded-python
+    note: "Layout component (PP-DocLayoutV3) via ONNX Runtime DirectML — NOT ROCm. Part of the mixed windows-hip pipeline."
+  - platform: linux-rocm
+    backend: llama-cpp
+    precision: bf16
+    interface: adapter-script
+    status: planned
+    note: "REPRO.yaml claims a linux-rocm/gfx1100 path; no committed linux-rocm artifact is clearly attributable. Community-wanted, not evaluated."

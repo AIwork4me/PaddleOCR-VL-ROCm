@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from enum import IntEnum
 from pathlib import Path
@@ -204,13 +205,56 @@ def _run_setup(args: argparse.Namespace) -> ExitCode:
 def _run_doctor(args: argparse.Namespace) -> ExitCode:
     checks = run_doctor(args.config, server_url=args.server_url)
     if args.json:
-        print(checks_to_json(checks))
+        # Central doctor contract (cli-contract.md @ ccd466e): top-level `status`
+        # in {ready, not-ready}; `checks` serialized via checks_to_json (CheckResult
+        # dataclasses are not plain JSON).
+        ready = not doctor_exit_code(checks)
+        payload = {
+            "status": "ready" if ready else "not-ready",
+            "checks": json.loads(checks_to_json(checks)),
+        }
+        print(json.dumps(payload, indent=2))
     else:
         render_checks(checks)
     return ExitCode.ENVIRONMENT if doctor_exit_code(checks) else ExitCode.OK
 
 
+def _standard_parse_args(rest: list[str]) -> argparse.Namespace:
+    p = argparse.ArgumentParser(prog="paddleocr-vl-rocm parse")
+    p.add_argument("--img-dir", required=True)
+    p.add_argument("--out-dir", required=True)
+    p.add_argument("--platform", default="windows-hip", choices=["linux-rocm", "windows-hip"])
+    p.add_argument("--backend", default=None)
+    p.add_argument("--benchmark", default="omnidocbench-v16")
+    p.add_argument("--server-url", default=None)
+    p.add_argument("--model", default=None)
+    p.add_argument("--limit", type=int, default=None)
+    p.add_argument("--json", action="store_true")
+    return p.parse_args(rest)
+
+
 def main(argv: list[str] | None = None) -> int:
+    # --- standard CLI contract (ADR-0011): version/capabilities/parse ---
+    values = list(sys.argv[1:] if argv is None else argv)
+    if values and values[0] in ("version", "capabilities"):
+        from paddleocr_vl_rocm.standard_cli import cmd_capabilities, cmd_version
+
+        return cmd_version() if values[0] == "version" else cmd_capabilities()
+    if values and values[0] == "parse":
+        from pathlib import Path
+
+        from paddleocr_vl_rocm.standard_cli import cmd_parse
+
+        ns = _standard_parse_args(values[1:])
+        return cmd_parse(
+            img_dir=Path(ns.img_dir),
+            out_dir=Path(ns.out_dir),
+            platform=ns.platform,
+            backend=ns.backend,
+            server_url=ns.server_url,
+            model=ns.model,
+            limit=ns.limit,
+        )
     args = parse_args(argv)
     if args.command == "setup":
         return _run_setup(args)
