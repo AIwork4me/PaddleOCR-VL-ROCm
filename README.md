@@ -236,5 +236,15 @@ reports and improved offline/mirror onboarding.
 
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md), use the appropriate
 [issue form](.github/ISSUE_TEMPLATE), and report vulnerabilities privately as
-described in [`SECURITY.md`](SECURITY.md). Licensed under the
-[MIT License](LICENSE).
+described in [`SECURITY.md`](SECURITY.md). This repo's packaging/tooling code is
+licensed under the [MIT License](LICENSE). The upstream PaddleOCR-VL **model
+weights** are Apache-2.0 (per the PaddlePaddle/PaddleOCR-VL HuggingFace card) —
+see [`NOTICE`](NOTICE) for the split.
+
+<!-- BEGIN ROCMDOC GENERATED RESULTS -->
+| Backend | Platform | Pages | Overall | Assurance | Status | Result ID |
+|---|---|---|---|---|---|---|
+| llama-cpp | windows-hip | 1651 | 95.77 | submitted | valid | `paddleocr-vl-1-6__windows-hip__llama-cpp__bf16__v1-6__4bc79b7f2fd0` *(primary)* |
+
+> Generated from `model_card_v2.json` (single source of truth). Overall is the raw-evidence-derived value; external/experimental references live in `docs/benchmark-context.md`.
+<!-- END ROCMDOC GENERATED RESULTS -->

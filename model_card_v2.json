@@ -1,0 +1,66 @@
+{
+  "schema_version": 2,
+  "model_id": "paddleocr-vl-1.6",
+  "model_version": "0.1.1",
+  "upstream": {
+    "name": "PaddlePaddle/PaddleOCR-VL",
+    "repo": "https://github.com/PaddlePaddle/PaddleOCR",
+    "revision": "not_recorded (REPRO.yaml weights.revision not pinned — evidence gap)",
+    "weights_hf": "PaddlePaddle/PaddleOCR-VL"
+  },
+  "license": {
+    "category": "open-source-ai",
+    "spdx": "MIT (packaging/tooling) AND Apache-2.0 (upstream PaddleOCR-VL model + weights)",
+    "name": "MIT packaging code + Apache-2.0 upstream model (code + weights)",
+    "commercial_use": "permitted (MIT packaging code; Apache-2.0 upstream model/weights)",
+    "geographic_restrictions": "",
+    "acceptable_use_restrictions": "none beyond upstream PaddleOCR terms"
+  },
+  "weights_license_note": "Upstream PaddleOCR-VL model + weights are Apache-2.0 — verified 2026-07-28 on the PaddlePaddle/PaddleOCR GitHub LICENSE (Apache-2.0) and the PaddlePaddle/PaddleOCR-VL HuggingFace card (License: apache-2.0). This ROCm repo's own packaging/tooling code is separately MIT (see LICENSE/NOTICE). NOTE: the weight revision/sha256 was NOT pinned at migration (REPRO weights.sha256 = not_recorded) — that is a reproducibility/evidence gap, NOT a license gap; Apache-2.0 holds regardless of revision.",
+  "primary_result_id": "paddleocr-vl-1-6__windows-hip__llama-cpp__bf16__v1-6__4bc79b7f2fd0",
+  "results": [
+    {
+      "result_id": "paddleocr-vl-1-6__windows-hip__llama-cpp__bf16__v1-6__4bc79b7f2fd0",
+      "status": "valid",
+      "assurance": "submitted",
+      "primary": true,
+      "benchmark": {"name": "OmniDocBench", "version": "v1.6", "metric_set": "quick_match + cdm"},
+      "implementation": {
+        "backend": "llama-cpp",
+        "precision": "bf16",
+        "serving_stack": "llama.cpp HIP (managed-local server, localhost:8111)",
+        "engine_version": "official-local GGUF (PaddleOCR-VL-1.6-GGUF.gguf)",
+        "components": {
+          "layout": "PP-DocLayoutV3 via ONNX Runtime DirectML",
+          "vlm": "PaddleOCR-VL via llama.cpp HIP",
+          "postprocessing": "markdown/json assembly"
+        }
+      },
+      "coverage": {"platform": "windows-hip", "page_count": 1651, "full_set": true, "ok_pages": 1650, "failed_pages": 1, "note": "mixed pipeline: DirectML layout + llama.cpp HIP VLM — NOT a single-ROCm-backend result (§15.1)"},
+      "metrics": {
+        "overall": 95.77,
+        "text_edit_dist": 0.0344,
+        "formula_cdm_percent": 96.50,
+        "table_tides_percent": 94.24,
+        "reading_order_edit_dist": 0.1295,
+        "overall_note": "Canonical = raw-evidence-derived (submetrics compute to 95.77). README quotes 95.99 (G3 maintainer-accepted out-of-band) and 96.33 — different/official numbers, documented in docs/benchmark-context.md; not auto-resolved."
+      },
+      "hardware": {"gpu": "AMD Ryzen AI MAX+ 395 (Strix Halo)", "memory": "shared unified", "layout_backend": "ONNX Runtime DirectML", "vlm_backend": "llama.cpp HIP"},
+      "software": {"os": "Windows (provenance paths are Windows-native)", "rocm": "HIP"},
+      "artifacts": {
+        "provenance": "results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_provenance.json",
+        "run_summary": "results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_quick_match_run_summary_cdm.json",
+        "metric_result": "results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_quick_match_metric_result_cdm.json",
+        "alignment_diagnostics": "results/omnidocbench/v16/paddleocr_official_local_llamacpp_gguf_alignment_diagnostics.json"
+      },
+      "provenance": {
+        "created_at_utc": "2026-07-11T02:22:28Z",
+        "git_commit": "dd11c65e59bd09b40578a0b547cb8c84786c7419",
+        "engine_version": "official",
+        "adapter_command": "python eval/run_eval.py --stage infer --engine official --server-url http://127.0.0.1:8111/v1 --api-model-name PaddleOCR-VL-1.6-GGUF.gguf",
+        "note": "EVIDENCE GAPS: REPRO.yaml weights.revision/sha256 = not_recorded; no prediction_manifest_sha256 in provenance (hash unverifiable); platform is ambiguous — REPRO.yaml says linux-rocm/gfx1100 but the measured artifact carries Windows-native paths + Strix Halo hardware (windows-hip). Assurance capped at submitted. The README's 95.99/96.33 are different/official numbers."
+      }
+    }
+  ],
+  "platforms": ["windows-hip"]
+}

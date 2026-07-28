@@ -1,0 +1,66 @@
+# rocmdoc.yaml — PaddleOCR-VL-ROCm CAPABILITY manifest (ADR-0009).
+# Declares capability, NOT a benchmark result. Validate + align:
+#   omnidocbench-rocm manifest rocmdoc.yaml --card model_card_v2.json
+schema_version: 1
+project:
+  name: PaddleOCR-VL-ROCm
+  repo: AIwork4me/PaddleOCR-VL-ROCm
+  homepage: https://github.com/AIwork4me/PaddleOCR-VL-ROCm
+  description: AMD ROCm/HIP adaptation of PaddleOCR-VL for OmniDocBench v1.6.
+upstream:
+  name: PaddlePaddle/PaddleOCR-VL
+  repo: https://github.com/PaddlePaddle/PaddleOCR
+  revision: not_recorded
+  url: https://github.com/PaddlePaddle/PaddleOCR
+model:
+  id: paddleocr-vl-1.6
+  version: "0.1.1"
+  task: document-parsing
+  arch: VLM
+licenses:
+  # §15.5: distinguish the repo code license (MIT) from the upstream model/weight license.
+  code:
+    category: open-source-ai
+    spdx: MIT
+    name: MIT (packaging/tooling/integration code only)
+    commercial_use: permitted
+  weights:
+    category: open-source-ai
+    spdx: Apache-2.0
+    name: Apache-2.0 (upstream PaddleOCR-VL model + weights)
+    commercial_use: permitted
+    geographic_restrictions: ""
+    acceptable_use_restrictions: ""
+    # Verified 2026-07-28: PaddlePaddle/PaddleOCR GitHub LICENSE = Apache-2.0 and the
+    # PaddlePaddle/PaddleOCR-VL HuggingFace card declares License: apache-2.0. Distinct
+    # from this repo's MIT packaging code. The weight revision/sha256 was not pinned at
+    # migration (REPRO weights.sha256 = not_recorded) — a reproducibility gap, not a
+    # license gap; Apache-2.0 holds regardless of revision.
+interfaces:
+  - standard-cli
+  - adapter-script
+  - api-server
+implementations:
+  # The measured result is a MIXED pipeline on Strix Halo (Windows-HIP):
+  # layout=PP-DocLayoutV3 via ONNX Runtime DirectML, VLM=llama.cpp HIP. The
+  # DirectML layout component is NOT ROCm (§15.1). Recorded as one mixed result.
+  - platform: windows-hip
+    backend: llama-cpp
+    precision: bf16
+    interface: standard-cli
+    status: supported
+    topology: managed-local-server
+    note: "PRIMARY (measured). Mixed pipeline: llama.cpp HIP VLM + ONNX DirectML layout. Overall 95.77 (submitted). localhost server (managed-local)."
+  - platform: windows-hip
+    backend: onnx-directml
+    precision: fp32
+    interface: adapter-script
+    status: supported
+    topology: embedded-python
+    note: "Layout component (PP-DocLayoutV3) via ONNX Runtime DirectML — NOT ROCm. Part of the mixed windows-hip pipeline."
+  - platform: linux-rocm
+    backend: llama-cpp
+    precision: bf16
+    interface: adapter-script
+    status: planned
+    note: "REPRO.yaml claims a linux-rocm/gfx1100 path; no committed linux-rocm artifact is clearly attributable. Community-wanted, not evaluated."

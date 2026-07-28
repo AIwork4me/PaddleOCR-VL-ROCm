@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -61,6 +62,48 @@ def check_openai_compatible_server(server_url: str, timeout: float = 10.0) -> di
         response.close()
 
     return payload
+
+
+# Default full-page parse prompt for PaddleOCR-VL (matches vlm/client's default).
+_DEFAULT_PARSE_PROMPT = "OCR:"
+
+
+def infer_one(
+    client: Any,
+    image_path: str | Path,
+    *,
+    model: str,
+    prompt: str = _DEFAULT_PARSE_PROMPT,
+) -> str:
+    """Run one image -> markdown inference against an OpenAI-compatible VLM server.
+
+    Shared VLM inference core for the standard CLI (`parse`), `run`, and the
+    adapter. The image is encoded to a data URL with the same encoder as
+    ``vlm/client.OpenAICompatibleVLMClient`` (so byte-for-byte compatible), then a
+    single deterministic (``temperature=0``) vision chat completion is posted
+    through ``client`` — an ``openai.OpenAI`` instance pointed at the server.
+    Returns the model's text content, or ``""`` when the server returns no choice.
+    """
+    from .encoding import _image_data_url
+
+    image_url = _image_data_url(Path(image_path))
+    response = client.chat.completions.create(
+        model=model,
+        temperature=0.0,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ],
+    )
+    if not response.choices:
+        return ""
+    content = response.choices[0].message.content
+    return content if isinstance(content, str) else ""
 
 
 def main() -> None:
