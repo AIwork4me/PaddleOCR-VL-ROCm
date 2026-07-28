@@ -18,18 +18,24 @@ model:
   task: document-parsing
   arch: VLM
 licenses:
-  # §15.5: repo code license (MIT) does NOT represent the model weight license.
+  # §15.5: distinguish the repo code license (MIT) from the upstream model/weight license.
   code:
     category: open-source-ai
     spdx: MIT
     name: MIT (packaging/tooling/integration code only)
     commercial_use: permitted
   weights:
-    category: unknown
-    name: PaddleOCR-VL model weights license (not verified; REPRO weights.sha256 = not_recorded)
-    commercial_use: unknown — pending verification; never assumed open-source-ai (ADR-0010)
-    geographic_restrictions: unknown
-    acceptable_use_restrictions: "see PaddleOCR upstream weight license"
+    category: open-source-ai
+    spdx: Apache-2.0
+    name: Apache-2.0 (upstream PaddleOCR-VL model + weights)
+    commercial_use: permitted
+    geographic_restrictions: ""
+    acceptable_use_restrictions: ""
+    # Verified 2026-07-28: PaddlePaddle/PaddleOCR GitHub LICENSE = Apache-2.0 and the
+    # PaddlePaddle/PaddleOCR-VL HuggingFace card declares License: apache-2.0. Distinct
+    # from this repo's MIT packaging code. The weight revision/sha256 was not pinned at
+    # migration (REPRO weights.sha256 = not_recorded) — a reproducibility gap, not a
+    # license gap; Apache-2.0 holds regardless of revision.
 interfaces:
   - standard-cli
   - adapter-script

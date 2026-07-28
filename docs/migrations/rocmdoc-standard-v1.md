@@ -42,8 +42,12 @@ ROCm. `rocmdoc.yaml` declares `windows-hip/llama-cpp` (supported) +
 
 ## License (§15.5 / §18)
 Repo code is MIT, but the model is NOT blanket MIT: code = MIT (open-source-ai);
-**weights = `unknown`** (PaddleOCR-VL weight license not verified — never assumed
-open-source-ai, ADR-0010). See `NOTICE`.
+**weights = Apache-2.0** (upstream PaddleOCR-VL model + weights, per the
+PaddlePaddle/PaddleOCR-VL HuggingFace card). At v1 migration this was recorded as
+`unknown` (weight license not verified — never assumed open-source-ai, ADR-0010);
+verified Apache-2.0 on 2026-07-28. The weight revision/sha256 remains unpinned
+(REPRO weights.sha256 = not_recorded) — a reproducibility gap, not a license gap.
+See `NOTICE`.
 
 ## Conformance (central `ccd466e`)
 | profile | result | against |

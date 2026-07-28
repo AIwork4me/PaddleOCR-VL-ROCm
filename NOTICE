@@ -13,12 +13,14 @@ Copyright 2026 AIwork4me. Licensed under the MIT License (see LICENSE).
 ------------------------------------------------------------------------------
 The PaddleOCR-VL model weights (PaddlePaddle/PaddleOCR-VL;
 PaddleOCR-VL-1.6-GGUF.gguf) are NOT covered by this repository's MIT code
-license. Their license terms are set by the upstream PaddleOCR project
-(https://github.com/PaddlePaddle/PaddleOCR). The weight revision + sha256 were
-NOT recorded in REPRO.yaml at migration time (weights.revision/sha256 =
-not_recorded); downstream users MUST obtain and verify the weights + their
-license from upstream. The weights are NOT assumed to be open-source-ai/open
-(ADR-0010) until independently verified.
+license. They are licensed by the upstream PaddleOCR project under Apache-2.0
+(verified 2026-07-28: the PaddlePaddle/PaddleOCR GitHub LICENSE is Apache-2.0
+and the PaddlePaddle/PaddleOCR-VL HuggingFace card declares License: apache-2.0).
+NOTE: the weight revision + sha256 were not recorded in REPRO.yaml at migration
+time (weights.revision/sha256 = not_recorded) — that is a reproducibility gap,
+not a license gap; the Apache-2.0 license holds regardless of revision.
+Downstream users MUST still obtain the weights from upstream and respect its
+terms (https://github.com/PaddlePaddle/PaddleOCR).
 
 ------------------------------------------------------------------------------
 3. Upstream code dependencies

@@ -10,13 +10,13 @@
   },
   "license": {
     "category": "open-source-ai",
-    "spdx": "MIT (packaging/tooling only)",
-    "name": "MIT packaging code; PaddleOCR-VL model weights are NOT MIT (see NOTICE)",
-    "commercial_use": "MIT code permits; weight license separate — see PaddleOCR upstream",
+    "spdx": "MIT (packaging/tooling) AND Apache-2.0 (upstream PaddleOCR-VL model + weights)",
+    "name": "MIT packaging code + Apache-2.0 upstream model (code + weights)",
+    "commercial_use": "permitted (MIT packaging code; Apache-2.0 upstream model/weights)",
     "geographic_restrictions": "",
-    "acceptable_use_restrictions": "see PaddleOCR upstream weight license"
+    "acceptable_use_restrictions": "none beyond upstream PaddleOCR terms"
   },
-  "weights_license_note": "PaddleOCR-VL weight license was NOT verified (REPRO weights.sha256 = not_recorded). Repo packaging is MIT, but the weights are NOT assumed MIT/open-source-ai (ADR-0010, §15.5). rocmdoc.yaml records weights category unknown pending verification.",
+  "weights_license_note": "Upstream PaddleOCR-VL model + weights are Apache-2.0 — verified 2026-07-28 on the PaddlePaddle/PaddleOCR GitHub LICENSE (Apache-2.0) and the PaddlePaddle/PaddleOCR-VL HuggingFace card (License: apache-2.0). This ROCm repo's own packaging/tooling code is separately MIT (see LICENSE/NOTICE). NOTE: the weight revision/sha256 was NOT pinned at migration (REPRO weights.sha256 = not_recorded) — that is a reproducibility/evidence gap, NOT a license gap; Apache-2.0 holds regardless of revision.",
   "primary_result_id": "paddleocr-vl-1-6__windows-hip__llama-cpp__bf16__v1-6__4bc79b7f2fd0",
   "results": [
     {

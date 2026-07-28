@@ -236,8 +236,10 @@ reports and improved offline/mirror onboarding.
 
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md), use the appropriate
 [issue form](.github/ISSUE_TEMPLATE), and report vulnerabilities privately as
-described in [`SECURITY.md`](SECURITY.md). Licensed under the
-[MIT License](LICENSE).
+described in [`SECURITY.md`](SECURITY.md). This repo's packaging/tooling code is
+licensed under the [MIT License](LICENSE). The upstream PaddleOCR-VL **model
+weights** are Apache-2.0 (per the PaddlePaddle/PaddleOCR-VL HuggingFace card) —
+see [`NOTICE`](NOTICE) for the split.
 
 <!-- BEGIN ROCMDOC GENERATED RESULTS -->
 | Backend | Platform | Pages | Overall | Assurance | Status | Result ID |
