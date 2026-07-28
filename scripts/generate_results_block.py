@@ -43,7 +43,10 @@ def render(card: dict) -> str:
             f"{r.get('assurance', '?')} | {r.get('status', '?')} | "
             f"`{rid}`{star} |"
         )
-    header = "| Backend | Platform | Pages | Overall | Assurance | Status | Result ID |\n|---|---|---|---|---|---|---|\n"
+    header = (
+        "| Backend | Platform | Pages | Overall | Assurance | Status | Result ID |\n"
+        "|---|---|---|---|---|---|---|\n"
+    )
     body = "\n".join(rows) if rows else "| _(no results yet)_ |  |  |  |  |  |  |"
     note = (
         "\n\n> Generated from `model_card_v2.json` (single source of truth). "
