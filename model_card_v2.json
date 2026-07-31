@@ -52,7 +52,7 @@
         "overall": 95.77,
         "text_edit_dist": 0.0344,
         "formula_cdm_percent": 96.5,
-        "table_tides_percent": 94.24,
+        "table_teds_percent": 94.24,
         "reading_order_edit_dist": 0.1295,
         "overall_note": "Canonical = raw-evidence-derived (submetrics compute to 95.77). README quotes 95.99 (G3 maintainer-accepted out-of-band) and 96.33 — different/official numbers, documented in docs/benchmark-context.md; not auto-resolved."
       },
