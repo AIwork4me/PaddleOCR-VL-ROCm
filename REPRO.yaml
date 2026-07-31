@@ -1,6 +1,13 @@
 schema_version: 1
 model_id: paddleocr-vl-1.6
 platform: linux-rocm
+# C2 (platform ambiguity), made explicit: the CANONICAL committed result (95.77)
+# is windows-hip — AMD Ryzen AI MAX+ 395 (Strix Halo), a MIXED pipeline
+# (ONNX-DirectML layout + llama.cpp-HIP VLM); see model_card_v2.json +
+# docs/benchmark-context.md. This linux-rocm REPRO is a REFERENCE config, NOT the
+# run that produced the committed artifact; the windows-hip reproduction command
+# is not_recorded. Do NOT infer a linux-rocm 95.77 public result from this REPRO.
+platform_note: "reference linux-rocm config; canonical result is windows-hip (mixed) — see model_card_v2.json"
 backend: llama-cpp-server
 overall: 95.77
 tolerance: 0.5
